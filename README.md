@@ -1,13 +1,23 @@
 # rbot
 
-Rajiv's chat bot.
+Rajiv's chat bot utilizing the GPT-4 model to generate responses based on user prompts.
 
-The environment variable OPENAI_API_KEY needs to be set in your shell for this to work. The instructions for doing that can be found at [OpenAI's Support Page for Best Practices for API Key Safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety)
+## Prerequisites
 
-In rbot.py where it says:
+The environment variable `OPENAI_API_KEY` needs to be set in your shell for this application to work. The instructions for doing that can be found at [OpenAI's Support Page for Best Practices for API Key Safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety).
 
-```
-# set your custom conversation decorator here
-with open('../rajiv-llms/fine-tuning/example-client.md', 'r') as file:
-```
-replace the path to the prompt decorator file with the one you want to use. In a subsequent version, I will make it configurable outside rbot.py.
+## Installation
+
+No installation is required. Simply clone this repository and ensure you have Python 3.x installed on your system.
+
+## Usage
+
+To use the chatbot, run the `rbot.py` script from the command line with the following arguments:
+
+- `-p`/`--prompt`: The user's input to generate a response for (required).
+- `-d`/`--decorator`: Path to the conversation decorator file (optional).
+
+### Example
+
+```sh
+./rbot.py -p "Show me an org chart of Rajiv and his colleagues." -d ../rajiv-llms/fine-tuning/example-client.md
