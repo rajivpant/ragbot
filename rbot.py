@@ -1,8 +1,9 @@
 #!/usr/local/bin/python
 
 # rbot.py
-# Original version by Jim Mortko, based on a similar program by Alexandira Redmon
-# Current version by Rajiv Pant
+# Developed by Rajiv Pant (https://github.com/rajivpant)
+# Inspired by prior work done by Jim Mortko (https://github.com/jskills) and Alexandria Redmon (https://github.com/alexdredmon)
+
 
 import os
 import sys
