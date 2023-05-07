@@ -18,9 +18,9 @@ To use the chatbot, run the `rbot.py` script from the command line with the foll
 - `-d`/`--decorator`: Path to the conversation decorator file (optional).
 
 ### Example
-
-```sh
+```
 ./rbot.py -p "Show me an org chart of Rajiv and his colleagues." -d ../rajiv-llms/fine-tuning/hearst.md
+```
 
 ## Acknowledgments
 
