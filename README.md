@@ -21,3 +21,8 @@ To use the chatbot, run the `rbot.py` script from the command line with the foll
 
 ```sh
 ./rbot.py -p "Show me an org chart of Rajiv and his colleagues." -d ../rajiv-llms/fine-tuning/example-client.md
+
+## Acknowledgments
+
+- Developed by Rajiv Pant (https://github.com/rajivpant).
+- Inspired by prior work done by Jim Mortko (https://github.com/jskills) and Alexandria Redmon (https://github.com/alexdredmon).
