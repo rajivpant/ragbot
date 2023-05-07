@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rbot Web Version</title>
+    {% csrf_token %}
+</head>
+<body>
+    <h1>Rbot: GPT-4 Chatbot</h1>
+    <form id="chat-form" method="post">
+        <label for="prompt">Enter your prompt:</label>
+        <textarea id="prompt" name="prompt" rows="4" cols="50"></textarea>
+        
+        <label for="decorator">Select conversation decorator:</label>
+        <select id="decorator" name="decorator">
+            <option value="decorator1">Decorator 1</option>
+            <option value="decorator2">Decorator 2</option>
+            <option value="other">Other</option>
+        </select>
+
+        <div id="other-decorator" style="display:none;">
+            <label for="custom-decorator">Enter custom conversation decorator:</label>
+            <textarea id="custom-decorator" name="custom-decorator" rows="4" cols="50"></textarea>
+        </div>
+
+        <button type="submit">Submit</button>
+    </form>
+
+    <div id="response">
+        <!-- Display the response from the chatbot here -->
+    </div>
+
+    <script>
+        document.getElementById("chat-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const prompt = document.getElementById("prompt").value;
+            const decorator = document.getElementById("decorator").value;
+            const csrfToken = document.getElementsByName("csrfmiddlewaretoken")[0].value;
+
+            const responseDiv = document.getElementById("response");
+
+            fetch("/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken,
+                },
+                body: new URLSearchParams({
+                    prompt: prompt,
+                    decorator: decorator,
+                }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    responseDiv.innerHTML = data.response;
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                    responseDiv.innerHTML = "An error occurred. Please try again.";
+                });
+        });
+
+        // Show or hide the custom decorator text area based on the selected decorator option
+        document.getElementById("decorator").addEventListener("change", function(event) {
+            if (event.target.value === "other") {
+                document.getElementById("other-decorator").style.display = "block";
+            } else {
+                document.getElementById("other-decorator").style.display = "none";
+            }
+        });
+    </script>
+</body>
+</html>
+
