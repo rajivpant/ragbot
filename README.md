@@ -1,6 +1,9 @@
 # rbot
+
 🤖 rbot: Rajiv's chatbot utilizing the GPT-4 model to offer engaging conversations with a personalized touch and advanced context understanding.
+
 🚀 Rajiv's GPT-4 based chatbot that processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
+
 🧠 Custom conversation decorators help the chatbot better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of standard GPT-4 implementations.
 
 This repository contains two versions of the chatbot:
