@@ -78,9 +78,16 @@ def chat(prompt, decorators, model='gpt-4', max_tokens=1000, stream=True, reques
 def main():
     # Set up the command line argument parser
     parser = argparse.ArgumentParser(description="A GPT-4 based chatbot that generates responses based on user prompts.")
-    parser.add_argument('-p', '--prompt', required=True, help="The user's input to generate a response for.")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-p', '--prompt', help="The user's input to generate a response for.")
+    group.add_argument('-f', '--prompt_file', help="The file containing the user's input to generate a response for.")
     parser.add_argument('-d', '--decorator', help="Path to the conversation decorator file or folder.")
     args = parser.parse_args()
+
+    # Read the prompt from the specified file, if provided
+    if args.prompt_file:
+        with open(args.prompt_file, 'r') as file:
+            args.prompt = file.read()
 
     # Initialize the decorators list
     decorators = []
