@@ -1,12 +1,16 @@
 from django.shortcuts import render
-from django.http import JsonResponse
-from .utils import chat  # You'll create this function in the next step
+from .models import Decorator
 
-def rbot_view(request):
-    if request.method == 'POST':
-        prompt = request.POST.get('prompt', '')
-        decorator = request.POST.get('decorator', '')
-        # Call the chat function from the original rbot.py script
-        response = chat(prompt=prompt, conversation_decorator=decorator)
-        return JsonResponse({'response': response})
-    return render(request, 'rbot_app/rbot.html')  # You'll create this template in step 7
+def home(request):
+    decorators = Decorator.objects.all()
+    return render(request, 'home.html', {'decorators': decorators})
+
+def get_response(request):
+    prompt = request.POST.get('prompt')
+    decorator_id = request.POST.get('decorator')
+    selected_decorator = Decorator.objects.get(id=decorator_id)
+
+    # Your actual response generation logic goes here
+    response = f"Your prompt was: {prompt}. You selected decorator: {selected_decorator.name}"
+
+    return render(request, 'response.html', {'response': response})
