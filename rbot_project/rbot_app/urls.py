@@ -1,6 +1,8 @@
 from django.urls import path
-from .views import rbot_view
+from . import views
+
+app_name = 'rbot_app'
 
 urlpatterns = [
-    path('', rbot_view, name='rbot_view'),
+    path('', views.get_response, name='get_response'),
 ]

@@ -1,0 +1,10 @@
+{% extends 'rbot_app/base.html' %}
+
+{% block content %}
+  <h2>Chat with Rbot</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Send</button>
+  </form>
+{% endblock %}

@@ -1,39 +1,49 @@
 # rbot
 
-🤖 rbot: Rajiv's chatbot utilizing the GPT-4 model to offer engaging conversations with a personalized touch and advanced context understanding.
+🤖 rbot is a chatbot powered by OpenAI's GPT-4 model, developed by Rajiv Pant ([rajivpant](https://github.com/rajivpant)) and inspired by prior work done by Jim Mortko ([jskills](https://github.com/jskills)) and Alexandria Redmon ([alexdredmon](https://github.com/alexdredmon)).
+
+It offers engaging conversations with a personalized touch and advanced context understanding. rbot processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 
 🚀 Rajiv's GPT-4 based chatbot that processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 
 🧠 Custom conversation decorators help the chatbot better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of standard GPT-4 implementations.
 
-This repository contains two versions of the chatbot:
-1. A fully functional command line version (`rbot.py`)
-2. A work-in-progress Django-based web application
-
-## Prerequisites
-
-The environment variable `OPENAI_API_KEY` needs to be set in your shell for this application to work. The instructions for doing that can be found at [OpenAI's Support Page for Best Practices for API Key Safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety).
+A Django web app for rbot is currently under development. Stay tuned for updates on this project!
 
 ## Installation
 
-No installation is required for the command line version `rbot.py`. Simply clone this repository and ensure you have Python 3.x installed on your system.
-
-The Web page based application built using Django requires setup and configuration. Instructions for the Django-based web application will be provided upon its completion.
+1. Ensure you have Python 3.6 or higher installed.
+2. Clone this repository.
+3. Install the required dependencies using pip:
+```
+pip install -r requirements.txt
+```
+4. Set your OpenAI API key as an environment variable:
+```
+export OPENAI_API_KEY=your_api_key_here
+```
 
 ## Usage
 
-To use the chatbot, run the `rbot.py` script from the command line with the following arguments:
+To use rbot, you can provide a prompt and a conversation decorator file or a folder containing multiple decorator files.
 
-- `-p`/`--prompt`: The user's input to generate a response for (required).
-- `-d`/`--decorator`: Path to the conversation decorator file (optional).
-
-### Example
+Example 1:
 ```
-./rbot.py -p "Show me an org chart of Rajiv and his colleagues." -d ../rajiv-llms/fine-tuning/example-client.md
+./rbot.py -p "Write a short note in Rajiv's voice about some of Rajiv's coworkers, family members, and travel and food preferences." -d ../rajiv-llms/fine-tuning
 ```
 
-## Acknowledgments
+Example 2:
+```
+./rbot.py -p "What are some good practices for software development?" -d decorators/software_development.txt
+```
 
-- Developed by Rajiv Pant (https://github.com/rajivpant).
-- Inspired by prior work done by Jim Mortko (https://github.com/jskills) and Alexandria Redmon (https://github.com/alexdredmon).
+
+Example 3:
+```
+./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d decorators/story_characters
+```
+
+
+In the first example, rbot generates a short note in Rajiv's voice using the decorator files in the `../rajiv-llms/fine-tuning` folder. In the second example, rbot provides information on good practices for software development using the `decorators/software_development.txt` decorator file. In the third example, rbot tells a story about a brave knight and a wise wizard using the decorator files in the `decorators/story_characters` folder.
+
 
