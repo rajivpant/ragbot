@@ -12,17 +12,26 @@
 # 🧠 Custom conversation decorators help the chatbot better understand the context,
 # resulting in more accurate and relevant responses, surpassing the capabilities of standard GPT-4 implementations.
 
+import glob
 import os
 import sys
 import argparse
 import openai
-import glob
+import re
 
 # Load the OpenAI API key from an environment variable or secret management service
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def chat(prompt, decorators, model='gpt-4', max_tokens=1000, stream=True, request_timeout=15, temperature=0.75):
+def chat(
+    prompt,
+    decorators,
+    model="gpt-4",
+    max_tokens=1000,
+    stream=True,
+    request_timeout=15,
+    temperature=0.75,
+):
     """
     Send a request to the OpenAI API with the provided prompt and decorators.
 
@@ -40,35 +49,34 @@ def chat(prompt, decorators, model='gpt-4', max_tokens=1000, stream=True, reques
 
     # Add decorators as system messages
     for decorator in decorators:
-        history.append({
-            'role': 'system',
-            'content': decorator,
-        })
+        history.append(
+            {
+                "role": "system",
+                "content": decorator,
+            }
+        )
 
     # Add the user's prompt as a user message
-    history.append({
-        'role': 'user',
-        'content': prompt
-    })
+    history.append({"role": "user", "content": prompt})
 
     # Prepare the API request arguments
     args = {
-        'max_tokens': max_tokens,
-        'model': model,
-        'request_timeout': request_timeout,
-        'stream': stream,
-        'temperature': temperature,
-        'messages': history
+        "max_tokens": max_tokens,
+        "model": model,
+        "request_timeout": request_timeout,
+        "stream": stream,
+        "temperature": temperature,
+        "messages": history,
     }
 
     # Call the OpenAI API
     completion_method = openai.ChatCompletion.create
 
-    response = ''
+    response = ""
 
     # Collect the generated text from the response
     for token in completion_method(**args):
-        text = token['choices'][0]['delta'].get('content')
+        text = token["choices"][0]["delta"].get("content")
         if text:
             response += text
 
@@ -77,16 +85,27 @@ def chat(prompt, decorators, model='gpt-4', max_tokens=1000, stream=True, reques
 
 def main():
     # Set up the command line argument parser
-    parser = argparse.ArgumentParser(description="A GPT-4 based chatbot that generates responses based on user prompts.")
+    parser = argparse.ArgumentParser(
+        description="A GPT-4 based chatbot that generates responses based on user prompts."
+    )
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-p', '--prompt', help="The user's input to generate a response for.")
-    group.add_argument('-f', '--prompt_file', help="The file containing the user's input to generate a response for.")
-    parser.add_argument('-d', '--decorator', help="Path to the conversation decorator file or folder.")
-    args = parser.parse_args()
+    group.add_argument(
+        "-p", "--prompt", help="The user's input to generate a response for."
+    )
+    group.add_argument(
+        "-f",
+        "--prompt_file",
+        help="The file containing the user's input to generate a response for.",
+    )
+    parser.add_argument(
+        "-d", "--decorator", help="Path to the conversation decorator file or folder."
+    )
+    known_args = parser.parse_known_args()
+    args = known_args[0]
 
     # Read the prompt from the specified file, if provided
     if args.prompt_file:
-        with open(args.prompt_file, 'r') as file:
+        with open(args.prompt_file, "r") as file:
             args.prompt = file.read()
 
     # Initialize the decorators list
@@ -95,15 +114,33 @@ def main():
     # Load the decorator(s) from file or folder
     if args.decorator:
         if os.path.isfile(args.decorator):
-            with open(args.decorator, 'r') as file:
+            with open(args.decorator, "r") as file:
                 decorators.append(file.read())
         elif os.path.isdir(args.decorator):
-            for filepath in glob.glob(os.path.join(args.decorator, '*')):
-                with open(filepath, 'r') as file:
+            for filepath in glob.glob(os.path.join(args.decorator, "*")):
+                with open(filepath, "r") as file:
                     decorators.append(file.read())
 
+    prompt = args.prompt
+    if not sys.stdin.isatty():
+        stdin = sys.stdin.readlines()
+        if stdin:
+            piped_input = "".join(stdin).strip()
+            prompt = (
+                prompt
+                + f"""\n\n\nINPUT = \"\"\"
+{piped_input}
+\"\"\"\n
+"""
+            )
+
     # Generate the response using the prompt and decorators
-    reply = chat(prompt=args.prompt, decorators=decorators)
+    reply = chat(prompt=prompt, decorators=decorators)
+
+    pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
+    is_structured = pattern.search(reply)
+    if is_structured:
+        reply = is_structured[1].strip()
 
     # Print the response
     print(reply)
