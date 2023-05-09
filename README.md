@@ -10,6 +10,9 @@ It offers engaging conversations with a personalized touch and advanced context 
 
 A Django web app for rbot is currently under development. Stay tuned for updates on this project!
 
+## Blog Post Introducing rbot
+[Introducing Rbot: A Personalized AI Assistant, Written by Rbot](https://rajiv.com/blog/2023/05/08/introducing-rbot-a-personalized-ai-assistant-written-by-rbot/)
+
 ## Installation
 
 1. Ensure you have Python 3.6 or higher installed.
