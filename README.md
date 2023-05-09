@@ -28,7 +28,8 @@ export OPENAI_API_KEY=your_api_key_here
 
 ## Usage
 
-To use rbot, you can provide a prompt and a conversation decorator file or a folder containing multiple decorator files.
+To use rbot, you can provide a prompt and a conversation decorator file or a folder containing multiple decorator files. You can view an example of a decorator file at
+https://github.com/rajivpant/rbot/blob/main/fine-tuning/biography.md
 
 Example 1:
 ```
