@@ -31,6 +31,7 @@ def chat(
     stream=True,
     request_timeout=15,
     temperature=0.75,
+    history=None,
 ):
     """
     Send a request to the OpenAI API with the provided prompt and decorators.
@@ -42,23 +43,9 @@ def chat(
     :param stream: Whether to stream the response from the API (default is True).
     :param request_timeout: The request timeout in seconds (default is 15).
     :param temperature: The creativity of the response, with higher values being more creative (default is 0.75).
+    :param history: The conversation history, if available (default is None).
     :return: The generated response text from the model.
     """
-    # Initialize the conversation history
-    history = []
-
-    # Add decorators as system messages
-    for decorator in decorators:
-        history.append(
-            {
-                "role": "system",
-                "content": decorator,
-            }
-        )
-
-    # Add the user's prompt as a user message
-    history.append({"role": "user", "content": prompt})
-
     # Prepare the API request arguments
     args = {
         "max_tokens": max_tokens,
@@ -66,8 +53,27 @@ def chat(
         "request_timeout": request_timeout,
         "stream": stream,
         "temperature": temperature,
-        "messages": history,
     }
+
+    if history:
+        args["messages"] = history
+    else:
+        # Initialize the conversation history
+        history = []
+
+        # Add decorators as system messages
+        for decorator in decorators:
+            history.append(
+                {
+                    "role": "system",
+                    "content": decorator,
+                }
+            )
+
+        # Add the user's prompt as a user message
+        history.append({"role": "user", "content": prompt})
+
+        args["messages"] = history
 
     # Call the OpenAI API
     completion_method = openai.ChatCompletion.create
@@ -81,6 +87,8 @@ def chat(
             response += text
 
     return response
+
+
 
 
 def main():
@@ -100,13 +108,14 @@ def main():
     parser.add_argument(
         "-d", "--decorator", help="Path to the conversation decorator file or folder."
     )
+    group.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Enable interactive chatbot mode.",
+    )
     known_args = parser.parse_known_args()
     args = known_args[0]
-
-    # Read the prompt from the specified file, if provided
-    if args.prompt_file:
-        with open(args.prompt_file, "r") as file:
-            args.prompt = file.read()
 
     # Initialize the decorators list
     decorators = []
@@ -121,29 +130,61 @@ def main():
                 with open(filepath, "r") as file:
                     decorators.append(file.read())
 
-    prompt = args.prompt
-    if not sys.stdin.isatty():
-        stdin = sys.stdin.readlines()
-        if stdin:
-            piped_input = "".join(stdin).strip()
-            prompt = (
-                prompt
-                + f"""\n\n\nINPUT = \"\"\"
+    # Initialize the conversation history
+    history = []
+
+    # Add decorators as system messages
+    for decorator in decorators:
+        history.append(
+            {
+                "role": "system",
+                "content": decorator,
+            }
+        )
+
+    if args.interactive:
+        print("Entering interactive mode. Type 'quit' to exit.")
+        while True:
+            prompt = input("User prompt: ")
+            if prompt.lower() == "quit":
+                break
+
+            history.append({"role": "user", "content": prompt})
+
+            # Generate the response using the prompt and decorators
+            reply = chat(prompt=prompt, decorators=decorators, history=history)
+
+            history.append({"role": "assistant", "content": reply})
+
+            print(f"rbot: {reply}")
+    else:
+        prompt = args.prompt
+        if not sys.stdin.isatty():
+            stdin = sys.stdin.readlines()
+            if stdin:
+                piped_input = "".join(stdin).strip()
+                prompt = (
+                    prompt
+                    + f"""\n\n\nINPUT = \"\"\"
 {piped_input}
 \"\"\"\n
 """
-            )
+                )
 
-    # Generate the response using the prompt and decorators
-    reply = chat(prompt=prompt, decorators=decorators)
+        history.append({"role": "user", "content": prompt})
 
-    pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
-    is_structured = pattern.search(reply)
-    if is_structured:
-        reply = is_structured[1].strip()
+        # Generate the response using the prompt and decorators
+        reply = chat(prompt=prompt, decorators=decorators, history=history)
 
-    # Print the response
-    print(reply)
+        pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
+        is_structured = pattern.search(reply)
+        if is_structured:
+            reply = is_structured[1].strip()
+
+        # Print the response
+        print(reply)
+
+
 
 
 if __name__ == "__main__":
