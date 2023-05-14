@@ -86,12 +86,40 @@ In the first example, rbot generates a short note in Rajiv's voice using the dec
 
 Asking it to guess what some of the decorator files I use are for
 
-`rajiv@RP-2023-MacBook-Air rbot % ls ../rajiv-llms/fine-tuning | ./rbot.py -p "What do you guess these files are for?" -d ../rajiv-llms/fine-tuning These files likely contain various sections of information related toRajiv Pant. The file names suggest the following content: 1. `about.md`: A general overview or introduction about Rajiv Pant. 2. `biography.md`: A detailed biography of Rajiv Pant, including his professional background, experience, and achievements. 3. `contact-info.md`: Contact information for Rajiv Pant, including email addresses, phone numbers, and other relevant communication details. 4. `example-client.md`: Information related toRajiv Pant's role and responsibilities at Example-Client Magazines, including his direct reports, teams, and peers within the company. 5. `personal-family.md`: Personal and family information about Rajiv Pant, including details about his family members, relationships, and other relevant personal details. 6. `travel-food.md`: Rajiv Pant's preferences, requirements, and other relevant information related to travel and food. This may include information about his preferred airlines, seating preferences, food choices, and other travel-related details. rajiv@RP-2023-MacBook-Air rbot % `
+```
+rajiv@RP-2023-MacBook-Air rbot % ls ../rajiv-llms/fine-tuning | ./rbot.py -p "What do you guess these files are for?" -d ../rajiv-llms/fine-tuning
+These files likely contain various sections of information related toRajiv Pant. The file names suggest the following content: 
+
+1. about.md: A general overview or introduction about Rajiv Pant. 
+2. biography.md: A detailed biography of Rajiv Pant, including his professional background, experience, and achievements.
+3. contact-info.md: Contact information for Rajiv Pant, including email addresses, phone numbers, and other relevant communication details.
+4. example-client.md: Information related toRajiv Pant's role and responsibilities at Example-Client Magazines, including his direct reports, teams, and peers within the company.
+5. personal-family.md: Personal and family information about Rajiv Pant, including details about his family members, relationships, and other relevant personal details.
+6. travel-food.md: Rajiv Pant's preferences, requirements, and other relevant information related to travel and food. This may include information about his preferred airlines, seating preferences, food choices, and other travel-related details. 
+rajiv@RP-2023-MacBook-Air rbot % 
+```
 
 Asking technical questions about a project
 
-`alex.redmon@a-workstation ~/s/scribe (master)> cat docker-compose.yml | rbot -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" In the given docker-compose.yml file, the following services are exposed on their respective ports: 1. `scribe` service: - Exposed on port 80 - Exposed on port 9009 (mapped to internal port 9009) 2. `scribe-feature` service: - Exposed on port 80 3. `scribe-redis` service: - Exposed on port 6379 (mapped to internal port 6379)`
+```
+alex.redmon@a-workstation ~/s/scribe (master)> cat docker-compose.yml | rbot -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
+In the given docker-compose.yml file, the following services are exposed on their respective ports:
+1. "scribe" service: - Exposed on port 80 - Exposed on port 9009 (mapped to internal port 9009)
+2. "scribe-feature" service: - Exposed on port 80
+3. "scribe-redis" service: - Exposed on port 6379 (mapped to internal port 6379)
+```
 
 Just for fun
 
-`> cat names.csv name,nickname rajiv, jim, dennis, alexandria, > catnames.csv | rbot -p 'generate a creative nickname for each of the following people' name,nickname rajiv,Rajiv Razzle-Dazzle jim,Jolly JimJam dennis,Daring Denmaster alexandria,All-Star Alexi`
+```
+alex.redmon@a-workstation ~> cat names.csv 
+rajiv,
+jim,
+dennis,
+alexandria
+alex.redmon@a-workstation ~> catnames.csv | rbot.py -p "enerate a creative nickname for each of the following people" 
+rajiv, Rajiv Razzle-Dazzle
+jim, Jolly JimJam
+dennis, Daring Denmaster
+alexandria, All-Star Alexi
+```
