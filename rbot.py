@@ -18,10 +18,10 @@ import sys
 import argparse
 import openai
 import re
+import json
 
 # Load the OpenAI API key from an environment variable or secret management service
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
 
 def chat(
     prompt,
@@ -88,9 +88,6 @@ def chat(
 
     return response
 
-
-
-
 def main():
     # Set up the command line argument parser
     parser = argparse.ArgumentParser(
@@ -105,14 +102,19 @@ def main():
         "--prompt_file",
         help="The file containing the user's input to generate a response for.",
     )
-    parser.add_argument(
-        "-d", "--decorator", help="Path to the conversation decorator file or folder."
-    )
     group.add_argument(
         "-i",
         "--interactive",
         action="store_true",
         help="Enable interactive chatbot mode.",
+    )
+    parser.add_argument(
+        "-d", "--decorator", help="Path to the conversation decorator file or folder."
+    )
+    parser.add_argument(
+    "-l",
+    "--load",
+    help="Load a previous session from a file.",
     )
     known_args = parser.parse_known_args()
     args = known_args[0]
@@ -142,12 +144,23 @@ def main():
             }
         )
 
+    # Load the conversation history from a file if requested
+    if args.load:
+        with open(args.load, 'r') as f:
+            history = json.load(f)
+
     if args.interactive:
         print("Entering interactive mode. Type 'quit' to exit.")
         while True:
             prompt = input("User prompt: ")
             if prompt.lower() == "quit":
                 break
+            elif prompt.lower().startswith("save "):
+                filename = prompt[5:]
+                with open(filename, 'w') as f:
+                    json.dump(history, f)
+                print(f"Conversation saved to {filename}")
+                continue
 
             history.append({"role": "user", "content": prompt})
 
@@ -183,9 +196,6 @@ def main():
 
         # Print the response
         print(reply)
-
-
-
 
 if __name__ == "__main__":
     main()
