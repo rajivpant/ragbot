@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python3
 
 # rbot.py - https://github.com/rajivpant/rbot
 # Developed by Rajiv Pant (https://github.com/rajivpant)
