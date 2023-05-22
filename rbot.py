@@ -2,7 +2,7 @@
 
 # rbot.py - https://github.com/rajivpant/rbot
 # Developed by Rajiv Pant (https://github.com/rajivpant)
-# Inspired by prior work done by Jim Mortko (https://github.com/jskills) and Alexandria Redmon (https://github.com/alexdredmon)
+# The first version was inspired by Jim Mortko (https://github.com/jskills) and Alexandria Redmon (https://github.com/alexdredmon)
 #
 # 🤖 rbot: Rajiv's chatbot utilizing the GPT-4 model to offer engaging conversations with a personalized touch and advanced context understanding.
 #

@@ -1,7 +1,7 @@
 rbot
 ====
 
-🤖 rbot is a chatbot powered by OpenAI's GPT-4 model, developed by Rajiv Pant ([rajivpant](https://github.com/rajivpant)) and inspired by prior work done by Jim Mortko ([jskills](https://github.com/jskills)) and Alexandria Redmon ([alexdredmon](https://github.com/alexdredmon)).
+🤖 rbot is a chatbot powered by OpenAI's GPT-4 model, developed by Rajiv Pant ([rajivpant](https://github.com/rajivpant)). The first version was inspired by Jim Mortko ([jskills](https://github.com/jskills)) and Alexandria Redmon ([alexdredmon](https://github.com/alexdredmon)).
 
 It offers engaging conversations with a personalized touch and advanced context understanding. rbot processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 
