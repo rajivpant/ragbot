@@ -42,7 +42,7 @@ Below are the step-by-step instructions for all the prerequisites needed to inst
     ```bash
     sudo apt-get update
     sudo apt-get install python3
-    sudo apt-get install python3-pip`
+    sudo apt-get install python3-pip
     ```
 
 2.  (Optional) To install Visual Studio Code on Ubuntu, you can use the following commands:
