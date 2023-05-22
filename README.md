@@ -42,16 +42,7 @@ My ability to create distinct profiles for different needs using customized deco
 
 Installation
 ------------
-
-1.  Ensure you have Python 3.6 or higher installed.
-2.  Clone this repository.
-3.  Install the required dependencies using pip:
-
-`pip install -r requirements.txt`
-
-1.  Set your OpenAI API key as an environment variable:
-
-`export OPENAI_API_KEY=your_api_key_here`
+See [INSTALL.md](INSTALL.md)
 
 Usage
 -----
@@ -62,15 +53,21 @@ To use rbot, you can provide a prompt and a conversation decorator file or a fol
 
 Example 1:
 
-`./rbot.py -p "Write a short note in Rajiv's voice about some of Rajiv's coworkers, family members, and travel and food preferences." -d ../rajiv-llms/fine-tuning`
+```bash
+./rbot.py -p "Write a short note in Rajiv's voice about some of Rajiv's coworkers, family members, and travel and food preferences." -d ../rajiv-llms/fine-tuning
+```
 
 Example 2:
 
-`./rbot.py -p "What are some good practices for software development?" -d decorators/software_development.txt`
+```bash
+./rbot.py -p "What are some good practices for software development?" -d decorators/software_development.txt
+```
 
 Example 3:
 
-`./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d decorators/story_characters`
+```bash
+./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d decorators/story_characters
+```
 
 ### Interactive mode
 
@@ -78,7 +75,9 @@ To use rbot in interactive mode, use the `-i` or `--interactive` flag without pr
 
 Example:
 
-`./rbot.py -i -d decorators/story_characters`
+```bash
+./rbot.py -i -d decorators/story_characters
+```
 
 In the first example, rbot generates a short note in Rajiv's voice using the decorator files in the `../rajiv-llms/fine-tuning` folder. In the second example, rbot provides information on good practices for software development using the `decorators/software_development.txt` decorator file. In the third example, rbot tells a story about a brave knight and a wise wizard using the decorator files in the `decorators/story_characters` folder.
 
