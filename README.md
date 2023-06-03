@@ -138,6 +138,29 @@ Example:
 
 In the first example, rbot generates a short note in Rajiv's voice using the decorator files in the `../rbot-private/fine-tuning` folder. In the second example, rbot provides information on good practices for software development using the `decorators/software_development.txt` decorator file. In the third example, rbot tells a story about a brave knight and a wise wizard using the decorator files in the `decorators/story_characters` folder.
 
+### Using rbot to suggest changes to its own code!
+
+```console
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d rbot.py -p "if no decorator files are being used, then I want the code to show that."
+Decorators being used:
+ - rbot.py
+Using AI engine openai with model gpt-4
+To modify the code to show a message when no decorator files are being used, you can add an else statement after checking for the decorator files. Update the code in the `main()` function as follows:
+
+\```python
+if decorator_files:
+    print("Decorators being used:")
+    for file in decorator_files:
+        print(f" - {file}")
+else:
+    print("No decorator files are being used.")
+\```
+
+This will print "No decorator files are being used." when there are no decorator files detected.
+rajivpant@RP-2021-MacBook-Pro rbot % 
+
+```
+
 ### Examples of using with Linux/Unix pipes via the command line
 
 Asking it to guess what some of the decorator files I use are for
