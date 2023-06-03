@@ -196,21 +196,22 @@ Hearst-specific files:
 
 Overall, these files seem to contain various information about a person, their preferences, and professional background, likely used to tailor the AI system's responses and assistance.
 rajivpant@RP-2021-MacBook-Pro rbot % 
-
-rajiv@RP-2023-MacBook-Air rbot % 
 ```
 
 Asking technical questions about a project
 
 ```console
-alex.redmon@a-workstation ~/s/scribe (master)> cat docker-compose.yml | rbot -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
+alexredmon@ar-macbook ~/s/scribe > cat docker-compose.yml | rbot -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
 In the given docker-compose.yml file, the following services are exposed on their respective ports:
 1. "scribe" service: - Exposed on port 80 - Exposed on port 9009 (mapped to internal port 9009)
 2. "scribe-feature" service: - Exposed on port 80
 3. "scribe-redis" service: - Exposed on port 6379 (mapped to internal port 6379)
+alexredmon@ar-macbook ~/s/scribe >
 ```
 
 ### Just for fun
+
+Using the Anthropic engine with the Claude Instant model
 
 ```console
 rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -e anthropic -m "claude-instant-v1" -p "Tell me 5 fun things to do in NYC."
@@ -230,8 +231,11 @@ Using AI engine anthropic with model claude-instant-v1
 rajivpant@RP-2021-MacBook-Pro rbot % 
 ```
 
+
+Random Creativity
+
 ```console
-alex.redmon@a-workstation ~> cat names.csv 
+alexredmon@ar-macbook ~ > cat names.csv 
 rajiv,
 jim,
 dennis,
@@ -241,4 +245,5 @@ rajiv, Rajiv Razzle-Dazzle
 jim, Jolly JimJam
 dennis, Daring Denmaster
 alexandria, All-Star Alexi
+alexredmon@ar-macbook ~ >
 ```
