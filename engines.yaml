@@ -1,10 +1,12 @@
 default: openai
 engines:
   - name: openai
+    api_key_name: OPENAI_API_KEY
     endpoint: /v1/chat/completions
     models: [gpt-4, gpt-4-32k, gpt-3.5-turbo]
     default_model: gpt-4
   - name: anthropic
+    api_key_name: ANTHROPIC_API_KEY
     endpoint: /v1/complete
     models: [claude-v1, claude-v1-100k, claude-instant-v1, claude-instant-v1-100k]
     default_model: claude-instant-v1-100k
