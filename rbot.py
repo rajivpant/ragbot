@@ -199,7 +199,7 @@ def main():
     elif args.engine == 'anthropic':
         anthropic.api_key = engines_config[args.engine]['api_key']
 
-    print(f"Using AI engine {args.engine} with model: {model}")
+    print(f"Using AI engine {args.engine} with model {model}")
 
 
     if args.interactive:
