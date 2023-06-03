@@ -127,10 +127,11 @@ def main():
         "-i",
         "--interactive",
         action="store_true",
-        help="Enable interactive chatbot mode.",
+        help="Enable interactive assistant chatbot mode.",
     )
     parser.add_argument(
-        "-d", "--decorator", help="Path to the conversation decorator file or folder."
+        "-d", "--decorator", nargs='*', default=[],
+        help="Path to the conversation decorator file or folder. Can accept multiple values."
     )
     parser.add_argument(
     "-l",
@@ -151,15 +152,24 @@ def main():
     )
     known_args = parser.parse_known_args()
     args = known_args[0]
+
     decorators = []
-    if args.decorator:
-        if os.path.isfile(args.decorator):
-            with open(args.decorator, "r") as file:
+    decorator_files = []  # to store file names of decorators
+    for decorator_path in args.decorator:
+        if os.path.isfile(decorator_path):
+            with open(decorator_path, "r") as file:
                 decorators.append(file.read())
-        elif os.path.isdir(args.decorator):
-            for filepath in glob.glob(os.path.join(args.decorator, "*")):
+                decorator_files.append(decorator_path)  # save file name
+        elif os.path.isdir(decorator_path):
+            for filepath in glob.glob(os.path.join(decorator_path, "*")):
                 with open(filepath, "r") as file:
                     decorators.append(file.read())
+                    decorator_files.append(filepath)  # save file name
+
+    print("Decorators being used:")
+    for file in decorator_files:
+        print(f" - {file}")
+
     history = []
     for decorator in decorators:
         history.append(
