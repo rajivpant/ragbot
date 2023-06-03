@@ -6,13 +6,17 @@
 # - Jim Mortko (https://github.com/jskills)
 # - Alexandria Redmon (https://github.com/alexdredmon)
 #
-# 🤖 rbot: Rajiv's chatbot utilizing OpenAI's GPT and Anthropic's Claude models 
+# 🤖 rbot: Rajiv's AI augmented brain assistant chatbot
+# utilizing OpenAI's GPT and Anthropic's Claude models 
 # to offer engaging conversations
 # with a personalized touch and advanced context understanding.
 #
 # 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom conversation decorators,
 # enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 #
+# Custom decorators are a simpler way to achieve outcomes similar to those of
+# Parameter-Efficient Fine-Tuning (PEFT) methods.
+# 
 # 🧠 Custom conversation decorators help the chatbot better understand the context,
 # resulting in more accurate and relevant responses, surpassing the capabilities of
 # out of the box GPT-4 implementations.
