@@ -2,15 +2,20 @@
 
 # rbot.py - https://github.com/rajivpant/rbot
 # Developed by Rajiv Pant (https://github.com/rajivpant)
-# The first version was inspired by Jim Mortko (https://github.com/jskills) and Alexandria Redmon (https://github.com/alexdredmon)
+# The first version was inspired by 
+# - Jim Mortko (https://github.com/jskills)
+# - Alexandria Redmon (https://github.com/alexdredmon)
 #
-# 🤖 rbot: Rajiv's chatbot utilizing the GPT-4 model to offer engaging conversations with a personalized touch and advanced context understanding.
+# 🤖 rbot: Rajiv's chatbot utilizing OpenAI's GPT and Anthropic's Claude models 
+# to offer engaging conversations
+# with a personalized touch and advanced context understanding.
 #
 # 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom conversation decorators,
 # enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 #
 # 🧠 Custom conversation decorators help the chatbot better understand the context,
-# resulting in more accurate and relevant responses, surpassing the capabilities of standard GPT-4 implementations.
+# resulting in more accurate and relevant responses, surpassing the capabilities of
+# out of the box GPT-4 implementations.
 
 
 import glob
@@ -23,8 +28,6 @@ import json
 import openai
 import anthropic
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -35,6 +38,7 @@ def load_config(config_file):
 config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
+
 
 def chat(
     prompt,
@@ -170,10 +174,24 @@ def main():
     model = args.model
     if model is None:
         model = engines_config[args.engine]['default_model']
+
+    # Get the engine API key from environment variable
+    api_key_name = engines_config[args.engine].get('api_key_name')
+    if api_key_name:
+        engines_config[args.engine]['api_key'] = os.getenv(api_key_name)
+
+    if args.engine == 'openai':
+        openai.api_key = engines_config[args.engine]['api_key']
+    elif args.engine == 'anthropic':
+        anthropic.api_key = engines_config[args.engine]['api_key']
+
+    print(f"Using AI engine {args.engine} with model: {model}")
+
+
     if args.interactive:
-        print("Entering interactive mode. Type '/quit' to exit or /save file_name.json to save the conversation.")
+        print("Entering interactive mode.")
         while True:
-            prompt = input("User prompt: ")
+            prompt = input("Enter prompt below. /quit to exit or /save file_name.json to save conversation.\n> ")
             if prompt.lower() == "/quit":
                 break
             elif prompt.lower().startswith("/save "):
