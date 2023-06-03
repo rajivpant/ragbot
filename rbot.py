@@ -112,7 +112,12 @@ def chat(
             model=model,
             max_tokens_to_sample=max_tokens,
         )
-        return resp
+        # print(json.dumps(resp, indent=4))  # for debugging
+        return resp['completion']
+
+
+
+
 
 def main():
     parser = argparse.ArgumentParser(
