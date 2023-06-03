@@ -53,13 +53,44 @@ See [INSTALL.md](INSTALL.md)
 Usage
 -----
 
+### Getting help
+
+```console
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py --help
+usage: rbot.py [-h] (-p PROMPT | -f PROMPT_FILE | -i) [-d [DECORATOR ...]]
+               [-l LOAD] [-e {openai,anthropic}] [-m MODEL]
+
+A GPT-4 or Anthropic Claude based chatbot that generates responses based on
+user prompts.
+
+options:
+  -h, --help            show this help message and exit
+  -p PROMPT, --prompt PROMPT
+                        The user's input to generate a response for.
+  -f PROMPT_FILE, --prompt_file PROMPT_FILE
+                        The file containing the user's input to generate a
+                        response for.
+  -i, --interactive     Enable interactive assistant chatbot mode.
+  -d [DECORATOR ...], --decorator [DECORATOR ...]
+                        Path to the conversation decorator file or folder. Can
+                        accept multiple values.
+  -l LOAD, --load LOAD  Load a previous session from a file.
+  -e {openai,anthropic}, --engine {openai,anthropic}
+                        The engine to use for the chat.
+  -m MODEL, --model MODEL
+                        The model to use for the chat. Defaults to engine's
+                        default model.
+rajivpant@RP-2021-MacBook-Pro rbot % 
+
+```
+
 ### Using decorator files
 
-To use rbot, you can provide a prompt and a conversation decorator file or a folder containing multiple decorator files. You can view an example of a decorator file at <https://github.com/rajivpant/rbot/blob/main/fine-tuning/biography.md>
+To use rbot, you can provide conversation decorator files and/or folders containing multiple decorator files. You can view examples of decorator files at <https://github.com/rajivpant/rbot/tree/main/fine-tuning>
 
 Example 1:
 
-```
+```console
 rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ ../rbot-private/fine-tuning/personal/ ../rbot-private/fine-tuning/example-client -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
 Decorators being used:
  - fine-tuning/1st-prompt-decorator.md
@@ -77,7 +108,7 @@ Using AI engine openai with model gpt-4
 
 Example 2:
 
-```
+```console
 rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ -p "Write a short resume of Rajiv" 
 Decorators being used:
  - fine-tuning/1st-prompt-decorator.md
@@ -91,7 +122,7 @@ Using AI engine openai with model gpt-4
 
 Example 3:
 
-```
+```console
 ./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d decorators/story_characters
 ```
 
@@ -101,7 +132,7 @@ To use rbot in interactive mode, use the `-i` or `--interactive` flag without pr
 
 Example:
 
-```bash
+```console
 ./rbot.py -i -d decorators/story_characters
 ```
 
@@ -111,7 +142,7 @@ In the first example, rbot generates a short note in Rajiv's voice using the dec
 
 Asking it to guess what some of the decorator files I use are for
 
-```
+```console
 rajivpant@RP-2021-MacBook-Pro rbot % find fine-tuning ../rbot-private/fine-tuning -print | ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ ../rbot-private/fine-tuning/personal/ ../rbot-private/fine-tuning/example-client/ -p "What do you guess these files are for?" 
 Decorators being used:
  - fine-tuning/1st-prompt-decorator.md
@@ -148,7 +179,7 @@ rajiv@RP-2023-MacBook-Air rbot % 
 
 Asking technical questions about a project
 
-```
+```console
 alex.redmon@a-workstation ~/s/scribe (master)> cat docker-compose.yml | rbot -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
 In the given docker-compose.yml file, the following services are exposed on their respective ports:
 1. "scribe" service: - Exposed on port 80 - Exposed on port 9009 (mapped to internal port 9009)
@@ -158,7 +189,7 @@ In the given docker-compose.yml file, the following services are exposed on thei
 
 Just for fun
 
-```
+```console
 alex.redmon@a-workstation ~> cat names.csv 
 rajiv,
 jim,
