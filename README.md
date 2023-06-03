@@ -240,7 +240,7 @@ rajiv,
 jim,
 dennis,
 alexandria
-alex.redmon@a-workstation ~> catnames.csv | rbot.py -p "enerate a creative nickname for each of the following people" 
+alexredmon@ar-macbook ~ > catnames.csv | rbot.py -p "enerate a creative nickname for each of the following people" 
 rajiv, Rajiv Razzle-Dazzle
 jim, Jolly JimJam
 dennis, Daring Denmaster
