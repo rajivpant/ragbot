@@ -12,86 +12,103 @@
 # 🧠 Custom conversation decorators help the chatbot better understand the context,
 # resulting in more accurate and relevant responses, surpassing the capabilities of standard GPT-4 implementations.
 
+
 import glob
 import os
 import sys
 import argparse
-import openai
 import re
+import yaml
 import json
+import openai
+import anthropic
 
-# Load the OpenAI API key from an environment variable or secret management service
 openai.api_key = os.getenv("OPENAI_API_KEY")
+anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
+
+# Function to load configuration from YAML
+def load_config(config_file):
+    with open(config_file, 'r') as stream:
+        return yaml.safe_load(stream)
+
+# Load configuration from engines.yaml
+config = load_config('engines.yaml')
+engines_config = {engine['name']: engine for engine in config['engines']}
+engine_choices = list(engines_config.keys())
 
 def chat(
     prompt,
     decorators,
-    model="gpt-4",
+    model,
     max_tokens=1000,
     stream=True,
     request_timeout=15,
     temperature=0.75,
     history=None,
+    engine="openai",
 ):
     """
-    Send a request to the OpenAI API with the provided prompt and decorators.
+    Send a request to the OpenAI or Anthropic API with the provided prompt and decorators.
 
     :param prompt: The user's input to generate a response for.
     :param decorators: A list of decorators to provide context for the model.
-    :param model: The name of the GPT model to use (default is 'gpt-4').
+    :param model: The name of the GPT model to use.
     :param max_tokens: The maximum number of tokens to generate in the response (default is 1000).
     :param stream: Whether to stream the response from the API (default is True).
     :param request_timeout: The request timeout in seconds (default is 15).
     :param temperature: The creativity of the response, with higher values being more creative (default is 0.75).
     :param history: The conversation history, if available (default is None).
+    :param engine: The engine to use for the chat, 'openai' or 'anthropic' (default is 'openai').
     :return: The generated response text from the model.
     """
-    # Prepare the API request arguments
-    args = {
-        "max_tokens": max_tokens,
-        "model": model,
-        "request_timeout": request_timeout,
-        "stream": stream,
-        "temperature": temperature,
-    }
+    if engine == "openai":
+        # Configure the arguments for the OpenAI API
+        args = {
+            "max_tokens": max_tokens,
+            "model": model,
+            "request_timeout": request_timeout,
+            "stream": stream,
+            "temperature": temperature,
+        }
+        # If conversation history is provided, pass it to the API
+        if history:
+            args["messages"] = history
+        else:
+            # If no history is provided, construct it from the decorators
+            history = []
+            for decorator in decorators:
+                history.append(
+                    {
+                        "role": "system",
+                        "content": decorator,
+                    }
+                )
+            # Add the user's prompt to the history
+            history.append({"role": "user", "content": prompt})
+            args["messages"] = history
 
-    if history:
-        args["messages"] = history
-    else:
-        # Initialize the conversation history
-        history = []
-
-        # Add decorators as system messages
-        for decorator in decorators:
-            history.append(
-                {
-                    "role": "system",
-                    "content": decorator,
-                }
-            )
-
-        # Add the user's prompt as a user message
-        history.append({"role": "user", "content": prompt})
-
-        args["messages"] = history
-
-    # Call the OpenAI API
-    completion_method = openai.ChatCompletion.create
-
-    response = ""
-
-    # Collect the generated text from the response
-    for token in completion_method(**args):
-        text = token["choices"][0]["delta"].get("content")
-        if text:
-            response += text
-
-    return response
+        # Call the OpenAI API and build the response
+        completion_method = openai.ChatCompletion.create
+        response = ""
+        for token in completion_method(**args):
+            text = token["choices"][0]["delta"].get("content")
+            if text:
+                response += text
+        return response
+    elif engine == "anthropic":
+        # Call the Anthropic API
+        c = anthropic.Client(anthropic.api_key)
+        resp = c.completion(
+            prompt=f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}",
+            stop_sequences=[anthropic.HUMAN_PROMPT],
+            model=model,
+            max_tokens_to_sample=max_tokens,
+        )
+        return resp
 
 def main():
-    # Set up the command line argument parser
     parser = argparse.ArgumentParser(
-        description="A GPT-4 based chatbot that generates responses based on user prompts."
+        description="A GPT-4 or Anthropic Claude based chatbot that generates responses based on user prompts."
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
@@ -116,13 +133,21 @@ def main():
     "--load",
     help="Load a previous session from a file.",
     )
+    parser.add_argument(
+        "-e",
+        "--engine",
+        default=config.get('default', 'openai'),
+        choices=engine_choices,
+        help="The engine to use for the chat.",
+    )
+    parser.add_argument(
+        "-m",
+        "--model",
+        help="The model to use for the chat. Defaults to engine's default model.",
+    )
     known_args = parser.parse_known_args()
     args = known_args[0]
-
-    # Initialize the decorators list
     decorators = []
-
-    # Load the decorator(s) from file or folder
     if args.decorator:
         if os.path.isfile(args.decorator):
             with open(args.decorator, "r") as file:
@@ -131,11 +156,7 @@ def main():
             for filepath in glob.glob(os.path.join(args.decorator, "*")):
                 with open(filepath, "r") as file:
                     decorators.append(file.read())
-
-    # Initialize the conversation history
     history = []
-
-    # Add decorators as system messages
     for decorator in decorators:
         history.append(
             {
@@ -143,32 +164,27 @@ def main():
                 "content": decorator,
             }
         )
-
-    # Load the conversation history from a file if requested
     if args.load:
         with open(args.load, 'r') as f:
             history = json.load(f)
-
+    model = args.model
+    if model is None:
+        model = engines_config[args.engine]['default_model']
     if args.interactive:
-        print("Entering interactive mode. Type 'quit' to exit.")
+        print("Entering interactive mode. Type '/quit' to exit or /save file_name.json to save the conversation.")
         while True:
             prompt = input("User prompt: ")
-            if prompt.lower() == "quit":
+            if prompt.lower() == "/quit":
                 break
-            elif prompt.lower().startswith("save "):
+            elif prompt.lower().startswith("/save "):
                 filename = prompt[5:]
                 with open(filename, 'w') as f:
                     json.dump(history, f)
                 print(f"Conversation saved to {filename}")
                 continue
-
             history.append({"role": "user", "content": prompt})
-
-            # Generate the response using the prompt and decorators
-            reply = chat(prompt=prompt, decorators=decorators, history=history)
-
+            reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model)
             history.append({"role": "assistant", "content": reply})
-
             print(f"rbot: {reply}")
     else:
         prompt = args.prompt
@@ -183,18 +199,12 @@ def main():
 \"\"\"\n
 """
                 )
-
         history.append({"role": "user", "content": prompt})
-
-        # Generate the response using the prompt and decorators
-        reply = chat(prompt=prompt, decorators=decorators, history=history)
-
+        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
             reply = is_structured[1].strip()
-
-        # Print the response
         print(reply)
 
 if __name__ == "__main__":
