@@ -1,15 +1,21 @@
 rbot
 ====
 
-🤖 rbot is a chatbot powered by OpenAI's GPT-4 model, developed by Rajiv Pant ([rajivpant](https://github.com/rajivpant)). The first version was inspired by Jim Mortko ([jskills](https://github.com/jskills)) and Alexandria Redmon ([alexdredmon](https://github.com/alexdredmon)).
+🤖 [rbot](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant chatbot currently utilizing OpenAI's GPT and Anthropic's Claude models to offer engaging conversations with a personalized touch and advanced context understanding.
 
-It offers engaging conversations with a personalized touch and advanced context understanding. rbot processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
+🚀 rbot processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 
-🚀 Rajiv's GPT-4 based chatbot that processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
+Custom decorators are a simpler way to achieve outcomes similar to those of Parameter-Efficient Fine-Tuning (PEFT) methods.
 
-🧠 Custom conversation decorators help the chatbot better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of standard GPT-4 implementations.
+🧠 Custom conversation decorators help the chatbot better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
 
 A Django web app for rbot is currently under development. Stay tuned for updates on this project!
+
+Developed by [Rajiv Pant](https://github.com/rajivpant)
+The first version was inspired by 
+- [Jim Mortko](https://github.com/jskills)
+- [Alexandria Redmon](https://github.com/alexdredmon)
+
 
 Blog Post Introducing rbot
 --------------------------
@@ -53,19 +59,39 @@ To use rbot, you can provide a prompt and a conversation decorator file or a fol
 
 Example 1:
 
-```bash
-./rbot.py -p "Write a short note in Rajiv's voice about some of Rajiv's coworkers, family members, and travel and food preferences." -d ../rajiv-llms/fine-tuning
+```
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ ../rbot-private/fine-tuning/personal/ ../rbot-private/fine-tuning/hearst -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
+Decorators being used:
+ - fine-tuning/1st-prompt-decorator.md
+ - fine-tuning/public/travel-food.md
+ - fine-tuning/public/employment-history.md
+ - fine-tuning/public/about.md
+ - fine-tuning/public/biography.md
+ - ../rbot-private/fine-tuning/personal/accounts.md
+ - ../rbot-private/fine-tuning/personal/contact-info.md
+ - ../rbot-private/fine-tuning/personal/personal-family.md
+ - ../rbot-private/fine-tuning/hearst/hearst.md
+Using AI engine openai with model gpt-4
+[redacted in this example]
 ```
 
 Example 2:
 
-```bash
-./rbot.py -p "What are some good practices for software development?" -d decorators/software_development.txt
+```
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ -p "Write a short resume of Rajiv" 
+Decorators being used:
+ - fine-tuning/1st-prompt-decorator.md
+ - fine-tuning/public/travel-food.md
+ - fine-tuning/public/employment-history.md
+ - fine-tuning/public/about.md
+ - fine-tuning/public/biography.md
+Using AI engine openai with model gpt-4
+[truncated in this example]
 ```
 
 Example 3:
 
-```bash
+```
 ./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d decorators/story_characters
 ```
 
@@ -79,22 +105,44 @@ Example:
 ./rbot.py -i -d decorators/story_characters
 ```
 
-In the first example, rbot generates a short note in Rajiv's voice using the decorator files in the `../rajiv-llms/fine-tuning` folder. In the second example, rbot provides information on good practices for software development using the `decorators/software_development.txt` decorator file. In the third example, rbot tells a story about a brave knight and a wise wizard using the decorator files in the `decorators/story_characters` folder.
+In the first example, rbot generates a short note in Rajiv's voice using the decorator files in the `../rbot-private/fine-tuning` folder. In the second example, rbot provides information on good practices for software development using the `decorators/software_development.txt` decorator file. In the third example, rbot tells a story about a brave knight and a wise wizard using the decorator files in the `decorators/story_characters` folder.
 
 ### Examples of using with Linux/Unix pipes via the command line
 
 Asking it to guess what some of the decorator files I use are for
 
 ```
-rajiv@RP-2023-MacBook-Air rbot % ls ../rajiv-llms/fine-tuning | ./rbot.py -p "What do you guess these files are for?" -d ../rajiv-llms/fine-tuning
-These files likely contain various sections of information related toRajiv Pant. The file names suggest the following content: 
+rajivpant@RP-2021-MacBook-Pro rbot % find fine-tuning ../rbot-private/fine-tuning -print | ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ ../rbot-private/fine-tuning/personal/ ../rbot-private/fine-tuning/hearst/ -p "What do you guess these files are for?" 
+Decorators being used:
+ - fine-tuning/1st-prompt-decorator.md
+ - fine-tuning/public/travel-food.md
+ - fine-tuning/public/employment-history.md
+ - fine-tuning/public/about.md
+ - fine-tuning/public/biography.md
+ - ../rbot-private/fine-tuning/personal/accounts.md
+ - ../rbot-private/fine-tuning/personal/contact-info.md
+ - ../rbot-private/fine-tuning/personal/personal-family.md
+ - ../rbot-private/fine-tuning/hearst/hearst.md
+Using AI engine openai with model gpt-4
+These files appear to be related to the fine-tuning of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
 
-1. about.md: A general overview or introduction about Rajiv Pant. 
-2. biography.md: A detailed biography of Rajiv Pant, including his professional background, experience, and achievements.
-3. contact-info.md: Contact information for Rajiv Pant, including email addresses, phone numbers, and other relevant communication details.
-4. hearst.md: Information related toRajiv Pant's role and responsibilities at Hearst Magazines, including his direct reports, teams, and peers within the company.
-5. personal-family.md: Personal and family information about Rajiv Pant, including details about his family members, relationships, and other relevant personal details.
-6. travel-food.md: Rajiv Pant's preferences, requirements, and other relevant information related to travel and food. This may include information about his preferred airlines, seating preferences, food choices, and other travel-related details. 
+Public files:
+- fine-tuning/public/travel-food.md: Rajiv's travel and food preferences
+- fine-tuning/public/employment-history.md: Rajiv's employment history
+- fine-tuning/public/about.md: General information about Rajiv
+- fine-tuning/public/biography.md: Biography of Rajiv
+
+Private files (stored in a separate private folder):
+- fine-tuning/personal/accounts.md: Semi-private personal account information, such as frequent flyer numbers or loyalty programs. Does not contain any confidential or sensitive information.
+- fine-tuning/personal/contact-info.md: Personal contact information, such as phone numbers and email addresses. Does not contain any confidential or sensitive information.
+- fine-tuning/personal/personal-family.md: Personal and family information, such as family members and relationships. Does not contain any confidential or sensitive information.
+
+Hearst-specific files:
+- fine-tuning/hearst/hearst.md: Non-confidential, publicly available information related to the Hearst corporation, including Rajiv's role there
+
+Overall, these files seem to contain various information about a person, their preferences, and professional background, likely used to tailor the AI system's responses and assistance.
+rajivpant@RP-2021-MacBook-Pro rbot % 
+
 rajiv@RP-2023-MacBook-Air rbot % 
 ```
 
