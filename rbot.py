@@ -112,7 +112,6 @@ def chat(
             model=model,
             max_tokens_to_sample=max_tokens,
         )
-        # print(json.dumps(resp, indent=4))  # for debugging
         return resp['completion']
 
 
@@ -175,9 +174,12 @@ def main():
                     decorators.append(file.read())
                     decorator_files.append(filepath)  # save file name
 
-    print("Decorators being used:")
-    for file in decorator_files:
-        print(f" - {file}")
+    if decorator_files:
+        print("Decorators being used:")
+        for file in decorator_files:
+            print(f" - {file}")
+    else:
+        print("No decorator files are being used.")
 
     history = []
     for decorator in decorators:
@@ -210,7 +212,7 @@ def main():
     if args.interactive:
         print("Entering interactive mode.")
         while True:
-            prompt = input("Enter prompt below. /quit to exit or /save file_name.json to save conversation.\n> ")
+            prompt = input("\nEnter prompt below. /quit to exit or /save file_name.json to save conversation.\n> ")
             if prompt.lower() == "/quit":
                 break
             elif prompt.lower().startswith("/save "):
