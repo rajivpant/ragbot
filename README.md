@@ -210,7 +210,25 @@ In the given docker-compose.yml file, the following services are exposed on thei
 3. "scribe-redis" service: - Exposed on port 6379 (mapped to internal port 6379)
 ```
 
-Just for fun
+### Just for fun
+
+```console
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -e anthropic -m "claude-instant-v1" -p "Tell me 5 fun things to do in NYC."
+No decorator files are being used.
+Using AI engine anthropic with model claude-instant-v1
+ Here are 5 fun things to do in NYC:
+
+1. Visit Central Park. Walk the paths, rent a paddle boat, visit the zoo, catch a Shakespeare in the Park performance.
+
+2. Catch a Broadway show. New York is the center of the theater world with some of the greatest plays and musicals on Broadway and off Broadway. 
+
+3. Go to the top of the Empire State Building. Take in the panoramic views of all of NYC from one of its most famous landmarks. 
+
+4. Shop and dine in SoHo and the West Village. Explore trendy boutique shops and dig into meals at charming sidewalk cafes.  
+
+5. Take a free walking tour. There are numerous companies that offer guided walking tours of various NYC neighborhoods, covering history, culture, architecture and more.
+rajivpant@RP-2021-MacBook-Pro rbot % 
+```
 
 ```console
 alex.redmon@a-workstation ~> cat names.csv 

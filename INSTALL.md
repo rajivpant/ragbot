@@ -74,7 +74,7 @@ Once you have Python and pip installed, you can download the rbot code from its 
     cd rbot
     ```
 
-3.  Install the Python package dependencies:
+3.  Install the Python package dependencies including APIs to access LLM engines:
 
     ```bash
     pip install -r requirements.txt
