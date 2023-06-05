@@ -6,7 +6,7 @@
 # - Jim Mortko (https://github.com/jskills)
 # - Alexandria Redmon (https://github.com/alexdredmon)
 #
-# 🤖 rbot: Rajiv's AI augmented brain assistant chatbot
+# 🤖 rbot: Rajiv's AI augmented brain, assistant, and chatbot
 # utilizing OpenAI's GPT and Anthropic's Claude models 
 # to offer engaging conversations
 # with a personalized touch and advanced context understanding.
