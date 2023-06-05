@@ -9,7 +9,7 @@ Custom decorators are a simpler way to achieve outcomes similar to those of Para
 
 🧠 Custom conversation decorators help the chatbot better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
 
-A Django web app for rbot is currently under development. Stay tuned for updates on this project!
+A web app for rbot is currently under development. Stay tuned for updates on this project!
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 The first version was inspired by 

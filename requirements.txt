@@ -1,3 +1,5 @@
 pyyaml
+streamlit
+watchdog
 openai
 anthropic
