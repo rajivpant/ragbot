@@ -56,9 +56,10 @@ Usage
 ### Getting help
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py --help
-usage: rbot.py [-h] (-p PROMPT | -f PROMPT_FILE | -i) [-d [DECORATOR ...]]
-               [-l LOAD] [-e {openai,anthropic}] [-m MODEL]
+rajiv@RP-2023-MacBook-Air rbot % ./rbot.py --help 
+usage: rbot.py [-h] (-p PROMPT | -f PROMPT_FILE | -i | --stdin)
+               [-d [DECORATOR ...]] [-l LOAD] [-e {openai,anthropic}]
+               [-m MODEL]
 
 A GPT-4 or Anthropic Claude based chatbot that generates responses based on
 user prompts.
@@ -71,6 +72,7 @@ options:
                         The file containing the user's input to generate a
                         response for.
   -i, --interactive     Enable interactive assistant chatbot mode.
+  --stdin               Read the user's input from stdin.
   -d [DECORATOR ...], --decorator [DECORATOR ...]
                         Path to the conversation decorator file or folder. Can
                         accept multiple values.
@@ -80,8 +82,7 @@ options:
   -m MODEL, --model MODEL
                         The model to use for the chat. Defaults to engine's
                         default model.
-rajivpant@RP-2021-MacBook-Pro rbot % 
-
+rajiv@RP-2023-MacBook-Air rbot % 
 ```
 
 ### Using decorator files
