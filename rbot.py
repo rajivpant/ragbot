@@ -25,6 +25,7 @@
 import glob
 import os
 import sys
+from dotenv import load_dotenv
 import argparse
 import re
 import yaml
@@ -32,6 +33,7 @@ import json
 import openai
 import anthropic
 
+load_dotenv()  # Load environment variables from .env file
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -163,22 +165,34 @@ def main():
         "--model",
         help="The model to use for the chat. Defaults to engine's default model.",
     )
+    
+    parser.add_argument(
+        "-nd", "--nodecorator",
+        action="store_true",
+        help="Ignore all decorators even if they are specified."
+    )
+
     known_args = parser.parse_known_args()
     args = known_args[0]
 
-
     decorators = []
     decorator_files = []  # to store file names of decorators
-    for decorator_path in args.decorator:
-        if os.path.isfile(decorator_path):
-            with open(decorator_path, "r") as file:
-                decorators.append(file.read())
-                decorator_files.append(decorator_path)  # save file name
-        elif os.path.isdir(decorator_path):
-            for filepath in glob.glob(os.path.join(decorator_path, "*")):
-                with open(filepath, "r") as file:
+
+    if not args.nodecorator:
+        # Load default decorators from .env file
+        default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
+        default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
+
+        for decorator_path in default_decorator_paths + args.decorator:
+            if os.path.isfile(decorator_path):
+                with open(decorator_path, "r") as file:
                     decorators.append(file.read())
-                    decorator_files.append(filepath)  # save file name
+                    decorator_files.append(decorator_path)  # save file name
+            elif os.path.isdir(decorator_path):
+                for filepath in glob.glob(os.path.join(decorator_path, "*")):
+                    with open(filepath, "r") as file:
+                        decorators.append(file.read())
+                        decorator_files.append(filepath)  # save file name
 
     if decorator_files:
         print("Decorators being used:")

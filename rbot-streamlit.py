@@ -21,7 +21,7 @@
 # resulting in more accurate and relevant responses, surpassing the capabilities of
 # out of the box GPT-4 implementations.
 
-
+from dotenv import load_dotenv
 import streamlit as st
 import glob
 import os
@@ -31,6 +31,8 @@ import json
 import openai
 import anthropic
 
+
+load_dotenv() # Load environment variables from .env file
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -114,7 +116,6 @@ def chat(
         return resp['completion']
 
 
-
 def load_decorator_files(decorator_path):
     """Load decorator files."""
     decorators = []
@@ -136,7 +137,13 @@ def main():
     st.title("rbot: Rajiv's AI augmented brain assistant")
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
     model = st.selectbox("Choose a model", options=engines_config[engine]['models'], index=engines_config[engine]['models'].index(engines_config[engine]['default_model']))
-    decorator_path = st.text_area("Enter decorator path (files and/or directories)")
+
+    # Get default decorator paths from environment variable and populate the text area
+    default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
+    # Remove any blank lines
+    default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
+    decorator_path = st.text_area("Enter decorator path (files and/or directories)", "\n".join(default_decorator_paths))
+
     prompt = st.text_area("Enter your prompt here")
 
     decorators, decorator_files = load_decorator_files(decorator_path.split())
@@ -144,10 +151,11 @@ def main():
     for decorator in decorators:
         history.append({"role": "system", "content": decorator,})
 
+    # Use dotenv to get the API keys
     if engine == 'openai':
-        openai.api_key = st.secrets["OPENAI_API_KEY"]
+        openai.api_key = os.getenv("OPENAI_API_KEY")
     elif engine == 'anthropic':
-        anthropic.api_key = st.secrets["ANTHROPIC_API_KEY"]
+        anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
 
     st.write(f"Using AI engine {engine} with model {model}")
 
