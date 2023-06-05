@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-# rbot.py - https://github.com/rajivpant/rbot
+# rbot-streamlit.py - https://github.com/rajivpant/rbot
 # Developed by Rajiv Pant (https://github.com/rajivpant)
-# The first version was inspired by 
-# - Jim Mortko (https://github.com/jskills)
-# - Alexandria Redmon (https://github.com/alexdredmon)
 #
-# 🤖 rbot: Rajiv's AI augmented brain assistant chatbot
+# ❗️ This web app using streamlit is currently in development.
+# ❗️ It does not yet have the features in the rbot command line app rbot.py
+# 
+# 🤖 rbot: Rajiv's AI augmented brain, assistant, and chatbot
 # utilizing OpenAI's GPT and Anthropic's Claude models 
 # to offer engaging conversations
 # with a personalized touch and advanced context understanding.
@@ -133,12 +133,12 @@ def load_decorator_files(decorator_path):
 
 
 def main():
-    st.title("rbot: Rajiv's AI augmented brain assistant chatbot")
+    st.title("rbot: Rajiv's AI augmented brain assistant")
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
-    model = st.text_input("Enter model name", value=engines_config[engine]['default_model'])
-    decorator_path = st.text_input("Enter decorator path (either file or directory)")
-    prompt = st.text_input("Enter your prompt here")
- 
+    model = st.selectbox("Choose a model", options=engines_config[engine]['models'], index=engines_config[engine]['models'].index(engines_config[engine]['default_model']))
+    decorator_path = st.text_area("Enter decorator path (files and/or directories)")
+    prompt = st.text_area("Enter your prompt here")
+
     decorators, decorator_files = load_decorator_files(decorator_path.split())
     history = []
     for decorator in decorators:
@@ -155,7 +155,7 @@ def main():
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, decorators=decorators, history=history, engine=engine, model=model)
         history.append({"role": "assistant", "content": reply})
-        st.write(f"rbot: {reply}")
+        st.write(f"rbot:\n{reply}")
 
 
 if __name__ == "__main__":
