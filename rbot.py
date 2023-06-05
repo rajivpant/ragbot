@@ -122,29 +122,34 @@ def main():
     parser = argparse.ArgumentParser(
         description="A GPT-4 or Anthropic Claude based chatbot that generates responses based on user prompts."
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument(
         "-p", "--prompt", help="The user's input to generate a response for."
     )
-    group.add_argument(
+    input_group.add_argument(
         "-f",
         "--prompt_file",
         help="The file containing the user's input to generate a response for.",
     )
-    group.add_argument(
+    input_group.add_argument(
         "-i",
         "--interactive",
         action="store_true",
         help="Enable interactive assistant chatbot mode.",
+    )
+    input_group.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read the user's input from stdin."
     )
     parser.add_argument(
         "-d", "--decorator", nargs='*', default=[],
         help="Path to the conversation decorator file or folder. Can accept multiple values."
     )
     parser.add_argument(
-    "-l",
-    "--load",
-    help="Load a previous session from a file.",
+        "-l",
+        "--load",
+        help="Load a previous session from a file.",
     )
     parser.add_argument(
         "-e",
@@ -160,6 +165,7 @@ def main():
     )
     known_args = parser.parse_known_args()
     args = known_args[0]
+
 
     decorators = []
     decorator_files = []  # to store file names of decorators
@@ -226,18 +232,17 @@ def main():
             history.append({"role": "assistant", "content": reply})
             print(f"rbot: {reply}")
     else:
-        prompt = args.prompt
-        if not sys.stdin.isatty():
+        prompt = None
+        if args.prompt:
+            prompt = args.prompt
+        elif args.prompt_file:
+            with open(args.prompt_file, 'r') as f:
+                prompt = f.read().strip()
+        elif args.stdin:
             stdin = sys.stdin.readlines()
             if stdin:
-                piped_input = "".join(stdin).strip()
-                prompt = (
-                    prompt
-                    + f"""\n\n\nINPUT = \"\"\"
-{piped_input}
-\"\"\"\n
-"""
-                )
+                prompt = "".join(stdin).strip()
+
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
