@@ -200,8 +200,9 @@ rajivpant@RP-2021-MacBook-Pro rbot %
 
 Asking technical questions about a project
 
+> ❗️ In the current version of rbot, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
 ```console
-alexredmon@ar-macbook ~/s/scribe > cat docker-compose.yml | rbot -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
+alexredmon@ar-macbook ~/s/scribe > cat docker-compose.yml | rbot --stdin -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
 In the given docker-compose.yml file, the following services are exposed on their respective ports:
 1. "scribe" service: - Exposed on port 80 - Exposed on port 9009 (mapped to internal port 9009)
 2. "scribe-feature" service: - Exposed on port 80
@@ -234,13 +235,14 @@ rajivpant@RP-2021-MacBook-Pro rbot %
 
 Random Creativity
 
+> ❗️ In the current version of rbot, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
 ```console
 alexredmon@ar-macbook ~ > cat names.csv 
 rajiv,
 jim,
 dennis,
 alexandria
-alexredmon@ar-macbook ~ > catnames.csv | rbot.py -p "enerate a creative nickname for each of the following people" 
+alexredmon@ar-macbook ~ > catnames.csv | rbot.py --stdin -p "Generate a creative nickname for each of the following people" 
 rajiv, Rajiv Razzle-Dazzle
 jim, Jolly JimJam
 dennis, Daring Denmaster
