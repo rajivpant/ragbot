@@ -134,7 +134,7 @@ def load_decorator_files(decorator_path):
 
 
 def main():
-    st.title("rbot: Rajiv's AI augmented brain assistant")
+    st.title("rbot: AI augmented brain assistant")
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
     model = st.selectbox("Choose a model", options=engines_config[engine]['models'], index=engines_config[engine]['models'].index(engines_config[engine]['default_model']))
 
