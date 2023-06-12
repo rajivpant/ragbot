@@ -18,7 +18,7 @@ Rajiv’s leadership qualities were also recognized when two development teams u
 
 Rajiv has experience building and supervising small teams to 500+ employees. He is admired for his win/win collaborative style by his peers. He strives to live every day by his life’s motto: “Victory is winning people over, not defeating others.”
 
-He has been advising the AI startup [you.com](https://you.com/) and tech solutions company [Podvisory](https://podvisory.com/) since their founding.
+He has been advising the AI startup [you.com](https://you.com/) and tech solutions company [Podvisory](https://podvisory.com/) since their [founding](https://rajiv.com/blog/2021/11/13/you-com-a-game-changing-ai-powered-search-engine/).
 
 He volunteers with the charity [New York Cares](https://www.newyorkcares.org/), where he served in-person during the pandemic when help was needed most. Rajiv is an avid fitness enthusiast who was [featured in a Men's Health article](https://www.menshealth.com/fitness/a42690650/work-out-1000-straight-days-rajiv-pant/) about his commitment to working out for at least daily for 1,000+ consecutive days.
 
