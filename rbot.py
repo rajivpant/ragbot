@@ -32,18 +32,16 @@ import yaml
 import json
 import openai
 import anthropic
+from helpers import load_decorator_files, load_config
 
 load_dotenv()  # Load environment variables from .env file
 
-# Function to load configuration from YAML
-def load_config(config_file):
-    with open(config_file, 'r') as stream:
-        return yaml.safe_load(stream)
 
 # Load configuration from engines.yaml
 config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
+
 
 
 def chat(
@@ -182,17 +180,7 @@ def main():
         # Load default decorators from .env file
         default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
         default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
-
-        for decorator_path in default_decorator_paths + args.decorator:
-            if os.path.isfile(decorator_path):
-                with open(decorator_path, "r") as file:
-                    decorators.append(file.read())
-                    decorator_files.append(decorator_path)  # save file name
-            elif os.path.isdir(decorator_path):
-                for filepath in glob.glob(os.path.join(decorator_path, "*")):
-                    with open(filepath, "r") as file:
-                        decorators.append(file.read())
-                        decorator_files.append(filepath)  # save file name
+        decorators, decorator_files = load_decorator_files(default_decorator_paths + args.decorator)
 
     if decorator_files:
         print("Decorators being used:")
