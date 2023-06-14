@@ -116,6 +116,7 @@ def main():
     st.title("rbot: AI augmented brain assistant")
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
     model = st.selectbox("Choose a model", options=engines_config[engine]['models'], index=engines_config[engine]['models'].index(engines_config[engine]['default_model']))
+    temperature = st.slider("Creativity temperature", min_value=0.0, max_value=1.0, value=0.75, step=0.01)
 
     # Get default decorator paths from environment variable and populate the text area
     default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
@@ -140,7 +141,7 @@ def main():
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=engine, model=model)
+        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=engine, model=model, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
         st.write(f"rbot:\n{reply}")
 
