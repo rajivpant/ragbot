@@ -3,8 +3,8 @@ engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     endpoint: /v1/chat/completions
-    models: [gpt-4, gpt-4-32k, gpt-3.5-turbo]
-    default_model: gpt-4
+    models: [gpt-4-32k, gpt-3.5-turbo-16k, gpt-4, gpt-3.5-turbo]
+    default_model: gpt-3.5-turbo-16k
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     endpoint: /v1/complete
