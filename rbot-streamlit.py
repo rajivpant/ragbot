@@ -103,8 +103,9 @@ def chat(
     elif engine == "anthropic":
         # Call the Anthropic API
         c = anthropic.Client(anthropic.api_key)
+        decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
         resp = c.completion(
-            prompt=f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}",
+            prompt=decorated_prompt,
             stop_sequences=[anthropic.HUMAN_PROMPT],
             model=model,
             max_tokens_to_sample=max_tokens,
