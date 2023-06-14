@@ -2,5 +2,7 @@ python-dotenv
 pyyaml
 streamlit
 watchdog
+appdirs
+pathlib
 openai
 anthropic

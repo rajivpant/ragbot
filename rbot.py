@@ -30,9 +30,19 @@ import argparse
 import re
 import yaml
 import json
+import appdirs
 import openai
 import anthropic
-from helpers import load_decorator_files, load_config
+from helpers import load_decorator_files, load_config, print_saved_files
+
+
+appname = "rbot"
+appauthor = "Rajiv Pant"
+
+data_dir = appdirs.user_data_dir(appname, appauthor)
+sessions_data_dir = os.path.join(data_dir, "sessions")
+
+
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -122,22 +132,29 @@ def main():
     parser = argparse.ArgumentParser(
         description="A GPT-4 or Anthropic Claude based chatbot that generates responses based on user prompts."
     )
-    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument(
+        "-ls",
+        "--list-saved",
+        action="store_true",
+        help="List all the currently saved JSON files."
+    )
+    input_group2 = parser.add_mutually_exclusive_group()
+    input_group2.add_argument(
         "-p", "--prompt", help="The user's input to generate a response for."
     )
-    input_group.add_argument(
+    input_group2.add_argument(
         "-f",
         "--prompt_file",
         help="The file containing the user's input to generate a response for.",
     )
-    input_group.add_argument(
+    input_group2.add_argument(
         "-i",
         "--interactive",
         action="store_true",
         help="Enable interactive assistant chatbot mode.",
     )
-    input_group.add_argument(
+    input_group2.add_argument(
         "--stdin",
         action="store_true",
         help="Read the user's input from stdin."
@@ -173,6 +190,14 @@ def main():
     known_args = parser.parse_known_args()
     args = known_args[0]
 
+    if args.list_saved:
+        print_saved_files(data_dir)
+        return
+
+    if args.load:
+        args.interactive = True  # Automatically enable interactive mode when loading a session
+        args.nodecorator = True  # Do not load decorator files when loading a session
+
     decorators = []
     decorator_files = []  # to store file names of decorators
 
@@ -198,8 +223,11 @@ def main():
             }
         )
     if args.load:
-        with open(args.load, 'r') as f:
+        filename = args.load.strip()  # Remove leading and trailing spaces
+        full_path = os.path.join(sessions_data_dir, filename)
+        with open(full_path, 'r') as f:
             history = json.load(f)
+
     model = args.model
     if model is None:
         model = engines_config[args.engine]['default_model']
@@ -224,10 +252,12 @@ def main():
             if prompt.lower() == "/quit":
                 break
             elif prompt.lower().startswith("/save "):
-                filename = prompt[5:]
-                with open(filename, 'w') as f:
+                filename = prompt[6:].strip()  # Remove leading '/save ' and spaces
+                full_path = os.path.join(sessions_data_dir, filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                with open(full_path, 'w') as f:
                     json.dump(history, f)
-                print(f"Conversation saved to {filename}")
+                print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
             reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model)

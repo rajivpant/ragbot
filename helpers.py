@@ -5,7 +5,7 @@
 import os
 import glob
 import yaml
-
+import pathlib
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -31,3 +31,9 @@ def load_decorator_files(decorator_path):
                         decorator_files.append(filepath)  # save file name
     return decorators, decorator_files
 
+
+def print_saved_files(directory):
+    sessions_directory = os.path.join(directory, "sessions")
+    print("Currently saved JSON files:")
+    for file in pathlib.Path(sessions_directory).glob("*.json"):
+        print(f" - {file.name}")
