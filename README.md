@@ -53,19 +53,20 @@ See [INSTALL.md](INSTALL.md)
 Usage
 -----
 
-### Getting help
+### Command line usage: Getting help
 
 ```console
-rajiv@RP-2023-MacBook-Air rbot % ./rbot.py --help 
-usage: rbot.py [-h] (-p PROMPT | -f PROMPT_FILE | -i | --stdin)
+rajiv@RP-2023-MacBook-Air rbot % ./rbot.py -h                                
+usage: rbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
                [-d [DECORATOR ...]] [-l LOAD] [-e {openai,anthropic}]
-               [-m MODEL]
+               [-m MODEL] [-t TEMPERATURE] [-nd]
 
 A GPT-4 or Anthropic Claude based chatbot that generates responses based on
 user prompts.
 
 options:
   -h, --help            show this help message and exit
+  -ls, --list-saved     List all the currently saved JSON files.
   -p PROMPT, --prompt PROMPT
                         The user's input to generate a response for.
   -f PROMPT_FILE, --prompt_file PROMPT_FILE
@@ -82,6 +83,10 @@ options:
   -m MODEL, --model MODEL
                         The model to use for the chat. Defaults to engine's
                         default model.
+  -t TEMPERATURE, --temperature TEMPERATURE
+                        The creativity of the response, with higher values
+                        being more creative (default is 0.75).
+  -nd, --nodecorator    Ignore all decorators even if they are specified.
 rajiv@RP-2023-MacBook-Air rbot % 
 ```
 
