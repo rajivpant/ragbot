@@ -180,7 +180,13 @@ def main():
         "--model",
         help="The model to use for the chat. Defaults to engine's default model.",
     )
-    
+    parser.add_argument(
+        "-t",
+        "--temperature",
+        type=float,
+        default=0.75,
+        help="The creativity of the response, with higher values being more creative (default is 0.75).",
+    )
     parser.add_argument(
         "-nd", "--nodecorator",
         action="store_true",
@@ -243,7 +249,7 @@ def main():
         anthropic.api_key = engines_config[args.engine]['api_key']
 
     print(f"Using AI engine {args.engine} with model {model}")
-
+    print(f"Creativity temperature setting: {args.temperature}")
 
     if args.interactive:
         print("Entering interactive mode.")
@@ -260,7 +266,7 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model)
+            reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, temperature=args.temperature)
             history.append({"role": "assistant", "content": reply})
             print(f"rbot: {reply}")
     else:
@@ -276,7 +282,7 @@ def main():
                 prompt = "".join(stdin).strip()
 
         history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model)
+        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, temperature=args.temperature)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
