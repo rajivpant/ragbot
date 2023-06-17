@@ -2,7 +2,7 @@ Configuration and personalization instructions for rbot
 =======================================================
 
 ### Configuring rbot
-If you haven't already downloaded and installed rbot, read the [installation guide](INSTALL.MD).
+If you haven't already downloaded and installed rbot, read the [installation guide](INSTALL.md).
 
 After successfully installing the dependencies, rbot needs to be configured using an environment file (.env). This file contains important configuration settings, such as API keys and the paths to decorator files.
 
