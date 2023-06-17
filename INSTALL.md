@@ -81,7 +81,7 @@ Once you have Python and pip installed, you can download the rbot code from its 
     ```
 
 4.  You're all set to configure, personalize, and run rbot!
-    Read the [configuration and personaliation guide](CONFIGURE.MD) and the [main documentation](README.md).
+    Read the [configuration and personaliation guide](CONFIGURE.md) and the [main documentation](README.md).
 
 * * * * *
 

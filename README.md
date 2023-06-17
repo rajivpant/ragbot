@@ -48,7 +48,7 @@ My ability to create distinct profiles for different needs using customized deco
 
 Installation, Configuration, and Personalization
 ------------------------------------------------
-Read the [installation guide](INSTALL.MD) and the [configuration and personaliation guide](CONFIGURE.MD).
+Read the [installation guide](INSTALL.md) and the [configuration and personaliation guide](CONFIGURE.md).
 
 Using the Web version
 ---------------------
