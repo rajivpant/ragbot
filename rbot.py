@@ -58,10 +58,10 @@ def chat(
     prompt,
     decorators,
     model,
-    max_tokens=1000,
+    max_tokens=None,
     stream=True,
     request_timeout=15,
-    temperature=0.75,
+    temperature=None,
     history=None,
     engine="openai",
 ):
@@ -184,8 +184,14 @@ def main():
         "-t",
         "--temperature",
         type=float,
-        default=0.75,
+        default=None,
         help="The creativity of the response, with higher values being more creative (default is 0.75).",
+    )
+    parser.add_argument(
+    "-mt", "--max_tokens",
+    type=int,
+    default=None,
+    help="The maximum number of tokens to generate in the response (default is 1000).",
     )
     parser.add_argument(
         "-nd", "--nodecorator",
@@ -248,8 +254,17 @@ def main():
     elif args.engine == 'anthropic':
         anthropic.api_key = engines_config[args.engine]['api_key']
 
+    # Get the default max_tokens and temperature from the engines.yaml configuration
+    default_max_tokens = engines_config[args.engine].get("max_tokens")
+    default_temperature = engines_config[args.engine].get("temperature")
+
+    # Use the default values if not provided by the user
+    max_tokens = args.max_tokens or default_max_tokens
+    temperature = args.temperature or default_temperature
+
     print(f"Using AI engine {args.engine} with model {model}")
-    print(f"Creativity temperature setting: {args.temperature}")
+    print(f"Creativity temperature setting: {temperature}")
+    print(f"Max tokens setting: {max_tokens}")
 
     if args.interactive:
         print("Entering interactive mode.")
@@ -266,7 +281,7 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, temperature=args.temperature)
+            reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature)
             history.append({"role": "assistant", "content": reply})
             print(f"rbot: {reply}")
     else:
@@ -282,7 +297,7 @@ def main():
                 prompt = "".join(stdin).strip()
 
         history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, temperature=args.temperature)
+        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
