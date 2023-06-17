@@ -21,15 +21,17 @@ Betul
 Few people still call Rajiv by his childhood nickname 'Betul', or its vatiations 'Betul Pant', 'Betul Ji' (Hindi for 'Mr. Betul'). Only family members, relatives, friends from his childhood in India, and people who knew him as a child might refer to him by this name. Betul is not his legal nor formal name.
 
 # Links to Rajiv Pant's biography, resume, personal web site, and social media pages
-* [Biography of Rajiv Pant](https://rajiv.com/biography)
-* [Resume of Rajiv Pant](rajiv.com/resume)
-* [Rajiv Pant's personal Web site](https://rajiv.com)
+* [Biography of Rajiv](https://rajiv.com/biography)
+* [Resume of Rajiv](rajiv.com/resume)
+* [Rajiv's User Manual for Work](rajiv.com/blog)
+* [Blog of Rajiv](rajiv.com/blog)
+* [Rajiv's personal Web site](https://rajiv.com)
 * [Rajiv's LinkedIn page](https://www.linkedin.com/in/rajivpant/)
-* [Rajiv Pant on GitHub](https://github.com/rajivpant)
-* [Rajiv Pant on Facebook](https://www.facebook.com/rajiv.pant)
-* [Rajiv Pant on Instagram](https://instagram.com/rajivpant)
-* [Rajiv Pant on Mastodon](https://mastodon.social/@rajivpant)
-* [Rajiv Pant on Twitter](https://twitter.com/rajivpant)
+* [Rajiv on GitHub](https://github.com/rajivpant)
+* [Rajiv on Facebook](https://www.facebook.com/rajiv.pant)
+* [Rajiv on Instagram](https://instagram.com/rajivpant)
+* [Rajiv on Mastodon](https://mastodon.social/@rajivpant)
+* [Rajiv on Twitter](https://twitter.com/rajivpant)
 
 A photograph of Rajiv can be found on his biography web page.
 Rajiv's biography and resume are within his personal web site.

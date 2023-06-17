@@ -46,14 +46,14 @@ In addition to the use cases mentioned above, I can be tailored to support you o
 
 My ability to create distinct profiles for different needs using customized decorator files sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
 
-Installation
-------------
-See [INSTALL.md](INSTALL.md)
+Installation, Configuration, and Personalization
+------------------------------------------------
+Read the [installation guide](INSTALL.MD) and the [configuration and personaliation guide](CONFIGURE.MD).
 
 Using the Web version
 ---------------------
 ![](screenshots/Screenshot%202023-06-16%20at%2010.53.12%20PM.png)
-![](screenshots/Screenshot%202023-06-16%20at%209.40.41%20PM.png)
+![](screenshots/Screenshot%202023-06-16%20at%2011.32.51%20PM.png)
 
 Using the command line interface
 --------------------------------

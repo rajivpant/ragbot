@@ -1,5 +1,5 @@
 Installation Instructions for rbot
---------------------------------------
+==================================
 
 Below are the step-by-step instructions for all the prerequisites needed to install rbot. Please follow the section that corresponds to your operating system: Mac, Windows, or Linux.
 
@@ -80,46 +80,10 @@ Once you have Python and pip installed, you can download the rbot code from its 
     pip install -r requirements.txt
     ```
 
-4.  You're all set to configure and run rbot!
+4.  You're all set to configure, personalize, and run rbot!
+    Read the [configuration and personaliation guide](CONFIGURE.MD) and the [main documentation](README.md).
 
 * * * * *
 
 Remember, while Visual Studio Code is a popular and powerful IDE, its installation is entirely optional. You may use any other text editor or IDE you're comfortable with to explore and contribute to the rbot project. Happy coding!
 
-### Configuring rbot
-
-After successfully installing the dependencies, rbot needs to be configured using an environment file (.env). This file contains important configuration settings, such as API keys and the paths to decorator files.
-
-1.  Navigate to the rbot directory (if not already there):
-
-```bash
-cd rbot
-```
-
-2.  Make a copy of the `example.env` file and name it `.env`:
-
-```bash
-cp example.env .env
-```
-
-3.  Open the `.env` file in your preferred text editor. Replace `<Your-OpenAI-API-Key>` and `<Your-Anthropic-API-Key>` with your actual API keys. Also, replace the sample paths inside `DECORATORS` with the paths to your decorator files or folders.
-
-4.  Save the `.env` file and close it.
-
-Now, rbot is configured and ready to be run!
-
-1.  Run rbot:
-
-Command line version rbot.py
-```bash
-python rbot.py --help
-```
-
-Web browser version, rbot-streamlit.py locally on your computer.
-```bash
-streamlit run ./rbot-streamlit.py
-```
-
-* * * * *
-
-Remember, the `.env` file contains sensitive information such as API keys, so it should never be shared or published. Make sure to add `.env` to your `.gitignore` file to prevent it from being tracked by git.
