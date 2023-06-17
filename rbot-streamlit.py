@@ -154,7 +154,9 @@ def main():
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, decorators=decorators, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
-        st.write(f"rbot:\n{reply}")
+        st.write(f"rbot:")
+        st.write(f"{reply}")
+
 
 
 if __name__ == "__main__":
