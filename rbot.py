@@ -164,9 +164,9 @@ def main():
         help="Path to the conversation decorator file or folder. Can accept multiple values."
     )
     parser.add_argument(
-        "-l",
-        "--load",
-        help="Load a previous session from a file.",
+        "-nd", "--nodecorator",
+        action="store_true",
+        help="Ignore all decorators even if they are specified."
     )
     parser.add_argument(
         "-e",
@@ -185,18 +185,18 @@ def main():
         "--temperature",
         type=float,
         default=None,
-        help="The creativity of the response, with higher values being more creative (default is 0.75).",
+        help="The creativity of the response, with higher values being more creative.",
     )
     parser.add_argument(
     "-mt", "--max_tokens",
     type=int,
     default=None,
-    help="The maximum number of tokens to generate in the response (default is 1000).",
+    help="The maximum number of tokens to generate in the response.",
     )
     parser.add_argument(
-        "-nd", "--nodecorator",
-        action="store_true",
-        help="Ignore all decorators even if they are specified."
+        "-l",
+        "--load",
+        help="Load a previous interactive session from a file.",
     )
 
     known_args = parser.parse_known_args()
@@ -209,7 +209,7 @@ def main():
     if args.load:
         args.interactive = True  # Automatically enable interactive mode when loading a session
         args.nodecorator = True  # Do not load decorator files when loading a session
-
+ 
     decorators = []
     decorator_files = []  # to store file names of decorators
 
@@ -239,6 +239,7 @@ def main():
         full_path = os.path.join(sessions_data_dir, filename)
         with open(full_path, 'r') as f:
             history = json.load(f)
+        print(f"Continuing previously saved session from file: {filename}")
 
     model = args.model
     if model is None:

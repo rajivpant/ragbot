@@ -50,16 +50,21 @@ Installation
 ------------
 See [INSTALL.md](INSTALL.md)
 
-Usage
------
+Using the Web version
+---------------------
+![](screenshots/Screenshot%202023-06-16%20at%2010.53.12%20PM.png)
+![](screenshots/Screenshot%202023-06-16%20at%209.40.41%20PM.png)
+
+Using the command line interface
+--------------------------------
 
 ### Command line usage: Getting help
 
 ```console
-rajiv@RP-2023-MacBook-Air rbot % ./rbot.py -h                                
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -h                         
 usage: rbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
-               [-d [DECORATOR ...]] [-l LOAD] [-e {openai,anthropic}]
-               [-m MODEL] [-t TEMPERATURE] [-nd]
+               [-d [DECORATOR ...]] [-nd] [-e {openai,anthropic}] [-m MODEL]
+               [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
 
 A GPT-4 or Anthropic Claude based chatbot that generates responses based on
 user prompts.
@@ -77,7 +82,7 @@ options:
   -d [DECORATOR ...], --decorator [DECORATOR ...]
                         Path to the conversation decorator file or folder. Can
                         accept multiple values.
-  -l LOAD, --load LOAD  Load a previous session from a file.
+  -nd, --nodecorator    Ignore all decorators even if they are specified.
   -e {openai,anthropic}, --engine {openai,anthropic}
                         The engine to use for the chat.
   -m MODEL, --model MODEL
@@ -85,9 +90,12 @@ options:
                         default model.
   -t TEMPERATURE, --temperature TEMPERATURE
                         The creativity of the response, with higher values
-                        being more creative (default is 0.75).
-  -nd, --nodecorator    Ignore all decorators even if they are specified.
-rajiv@RP-2023-MacBook-Air rbot % 
+                        being more creative.
+  -mt MAX_TOKENS, --max_tokens MAX_TOKENS
+                        The maximum number of tokens to generate in the
+                        response.
+  -l LOAD, --load LOAD  Load a previous interactive session from a file.
+rajivpant@RP-2021-MacBook-Pro rbot % 
 ```
 
 ### Using decorator files
