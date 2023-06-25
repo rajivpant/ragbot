@@ -1,0 +1,3 @@
+#!/bin/bash
+# Shell script shortcut to run rbot.py
+python3 rbot.py "$@"
