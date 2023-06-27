@@ -52,6 +52,7 @@ config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
 
+default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
 
 def chat(
@@ -243,7 +244,7 @@ def main():
 
     model = args.model
     if model is None:
-        model = engines_config[args.engine]['default_model']
+        model = default_models[args.engine]
 
     # Get the engine API key from environment variable
     api_key_name = engines_config[args.engine].get('api_key_name')
@@ -255,9 +256,15 @@ def main():
     elif args.engine == 'anthropic':
         anthropic.api_key = engines_config[args.engine]['api_key']
 
+
     # Get the default max_tokens and temperature from the engines.yaml configuration
-    default_max_tokens = engines_config[args.engine].get("max_tokens")
-    default_temperature = engines_config[args.engine].get("temperature")
+    selected_model = next((item for item in engines_config[args.engine]['models'] if item['name'] == model), None)
+    if selected_model:
+        default_temperature = selected_model['temperature']
+        default_max_tokens = selected_model['max_tokens']
+    else:
+        default_temperature = 0.75
+        default_max_tokens = 1024
 
     # Use the default values if not provided by the user
     max_tokens = args.max_tokens or default_max_tokens
@@ -296,6 +303,10 @@ def main():
             stdin = sys.stdin.readlines()
             if stdin:
                 prompt = "".join(stdin).strip()
+
+        if prompt is None:
+            print("Error: No prompt provided. Please provide a prompt using -p, -f, or -i option.")
+            sys.exit(1)
 
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature)

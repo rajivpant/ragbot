@@ -40,9 +40,10 @@ config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
 
-# Read default values from the configuration file
-default_max_tokens = config.get('max_tokens', 1000)
-default_temperature = config.get('temperature', 0.75)
+model_choices = {engine: [model['name'] for model in engines_config[engine]['models']] for engine in engine_choices}
+
+default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
+
 
 
 def chat(
@@ -120,11 +121,16 @@ def chat(
 def main():
     st.title("rbot: AI augmented brain assistant")
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
-    model = st.selectbox("Choose a model", options=engines_config[engine]['models'], index=engines_config[engine]['models'].index(engines_config[engine]['default_model']))
+    model = st.selectbox("Choose a model", options=model_choices[engine], index=model_choices[engine].index(default_models[engine]))
 
-    # Get the default temperature and max_tokens for the selected engine
-    default_temperature = engines_config[engine].get('temperature', config.get('temperature', 0.75))
-    default_max_tokens = engines_config[engine].get('max_tokens', config.get('max_tokens', 1000))
+    # Find the selected model in the engines config and get default temperature and tokens
+    selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
+    if selected_model:
+        default_temperature = selected_model['temperature']
+        default_max_tokens = selected_model['max_tokens']
+    else:
+        default_temperature = 0.75
+        default_max_tokens = 1024
 
     temperature = st.slider("Creativity temperature", min_value=0.0, max_value=1.0, value=default_temperature, step=0.01)
     max_tokens = st.slider("Max tokens", min_value=1, max_value=2048, value=default_max_tokens, step=1)
