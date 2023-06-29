@@ -54,6 +54,7 @@ engine_choices = list(engines_config.keys())
 
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
+added_decorators = False
 
 def chat(
     prompt,
@@ -80,6 +81,7 @@ def chat(
     :param engine: The engine to use for the chat, 'openai' or 'anthropic' (default is 'openai').
     :return: The generated response text from the model.
     """
+    global added_decorators
     if engine == "openai":
         # Configure the arguments for the OpenAI API
         args = {
@@ -115,9 +117,13 @@ def chat(
                 response += text
         return response
     elif engine == "anthropic":
+        if not added_decorators and decorators:
+            decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
+            added_decorators = True
+        else:
+            decorated_prompt = f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}"
         # Call the Anthropic API
         c = anthropic.Client(anthropic.api_key)
-        decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
         resp = c.completion(
             prompt=decorated_prompt,
             stop_sequences=[anthropic.HUMAN_PROMPT],
@@ -128,8 +134,9 @@ def chat(
 
 
 
-
 def main():
+    global added_decorators
+
     parser = argparse.ArgumentParser(
         description="A GPT-4 or Anthropic Claude based chatbot that generates responses based on user prompts."
     )
@@ -207,10 +214,14 @@ def main():
         print_saved_files(data_dir)
         return
 
+    new_session = False  # Variable to track if this is a new session
+
     if args.load:
         args.interactive = True  # Automatically enable interactive mode when loading a session
         args.nodecorator = True  # Do not load decorator files when loading a session
- 
+    else:
+        new_session = True  # This is a new session
+
     decorators = []
     decorator_files = []  # to store file names of decorators
 
@@ -277,6 +288,7 @@ def main():
 
     if args.interactive:
         print("Entering interactive mode.")
+        added_decorators = False
         while True:
             prompt = input("\nEnter prompt below. /quit to exit or /save file_name.json to save conversation.\n> ")
             if prompt.lower() == "/quit":
@@ -293,6 +305,10 @@ def main():
             reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature)
             history.append({"role": "assistant", "content": reply})
             print(f"rbot: {reply}")
+            if new_session and args.engine == "anthropic":
+                    added_decorators = False  # Reset decorators flag after each user prompt
+            
+
     else:
         prompt = None
         if args.prompt:
@@ -310,6 +326,9 @@ def main():
             sys.exit(1)
 
         history.append({"role": "user", "content": prompt})
+        if args.engine == "anthropic":
+            added_decorators = False  # Reset decorators flag before each user prompt
+
         reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
