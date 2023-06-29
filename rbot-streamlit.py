@@ -129,10 +129,26 @@ def main():
         default_temperature = selected_model['temperature']
         default_max_tokens = selected_model['max_tokens']
     else:
-        default_temperature = 0.75
+        default_temperature = default_temperature = temperature_creative
         default_max_tokens = 1024
 
-    temperature = st.slider("Creativity temperature", min_value=0.0, max_value=1.0, value=default_temperature, step=0.01)
+    temperature_precise = 0.20
+    temperature_balanced = 0.50
+    temperature_creative = 0.75
+
+    temperature_precise_label = "precise leaning " + "(" + str(temperature_precise) + ")"
+    temperature_balanced_label = "balanced " + "(" + str(temperature_balanced) + ")"
+    temperature_creative_label = "creative leaning " + "(" + str(temperature_creative) + ")"
+    temperature_custom_label = "custom"
+
+    temperature_option = st.selectbox("Choose desired creativity option (called temperature)", options=[temperature_creative_label, temperature_balanced_label, temperature_precise_label, temperature_custom_label])
+    temperature_mapping = {temperature_creative_label: temperature_creative, temperature_balanced_label: temperature_balanced, temperature_precise_label: temperature_precise}
+
+    if temperature_option == temperature_custom_label:
+        temperature = st.number_input("Enter a custom temperature", min_value=0.0, max_value=1.0, value=default_temperature, step=0.01)
+    else:
+        temperature = temperature_mapping[temperature_option]
+
     max_tokens = st.slider("Max tokens", min_value=1, max_value=2048, value=default_max_tokens, step=1)
 
     # Get default decorator paths from environment variable and populate the text area
