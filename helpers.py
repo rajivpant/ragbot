@@ -11,8 +11,8 @@ import pathlib
 def load_config(config_file):
     """Load configuration from YAML."""
     with open(config_file, 'r') as stream:
-        return yaml.safe_load(stream)
-
+        config = yaml.safe_load(stream)
+    return config
 
 def load_decorator_files(decorator_path):
     """Load decorator files."""

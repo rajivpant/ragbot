@@ -3,11 +3,11 @@ rbot
 
 🤖 [rbot](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant chatbot currently utilizing OpenAI's GPT and Anthropic's Claude models to offer engaging conversations with a personalized touch and advanced context understanding.
 
-🚀 rbot processes user prompts and custom conversation decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
+🚀 rbot processes user prompts and custom prompt context decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 
-Custom decorators are a simpler way to achieve outcomes similar to those of Parameter-Efficient Fine-Tuning (PEFT) methods.
+Prompt context decorator decorators are a simpler way to achieve outcomes similar to those of Parameter-Efficient Fine-Tuning (PEFT) methods.
 
-🧠 Custom conversation decorators help the chatbot better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
+🧠 Prompt context decorators help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
 
 A web app for rbot is currently under development. Stay tuned for updates on this project!
 
@@ -61,7 +61,7 @@ Using the command line interface
 ### Command line usage: Getting help
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -h                         
+rajivpant@rp-2023-mac-mini rbot % ./rbot -h
 usage: rbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
                [-d [DECORATOR ...]] [-nd] [-e {openai,anthropic}] [-m MODEL]
                [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
@@ -80,9 +80,10 @@ options:
   -i, --interactive     Enable interactive assistant chatbot mode.
   --stdin               Read the user's input from stdin.
   -d [DECORATOR ...], --decorator [DECORATOR ...]
-                        Path to the conversation decorator file or folder. Can
-                        accept multiple values.
-  -nd, --nodecorator    Ignore all decorators even if they are specified.
+                        Path to the prompt context decorator file or folder.
+                        Can accept multiple values.
+  -nd, --nodecorator    Ignore all prompt context decorators even if they are
+                        specified.
   -e {openai,anthropic}, --engine {openai,anthropic}
                         The engine to use for the chat.
   -m MODEL, --model MODEL
@@ -95,12 +96,12 @@ options:
                         The maximum number of tokens to generate in the
                         response.
   -l LOAD, --load LOAD  Load a previous interactive session from a file.
-rajivpant@RP-2021-MacBook-Pro rbot % 
+rajivpant@rp-2023-mac-mini rbot % 
 ```
 
 ### Using decorator files
 
-To use rbot, you can provide conversation decorator files and/or folders containing multiple decorator files. You can view examples of decorator files at <https://github.com/rajivpant/rbot/tree/main/fine-tuning>
+To use rbot, you can provide prompt context decorator files and/or folders containing multiple decorator files. You can view examples of decorator files at <https://github.com/rajivpant/rbot/tree/main/fine-tuning>
 
 Example 1:
 
