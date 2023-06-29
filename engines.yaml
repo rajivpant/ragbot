@@ -1,3 +1,5 @@
+# engines.yaml is a YAML file that contains the configuration for the AI engines and models.
+# Note: The default max tokens is used when the max tokens is not specified in the request.
 engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
@@ -19,6 +21,7 @@ engines:
         max_tokens: 1024
         max_temperature: 1
         temperature: 0.75
+    # The default model for the engine in use is used when the model is not specified in the request.
     default_model: gpt-3.5-turbo-16k
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
@@ -40,5 +43,12 @@ engines:
         max_tokens: 1024
         max_temperature: 1
         temperature: 0.75
+    # The default model for the engine in use is used when the model is not specified in the request.
     default_model: claude-instant-v1-100k
+# The default engine is used when the engine is not specified in the request.
 default: openai
+# These are the preset creativity temperature settings for the engine and model.
+temperature_settings:
+  precise: 0.20
+  balanced: 0.50
+  creative: 0.75

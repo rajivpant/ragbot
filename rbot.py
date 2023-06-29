@@ -11,13 +11,13 @@
 # to offer engaging conversations
 # with a personalized touch and advanced context understanding.
 #
-# 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom conversation decorators,
+# 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom  prompt context decorators,
 # enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 #
-# Custom decorators are a simpler way to achieve outcomes similar to those of
+# Prompt context decorators are a simpler way to achieve outcomes similar to those of
 # Parameter-Efficient Fine-Tuning (PEFT) methods.
 # 
-# 🧠 Custom conversation decorators help the chatbot better understand the context,
+# 🧠 Prompt context decorators help the AI assistant better understand the context,
 # resulting in more accurate and relevant responses, surpassing the capabilities of
 # out of the box GPT-4 implementations.
 
@@ -70,7 +70,7 @@ def chat(
     Send a request to the OpenAI or Anthropic API with the provided prompt and decorators.
 
     :param prompt: The user's input to generate a response for.
-    :param decorators: A list of decorators to provide context for the model.
+    :param decorators: A list of prompt context decorators to provide context for the model.
     :param model: The name of the GPT model to use.
     :param max_tokens: The maximum number of tokens to generate in the response (default is 1000).
     :param stream: Whether to stream the response from the API (default is True).
@@ -162,12 +162,12 @@ def main():
     )
     parser.add_argument(
         "-d", "--decorator", nargs='*', default=[],
-        help="Path to the conversation decorator file or folder. Can accept multiple values."
+        help="Path to the prompt context decorator file or folder. Can accept multiple values."
     )
     parser.add_argument(
         "-nd", "--nodecorator",
         action="store_true",
-        help="Ignore all decorators even if they are specified."
+        help="Ignore all prompt context decorators even if they are specified."
     )
     parser.add_argument(
         "-e",

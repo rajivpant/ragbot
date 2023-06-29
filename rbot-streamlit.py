@@ -11,13 +11,13 @@
 # to offer engaging conversations
 # with a personalized touch and advanced context understanding.
 #
-# 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom conversation decorators,
+# 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom prompt context decorators,
 # enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 #
-# Custom decorators are a simpler way to achieve outcomes similar to those of
+# Prompt context decorators are a simpler way to achieve outcomes similar to those of
 # Parameter-Efficient Fine-Tuning (PEFT) methods.
 # 
-# 🧠 Custom conversation decorators help the chatbot better understand the context,
+# 🧠 Prompt context decorators help the AI assistant better understand the context,
 # resulting in more accurate and relevant responses, surpassing the capabilities of
 # out of the box GPT-4 implementations.
 
@@ -38,6 +38,7 @@ load_dotenv() # Load environment variables from .env file
 # Load configuration from engines.yaml
 config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
+temperature_settings = config.get('temperature_settings', {})
 engine_choices = list(engines_config.keys())
 
 model_choices = {engine: [model['name'] for model in engines_config[engine]['models']] for engine in engine_choices}
@@ -132,9 +133,9 @@ def main():
         default_temperature = default_temperature = temperature_creative
         default_max_tokens = 1024
 
-    temperature_precise = 0.20
-    temperature_balanced = 0.50
-    temperature_creative = 0.75
+    temperature_precise = temperature_settings.get('precise', 0.20)
+    temperature_balanced = temperature_settings.get('balanced', 0.50)
+    temperature_creative = temperature_settings.get('creative', 0.75)
 
     temperature_precise_label = "precise leaning " + "(" + str(temperature_precise) + ")"
     temperature_balanced_label = "balanced " + "(" + str(temperature_balanced) + ")"
@@ -155,7 +156,7 @@ def main():
     default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
     # Remove any blank lines
     default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
-    decorator_path = st.text_area("Enter decorator path (files and/or directories)", "\n".join(default_decorator_paths))
+    decorator_path = st.text_area("Enter prompt context decorator path (files and/or directories)", "\n".join(default_decorator_paths))
 
     prompt = st.text_area("Enter your prompt here")
 
