@@ -22,6 +22,7 @@
 # out of the box GPT-4 implementations.
 
 from dotenv import load_dotenv
+from datetime import datetime
 import streamlit as st
 import glob
 import os
@@ -150,7 +151,18 @@ def main():
     else:
         temperature = temperature_mapping[temperature_option]
 
-    max_tokens = st.slider("Max tokens", min_value=1, max_value=2048, value=default_max_tokens, step=1)
+    # Get the index of the default max_tokens in the options list
+    default_max_tokens_index = ["256", "512", "1024", "2048", "custom"].index(str(default_max_tokens))
+
+    st.write("Max tokens is the maximum number of tokens to generate in the response. For English text, 100 tokens is on average about 75 words.")
+    max_tokens_option = st.selectbox("Choose max_tokens", options=["256", "512", "1024", "2048", "custom"], index=default_max_tokens_index)
+
+    max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048}
+
+    if max_tokens_option == "custom":
+        max_tokens = st.number_input("Enter a custom value for max_tokens", min_value=1, max_value=2048, value=default_max_tokens, step=128)
+    else: 
+        max_tokens = max_tokens_mapping[max_tokens_option]
 
     # Get default decorator paths from environment variable and populate the text area
     default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
@@ -171,7 +183,12 @@ def main():
     elif engine == 'anthropic':
         anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
 
-    st.write(f"Using AI engine {engine} with model {model}")
+    # Get the current date and time
+    now = datetime.now()
+    # Convert to a string in the format of "2021/January/01 01:01 AM (UTC)"
+    date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
+
+    st.write(f"Using AI engine {engine} with model {model}. Creativity temperature set to {temperature} and max_tokens set to {max_tokens}. The current date and time is {date_and_time}.")
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
