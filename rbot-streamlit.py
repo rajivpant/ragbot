@@ -33,6 +33,8 @@ import openai
 import anthropic
 from helpers import load_decorator_files, load_config
 
+from langchain.llms import OpenAI, OpenAIChat, Anthropic
+
 load_dotenv() # Load environment variables from .env file
 
 
@@ -99,25 +101,36 @@ def chat(
             history.append({"role": "user", "content": prompt})
             args["messages"] = history
 
-        # Call the OpenAI API and build the response
-        completion_method = openai.ChatCompletion.create
-        response = ""
-        for token in completion_method(**args):
-            text = token["choices"][0]["delta"].get("content")
-            if text:
-                response += text
-        return response
-    elif engine == "anthropic":
-        # Call the Anthropic API
-        c = anthropic.Client(anthropic.api_key)
+#        # Call the OpenAI API and build the response
+#        completion_method = openai.ChatCompletion.create
+#        response = ""
+#        for token in completion_method(**args):
+#            text = token["choices"][0]["delta"].get("content")
+#            if text:
+#                response += text
+
+        # Call the OpenAI API via LangChain
+        model = OpenAIChat(openai_api_key=openai.api_key, model=model, temperature=temperature, max_tokens=max_tokens, prefix_messages=history)
+        response = model(prompt)
+
+    elif engine == "anthropic":        
+#        # Call the Anthropic API
+#        c = anthropic.Client(anthropic.api_key)
+#        decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
+#        resp = c.completion(
+#            prompt=decorated_prompt,
+#            stop_sequences=[anthropic.HUMAN_PROMPT],
+#            model=model,
+#            max_tokens_to_sample=max_tokens,
+#        )
+#        return resp['completion']
+
+        # Call the Anthropic API via LangChain
         decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
-        resp = c.completion(
-            prompt=decorated_prompt,
-            stop_sequences=[anthropic.HUMAN_PROMPT],
-            model=model,
-            max_tokens_to_sample=max_tokens,
-        )
-        return resp['completion']
+        model = Anthropic(anthropic_api_key=anthropic.api_key, model=model, temperature=temperature, max_tokens_to_sample=max_tokens)
+        response = model(decorated_prompt)
+
+    return response
 
 
 def main():
@@ -154,7 +167,7 @@ def main():
     # Get the index of the default max_tokens in the options list
     default_max_tokens_index = ["256", "512", "1024", "2048", "custom"].index(str(default_max_tokens))
 
-    st.write("Max tokens is the maximum number of tokens to generate in the response. For English text, 100 tokens is on average about 75 words.")
+    st.caption("Max tokens is the maximum number of tokens to generate in the response. For English text, 100 tokens is on average about 75 words.")
     max_tokens_option = st.selectbox("Choose max_tokens", options=["256", "512", "1024", "2048", "custom"], index=default_max_tokens_index)
 
     max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048}

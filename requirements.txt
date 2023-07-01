@@ -6,3 +6,4 @@ appdirs
 pathlib
 openai
 anthropic
+langchain
