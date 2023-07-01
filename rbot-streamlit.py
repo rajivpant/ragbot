@@ -31,7 +31,7 @@ import yaml
 import json
 import openai
 import anthropic
-from helpers import load_decorator_files, load_config
+from helpers import load_decorator_files, load_config, chat
 
 from langchain.llms import OpenAI, OpenAIChat, Anthropic
 
@@ -48,89 +48,6 @@ model_choices = {engine: [model['name'] for model in engines_config[engine]['mod
 
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
-
-
-def chat(
-    prompt,
-    decorators,
-    model,
-    max_tokens,
-    stream=True,
-    request_timeout=15,
-    temperature=0.75,
-    history=None,
-    engine="openai",
-):
-    """
-    Send a request to the OpenAI or Anthropic API with the provided prompt and decorators.
-
-    :param prompt: The user's input to generate a response for.
-    :param decorators: A list of decorators to provide context for the model.
-    :param model: The name of the GPT model to use.
-    :param max_tokens: The maximum number of tokens to generate in the response (default is 1000).
-    :param stream: Whether to stream the response from the API (default is True).
-    :param request_timeout: The request timeout in seconds (default is 15).
-    :param temperature: The creativity of the response, with higher values being more creative (default is 0.75).
-    :param history: The conversation history, if available (default is None).
-    :param engine: The engine to use for the chat, 'openai' or 'anthropic' (default is 'openai').
-    :return: The generated response text from the model.
-    """
-    if engine == "openai":
-        # Configure the arguments for the OpenAI API
-        args = {
-            "max_tokens": max_tokens,
-            "model": model,
-            "request_timeout": request_timeout,
-            "stream": stream,
-            "temperature": temperature,
-        }
-        # If conversation history is provided, pass it to the API
-        if history:
-            args["messages"] = history
-        else:
-            # If no history is provided, construct it from the decorators
-            history = []
-            for decorator in decorators:
-                history.append(
-                    {
-                        "role": "system",
-                        "content": decorator,
-                    }
-                )
-            # Add the user's prompt to the history
-            history.append({"role": "user", "content": prompt})
-            args["messages"] = history
-
-#        # Call the OpenAI API and build the response
-#        completion_method = openai.ChatCompletion.create
-#        response = ""
-#        for token in completion_method(**args):
-#            text = token["choices"][0]["delta"].get("content")
-#            if text:
-#                response += text
-
-        # Call the OpenAI API via LangChain
-        model = OpenAIChat(openai_api_key=openai.api_key, model=model, temperature=temperature, max_tokens=max_tokens, prefix_messages=history)
-        response = model(prompt)
-
-    elif engine == "anthropic":        
-#        # Call the Anthropic API
-#        c = anthropic.Client(anthropic.api_key)
-#        decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
-#        resp = c.completion(
-#            prompt=decorated_prompt,
-#            stop_sequences=[anthropic.HUMAN_PROMPT],
-#            model=model,
-#            max_tokens_to_sample=max_tokens,
-#        )
-#        return resp['completion']
-
-        # Call the Anthropic API via LangChain
-        decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
-        model = Anthropic(anthropic_api_key=anthropic.api_key, model=model, temperature=temperature, max_tokens_to_sample=max_tokens)
-        response = model(decorated_prompt)
-
-    return response
 
 
 def main():
