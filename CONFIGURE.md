@@ -22,25 +22,42 @@ cp example.env .env
 
 4.  Save the `.env` file and close it.
 
-### Running rbot
-
-1.  Run rbot:
-
-Command line version rbot.py
-```bash
-python rbot.py --help
-```
-
-Web browser version, rbot-streamlit.py locally on your computer.
-```bash
-streamlit run ./rbot-streamlit.py
-```
-
-Read the [main documentation](README.md) for examples and more information about rbot.
-
 * * * * *
 
 Remember, the `.env` file contains sensitive information such as API keys, so it should never be shared or published. Make sure to add `.env` to your `.gitignore` file to prevent it from being tracked by git.
+
+### Running rbot
+
+1.  View the rbot help file to see how to use its capabilities:
+
+Command line version rbot.py
+```bash
+./rbot --help
+```
+
+2. Run rbot to execute a prompt including knowledge from a file. (We'll personalize this later with your own data.)
+```bash
+./rbot -p "What is rbot?" -d ./README.md
+```
+
+```bash
+./rbot -p "Why should I use rbot?" -d ./README.md
+```
+
+You can also specify the model which you wish to use:
+
+```bash
+./rbot -p "Why should I use rbot?" -d ./README.md -m gpt-4
+```
+
+You can also run rbot in a web browser locally on your computer:
+
+```bash
+./rbot-web
+```
+![](screenshots/Cursor_and_rbot-streamlit_%C2%B7_Streamlit.png)
+
+Read the [main documentation](README.md) for examples and more information about rbot.
 
 ### Personalizing rbot
 
