@@ -9,6 +9,8 @@ import pathlib
 import openai
 import anthropic
 from langchain.llms import OpenAI, OpenAIChat, Anthropic
+from langchain.chat_models import ChatOpenAI, ChatAnthropic
+
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -71,36 +73,43 @@ def chat(
     :return: The generated response text from the model.
     """
     added_decorators = False
-    if engine == "openai":
-        # If no history is provided, construct it from the decorators
-        if not history:
-            history = []
-            for decorator in decorators:
-                history.append(
-                    {
-                        "role": "system",
-                        "content": decorator,
-                    }
-                )
-            # Add the user's prompt to the history
-            history.append({"role": "user", "content": prompt})
+    
+    match engine:
 
-        # Call the OpenAI API via LangChain
-        model = OpenAIChat(openai_api_key=openai.api_key, model=model, temperature=temperature, max_tokens=max_tokens, prefix_messages=history)
-        response = model(prompt)
+        case "openai":
+            # If no history is provided, construct it from the decorators
+            if not history:
+                history = []
+                for decorator in decorators:
+                    history.append(
+                        {
+                            "role": "system",
+                            "content": decorator,
+                        }
+                    )
+                # Add the user's prompt to the history
+                history.append({"role": "user", "content": prompt})
 
-    elif engine == "anthropic":   
-        if not added_decorators and decorators:
-            decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
-            added_decorators = True
-        else:
-            decorated_prompt = f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}"
-         # Call the Anthropic API via LangChain
-        model = Anthropic(anthropic_api_key=anthropic.api_key, model=model, temperature=temperature, max_tokens_to_sample=max_tokens)
-        response = model(decorated_prompt)
+            # Call the OpenAI API via LangChain
+            model = OpenAIChat(openai_api_key=openai.api_key, model=model, temperature=temperature, max_tokens=max_tokens, prefix_messages=history)
+            #model = ChatOpenAI(openai_api_key=openai.api_key, model=model, temperature=temperature, max_tokens=max_tokens, prefix_messages=history)
+            
+            response = model(prompt)
 
-    if interactive and new_session and engine == "anthropic":
-        added_decorators = False  # Reset decorators flag after each user prompt
+        case "anthropic":   
+            if not added_decorators and decorators:
+                decorated_prompt = f"{anthropic.HUMAN_PROMPT} {' '.join(decorators)} {prompt} {anthropic.AI_PROMPT}"
+                added_decorators = True
+            else:
+                decorated_prompt = f"{anthropic.HUMAN_PROMPT} {prompt} {anthropic.AI_PROMPT}"
+            # Call the Anthropic API via LangChain
+            model = Anthropic(anthropic_api_key=anthropic.api_key, model=model, temperature=temperature, max_tokens_to_sample=max_tokens)
+            #model = ChatAnthropic(anthropic_api_key=anthropic.api_key, model=model, temperature=temperature, max_tokens_to_sample=max_tokens)
+
+            response = model(decorated_prompt) 
+
+            if interactive and new_session and engine == "anthropic":
+                added_decorators = False  # Reset decorators flag after each user prompt
 
     return response
 
