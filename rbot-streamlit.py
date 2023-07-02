@@ -1,25 +1,5 @@
 #!/usr/bin/env python3
-
 # rbot-streamlit.py - https://github.com/rajivpant/rbot
-# Developed by Rajiv Pant (https://github.com/rajivpant)
-#
-# ❗️ This web app using streamlit is currently in development.
-# ❗️ It does not yet have the features in the rbot command line app rbot.py
-# 
-# 🤖 rbot: Rajiv's AI augmented brain, assistant, and chatbot
-# utilizing OpenAI's GPT and Anthropic's Claude models 
-# to offer engaging conversations
-# with a personalized touch and advanced context understanding.
-#
-# 🚀 Rajiv's GPT-4 based chatbot processes user prompts and custom prompt context decorators,
-# enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
-#
-# Prompt context decorators are a simpler way to achieve outcomes similar to those of
-# Parameter-Efficient Fine-Tuning (PEFT) methods.
-# 
-# 🧠 Prompt context decorators help the AI assistant better understand the context,
-# resulting in more accurate and relevant responses, surpassing the capabilities of
-# out of the box GPT-4 implementations.
 
 from dotenv import load_dotenv
 from datetime import datetime
