@@ -12,9 +12,11 @@ Prompt context decorator decorators are a simpler way to achieve outcomes simila
 A web app for rbot is currently under development. Stay tuned for updates on this project!
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
+
 Additional Contributors
 - [Alexandria Redmon](https://github.com/alexdredmon)
 - [Trace Wax](https://github.com/tracedwax)
+
 The first version was inspired by 
 - [Jim Mortko](https://github.com/jskills)
 
