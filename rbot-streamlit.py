@@ -70,7 +70,7 @@ def main():
     max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048}
 
     if max_tokens_option == "custom":
-        max_tokens = st.number_input("Enter a custom value for max_tokens", min_value=1, max_value=2048, value=default_max_tokens, step=128)
+        max_tokens = st.number_input("Enter a custom value for max_tokens", min_value=1, max_value=65536, value=default_max_tokens, step=128)
     else: 
         max_tokens = max_tokens_mapping[max_tokens_option]
 
