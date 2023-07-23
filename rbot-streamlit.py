@@ -11,7 +11,7 @@ import yaml
 import json
 import openai
 import anthropic
-from helpers import load_decorator_files, load_config, chat
+from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat
 
 from langchain.llms import OpenAI, OpenAIChat, Anthropic
 
@@ -74,18 +74,24 @@ def main():
     else: 
         max_tokens = max_tokens_mapping[max_tokens_option]
 
-    # Get default decorator paths from environment variable and populate the text area
-    default_decorator_paths = os.getenv("CURATED_DATASETS", "").split("\n")
+    # Get default curated_dataset paths from environment variable and populate the text area
+    default_custom_instruction_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
     # Remove any blank lines
-    default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
-    decorator_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_decorator_paths))
+    default_custom_instruction_paths = [path for path in default_custom_instruction_paths if path.strip() != '']
+    custom_instruction_path = st.text_area("Enter files and folders for custom instruction to provide commands", "\n".join(default_custom_instruction_paths))
+
+    # Get default curated_dataset paths from environment variable and populate the text area
+    default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
+    # Remove any blank lines
+    default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
+    curated_dataset_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_curated_dataset_paths))
 
     prompt = st.text_area("Enter your prompt here")
-
-    decorators, decorator_files = load_decorator_files(decorator_path.split())
+    custom_instructions, custom_instruction_files = load_custom_instruction_files(custom_instruction_path=custom_instruction_path.split())   
+    curated_datasets, curated_dataset_files = load_curated_dataset_files(curated_dataset_path=curated_dataset_path.split())
     history = []
-    for decorator in decorators:
-        history.append({"role": "system", "content": decorator,})
+    for curated_dataset in curated_datasets:
+        history.append({"role": "system", "content": curated_dataset,})
 
     # Use dotenv to get the API keys
     if engine == 'openai':
@@ -102,7 +108,7 @@ def main():
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
+        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
         st.write(f"rbot:")
         st.write(f"{reply}")

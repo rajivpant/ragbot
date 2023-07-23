@@ -3,7 +3,6 @@
 engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
-    endpoint: /v1/chat/completions
     models:
       - name: gpt-4-32k
         max_tokens: 2048
@@ -21,42 +20,31 @@ engines:
         max_tokens: 256
         max_temperature: 1
         temperature: 0.75
-    # The default model for the engine in use is used when the model is not specified in the request.
     default_model: gpt-3.5-turbo-16k
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
-    endpoint: /v1/complete
     models:
       - name: claude-2
-        max_tokens: 2048
+        max_tokens: 8192
         max_temperature: 1
         temperature: 0.75
       - name: claude-instant-1
-        max_tokens: 2048
+        max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
-#      - name: claude-v1
-#        max_tokens: 512
-#        max_temperature: 1
-#        temperature: 0.75
-#      - name: claude-v1-100k
-#        max_tokens: 2048
-#        max_temperature: 1
-#        temperature: 0.75
-#      - name: claude-instant-v1
-#        max_tokens: 512
-#        max_temperature: 1
-#        temperature: 0.75
-#      - name: claude-instant-v1-100k
-#        max_tokens: 2048
-#        max_temperature: 1
-#        temperature: 0.75
-    # The default model for the engine in use is used when the model is not specified in the request.
     default_model: claude-2
+  - name: google
+    api_key_name: GOOGLE_API_KEY
+    models:
+      - name: chat-bison
+        max_tokens: 1024
+        max_temperature: 1
+        temperature: 0.75
+    default_model: chat-bison    
 # The default engine is used when the engine is not specified in the request.
 default: openai
 # These are the preset creativity temperature settings for the engine and model.
 temperature_settings:
-  precise: 0.20
+  precise: 0.25
   balanced: 0.50
   creative: 0.75
