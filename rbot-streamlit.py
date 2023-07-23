@@ -75,10 +75,10 @@ def main():
         max_tokens = max_tokens_mapping[max_tokens_option]
 
     # Get default decorator paths from environment variable and populate the text area
-    default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
+    default_decorator_paths = os.getenv("CURATED_DATASETS", "").split("\n")
     # Remove any blank lines
     default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
-    decorator_path = st.text_area("Enter prompt context decorator path (files and/or directories)", "\n".join(default_decorator_paths))
+    decorator_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_decorator_paths))
 
     prompt = st.text_area("Enter your prompt here")
 

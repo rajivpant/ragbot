@@ -132,7 +132,7 @@ def main():
 
     if not args.nodecorator:
         # Load default decorators from .env file
-        default_decorator_paths = os.getenv("DECORATORS", "").split("\n")
+        default_decorator_paths = os.getenv("CURATED_DATASETS", "").split("\n")
         default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
         decorators, decorator_files = load_decorator_files(default_decorator_paths + args.decorator)
 
