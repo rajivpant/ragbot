@@ -14,7 +14,7 @@ import openai
 import anthropic
 from langchain.llms import OpenAI, OpenAIChat, Anthropic
 # from langchain.chat_models.anthropic import ChatAnthropic
-from helpers import load_decorator_files, load_config, print_saved_files, chat
+from helpers import load_curated_dataset_files, load_config, print_saved_files, chat
 
 
 appname = "rbot"
@@ -35,12 +35,12 @@ engine_choices = list(engines_config.keys())
 
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
-added_decorators = False
+added_curated_datasets = False
 
 
 
 def main():
-    global added_decorators
+    global added_curated_datasets
 
     parser = argparse.ArgumentParser(
         description="A GPT-4 or Anthropic Claude based chatbot that generates responses based on user prompts."
@@ -73,13 +73,13 @@ def main():
         help="Read the user's input from stdin."
     )
     parser.add_argument(
-        "-d", "--decorator", nargs='*', default=[],
-        help="Path to the prompt context decorator file or folder. Can accept multiple values."
+        "-d", "--curated_dataset", nargs='*', default=[],
+        help="Path to the prompt context curated_dataset file or folder. Can accept multiple values."
     )
     parser.add_argument(
-        "-nd", "--nodecorator",
+        "-nd", "--nocurated_dataset",
         action="store_true",
-        help="Ignore all prompt context decorators even if they are specified."
+        help="Ignore all prompt context curated_datasets even if they are specified."
     )
     parser.add_argument(
         "-e",
@@ -123,32 +123,32 @@ def main():
 
     if args.load:
         args.interactive = True  # Automatically enable interactive mode when loading a session
-        args.nodecorator = True  # Do not load decorator files when loading a session
+        args.nocurated_dataset = True  # Do not load curated_dataset files when loading a session
     else:
         new_session = True  # This is a new session
 
-    decorators = []
-    decorator_files = []  # to store file names of decorators
+    curated_datasets = []
+    curated_dataset_files = []  # to store file names of curated_datasets
 
-    if not args.nodecorator:
-        # Load default decorators from .env file
-        default_decorator_paths = os.getenv("CURATED_DATASETS", "").split("\n")
-        default_decorator_paths = [path for path in default_decorator_paths if path.strip() != '']
-        decorators, decorator_files = load_decorator_files(default_decorator_paths + args.decorator)
+    if not args.nocurated_dataset:
+        # Load default curated_datasets from .env file
+        default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
+        default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
+        curated_datasets, curated_dataset_files = load_curated_dataset_files(default_curated_dataset_paths + args.curated_dataset)
 
-    if decorator_files:
+    if curated_dataset_files:
         print("Decorators being used:")
-        for file in decorator_files:
+        for file in curated_dataset_files:
             print(f" - {file}")
     else:
-        print("No decorator files are being used.")
+        print("No curated_dataset files are being used.")
 
     history = []
-    for decorator in decorators:
+    for curated_dataset in curated_datasets:
         history.append(
             {
                 "role": "system",
-                "content": decorator,
+                "content": curated_dataset,
             }
         )
 
@@ -193,7 +193,7 @@ def main():
 
     if args.interactive:
         print("Entering interactive mode.")
-        added_decorators = False
+        added_curated_datasets = False
         while True:
             prompt = input("\nEnter prompt below. /quit to exit or /save file_name.json to save conversation.\n> ")
             if prompt.lower() == "/quit":
@@ -207,11 +207,11 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
+            reply = chat(prompt=prompt, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
             history.append({"role": "assistant", "content": reply})
             print(f"rbot: {reply}")
             if new_session and args.engine == "anthropic":
-                    added_decorators = False  # Reset decorators flag after each user prompt
+                    added_curated_datasets = False  # Reset curated_datasets flag after each user prompt
             
 
     else:
@@ -232,9 +232,9 @@ def main():
 
         history.append({"role": "user", "content": prompt})
         if args.engine == "anthropic":
-            added_decorators = False  # Reset decorators flag before each user prompt
+            added_curated_datasets = False  # Reset curated_datasets flag before each user prompt
 
-        reply = chat(prompt=prompt, decorators=decorators, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
+        reply = chat(prompt=prompt, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
