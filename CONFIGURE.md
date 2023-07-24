@@ -79,9 +79,9 @@ cp -rp example-custom-instructions custom-instructions
 
 Make a copy of Rajiv's sample files in the `example-curated-datasets/` folder to your own `curated-datasets/` folder. This folder contains files that provide additional context and information to rbot. You can replace these sample files with your own information that reflect your personal preferences, such as your job details, family information, travel and food preferences, or any other information you want rbot to be aware of.
 
-    You can create new informational files or modify the existing ones to match your own needs. Each  file should contain relevant information related to a specific topic or aspect of your life. For example, you can create a `job-at-company-name.md` file to provide details about your work or a `hobbies.md` file to share information about your hobbies and interests.
+You can create new informational files or modify the existing ones to match your own needs. Each  file should contain relevant information related to a specific topic or aspect of your life. For example, you can create a `job-at-company-name.md` file to provide details about your work or a `hobbies.md` file to share information about your hobbies and interests.
 
-    Make sure to follow the Markdown format when creating or modifying these files, as rbot relies on Markdown syntax to parse and process the information.
+Make sure to follow the Markdown format when creating or modifying these files, as rbot relies on Markdown syntax to parse and process the information.
 
 ```bash
 cp -rp example-curated-datasets curated-datasets
