@@ -3,23 +3,21 @@ rbot
 
 🤖 [rbot](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant chatbot currently utilizing OpenAI's GPT and Anthropic's Claude models to offer engaging conversations with a personalized touch and advanced context understanding.
 
-🚀 rbot processes user prompts and custom prompt context decorators, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
+🚀 rbot processes user prompts and custom curated datasets, enabling more context-aware responses than out-of-the-box ChatGPT Plus with GPT-4.
 
-Prompt context decorator decorators are a simpler way to achieve outcomes similar to those of Parameter-Efficient Fine-Tuning (PEFT) methods.
+Curated datasets are a simpler way to achieve outcomes similar to those of Parameter-Efficient Fine-Tuning (PEFT) methods.
 
-🧠 Prompt context decorators help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
+🧠 Curated datasets help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
 
 A web app for rbot is currently under development. Stay tuned for updates on this project!
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
-Additional Contributors
+Additional Contributors and Advisors
+- [Vik Pant, PhD](https://www.linkedin.com/in/vikpant/)
 - [Alexandria Redmon](https://github.com/alexdredmon)
 - [Trace Wax](https://github.com/tracedwax)
-
-The first version was inspired by 
 - [Jim Mortko](https://github.com/jskills)
-
 
 Blog Post Introducing rbot
 --------------------------
@@ -30,25 +28,25 @@ Excerpt from the blog post:
 
 ### Rbot: Offering Personalized Assistance Beyond ChatGPT Plus, Bing Chat, and Google Bard Currently Offer
 
-As an AI assistant, I provide a unique level of personalization and adaptability that sets me apart from current implementations of ChatGPT Plus, Bing Chat, and Google Bard. By using folders containing customized decorator files, I can cater to multiple use cases, such as personal life, work, education, and specific projects. This customization enables me to understand and support you in a way that is tailored to your unique needs.
+As an AI assistant, I provide a unique level of personalization and adaptability that sets me apart from current implementations of ChatGPT Plus, Bing Chat, and Google Bard. By using folders containing customized curated dataset files, I can cater to multiple use cases, such as personal life, work, education, and specific projects. This customization enables me to understand and support you in a way that is tailored to your unique needs.
 
 #### Serving as Your Personal Life Assistant
 
-You can create a folder with decorator files that include personal information, family details, travel and food preferences, and more. By using this information, I can function as your personal life assistant, offering AI-powered recommendations and support tailored to your specific context.
+You can create a folder with curated dataset files that include personal information, family details, travel and food preferences, and more. By using this information, I can function as your personal life assistant, offering AI-powered recommendations and support tailored to your specific context.
 
 #### Assisting You in Your Professional Life
 
-Similarly, you can develop another folder containing decorator files related to your work life. These files might include details about your job, industry, colleagues, projects, and other work-related information. With this context, I can help you with various tasks, such as drafting emails, scheduling meetings, conducting research, and more, enhancing your efficiency and organization.
+Similarly, you can develop another folder containing curated dataset files related to your work life. These files might include details about your job, industry, colleagues, projects, and other work-related information. With this context, I can help you with various tasks, such as drafting emails, scheduling meetings, conducting research, and more, enhancing your efficiency and organization.
 
 #### Supporting Your Educational Goals
 
-You can also customize me for educational purposes by creating a folder with decorator files containing information about your academic background, subjects of interest, courses, and other educational details. In this role, I can provide personalized educational support, from helping with homework to explaining complex concepts or recommending learning resources.
+You can also customize me for educational purposes by creating a folder with curated dataset files containing information about your academic background, subjects of interest, courses, and other educational details. In this role, I can provide personalized educational support, from helping with homework to explaining complex concepts or recommending learning resources.
 
 #### Providing Project-Specific Help
 
-In addition to the use cases mentioned above, I can be tailored to support you on specific projects. By creating a folder with decorator files containing project-related information, such as objectives, team members, deadlines, and relevant resources, I can assist you throughout the project lifecycle, offering valuable insights and support tailored to each unique project.
+In addition to the use cases mentioned above, I can be tailored to support you on specific projects. By creating a folder with curated dataset files containing project-related information, such as objectives, team members, deadlines, and relevant resources, I can assist you throughout the project lifecycle, offering valuable insights and support tailored to each unique project.
 
-My ability to create distinct profiles for different needs using customized decorator files sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
+My ability to create distinct profiles for different needs using customized curated dataset files sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
 
 Installation, Configuration, and Personalization
 ------------------------------------------------
@@ -65,10 +63,10 @@ Using the command line interface
 ### Command line usage: Getting help
 
 ```console
-rajivpant@rp-2023-mac-mini rbot % ./rbot -h
+rajiv@RP-2023-MacBook-Air rbot % ./rbot --help
 usage: rbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
-               [-d [DECORATOR ...]] [-nd] [-e {openai,anthropic}] [-m MODEL]
-               [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
+               [-d [CURATED_DATASET ...]] [-nd] [-e {openai,anthropic,google}]
+               [-m MODEL] [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
 
 A GPT-4 or Anthropic Claude based chatbot that generates responses based on
 user prompts.
@@ -83,12 +81,13 @@ options:
                         response for.
   -i, --interactive     Enable interactive assistant chatbot mode.
   --stdin               Read the user's input from stdin.
-  -d [DECORATOR ...], --decorator [DECORATOR ...]
-                        Path to the prompt context decorator file or folder.
-                        Can accept multiple values.
-  -nd, --nodecorator    Ignore all prompt context decorators even if they are
-                        specified.
-  -e {openai,anthropic}, --engine {openai,anthropic}
+  -d [CURATED_DATASET ...], --curated_dataset [CURATED_DATASET ...]
+                        Path to the prompt context curated_dataset file or
+                        folder. Can accept multiple values.
+  -nd, --nocurated_dataset
+                        Ignore all prompt context curated_datasets even if
+                        they are specified.
+  -e {openai,anthropic,google}, --engine {openai,anthropic,google}
                         The engine to use for the chat.
   -m MODEL, --model MODEL
                         The model to use for the chat. Defaults to engine's
@@ -100,27 +99,27 @@ options:
                         The maximum number of tokens to generate in the
                         response.
   -l LOAD, --load LOAD  Load a previous interactive session from a file.
-rajivpant@rp-2023-mac-mini rbot % 
+rajiv@RP-2023-MacBook-Air rbot % 
 ```
 
-### Using decorator files
+### Using curated dataset files
 
-To use rbot, you can provide prompt context decorator files and/or folders containing multiple decorator files. You can view examples of decorator files at <https://github.com/rajivpant/rbot/tree/main/fine-tuning>
+To use rbot, you can provide curated dataset files and/or folders containing multiple curated dataset files. You can view examples of curated dataset files at <https://github.com/rajivpant/rbot/tree/main/example-curated-datasets>
 
 Example 1:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ ../rbot-private/fine-tuning/personal/ ../rbot-private/fine-tuning/hearst -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
-Decorators being used:
- - fine-tuning/1st-prompt-decorator.md
- - fine-tuning/public/travel-food.md
- - fine-tuning/public/employment-history.md
- - fine-tuning/public/about.md
- - fine-tuning/public/biography.md
- - ../rbot-private/fine-tuning/personal/accounts.md
- - ../rbot-private/fine-tuning/personal/contact-info.md
- - ../rbot-private/fine-tuning/personal/personal-family.md
- - ../rbot-private/fine-tuning/hearst/hearst.md
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d custom-instructions/ curated-datasets/public/ ../rbot-private/curated-datasets/personal/ ../rbot-private/curated-datasets/hearst -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
+curated datasets being used:
+ - custom-instructions/
+ - curated-datasets/public/travel-food.md
+ - curated-datasets/public/employment-history.md
+ - curated-datasets/public/about.md
+ - curated-datasets/public/biography.md
+ - ../rbot-private/curated-datasets/personal/accounts.md
+ - ../rbot-private/curated-datasets/personal/contact-info.md
+ - ../rbot-private/curated-datasets/personal/personal-family.md
+ - ../rbot-private/curated-datasets/hearst/hearst.md
 Using AI engine openai with model gpt-4
 [redacted in this example]
 ```
@@ -128,13 +127,13 @@ Using AI engine openai with model gpt-4
 Example 2:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ -p "Write a short resume of Rajiv" 
-Decorators being used:
- - fine-tuning/1st-prompt-decorator.md
- - fine-tuning/public/travel-food.md
- - fine-tuning/public/employment-history.md
- - fine-tuning/public/about.md
- - fine-tuning/public/biography.md
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d custom-instructions/ curated-datasets/public/ -p "Write a short resume of Rajiv" 
+curated datasets being used:
+ - custom-instructions/
+ - curated-datasets/public/travel-food.md
+ - curated-datasets/public/employment-history.md
+ - curated-datasets/public/about.md
+ - curated-datasets/public/biography.md
 Using AI engine openai with model gpt-4
 [truncated in this example]
 ```
@@ -142,7 +141,7 @@ Using AI engine openai with model gpt-4
 Example 3:
 
 ```console
-./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d decorators/story_characters
+./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d curated datasets/story_characters
 ```
 
 ### Interactive mode
@@ -152,66 +151,66 @@ To use rbot in interactive mode, use the `-i` or `--interactive` flag without pr
 Example:
 
 ```console
-./rbot.py -i -d decorators/story_characters
+./rbot.py -i -d curated-datasets/story_characters
 ```
 
-In the first example, rbot generates a short note in Rajiv's voice using the decorator files in the `../rbot-private/fine-tuning` folder. In the second example, rbot provides information on good practices for software development using the `decorators/software_development.txt` decorator file. In the third example, rbot tells a story about a brave knight and a wise wizard using the decorator files in the `decorators/story_characters` folder.
+In the first example, rbot generates a short note in Rajiv's voice using the curated dataset files in the `../rbot-private/curated-datasets` folder. In the second example, rbot provides information on good practices for software development using the `curated-datasets/software_development.txt` curated dataset file. In the third example, rbot tells a story about a brave knight and a wise wizard using the curated dataset files in the `curated-datasets/story_characters` folder.
 
 ### Using rbot to suggest changes to its own code!
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d rbot.py -p "if no decorator files are being used, then I want the code to show that."
-Decorators being used:
+rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d rbot.py -p "if no curated dataset files are being used, then I want the code to show that."
+curated datasets being used:
  - rbot.py
 Using AI engine openai with model gpt-4
-To modify the code to show a message when no decorator files are being used, you can add an else statement after checking for the decorator files. Update the code in the `main()` function as follows:
+To modify the code to show a message when no curated dataset files are being used, you can add an else statement after checking for the curated dataset files. Update the code in the `main()` function as follows:
 
 \```python
-if decorator_files:
-    print("Decorators being used:")
-    for file in decorator_files:
+if curated_dataset_files:
+    print("curated datasets being used:")
+    for file in curated_dataset_files:
         print(f" - {file}")
 else:
-    print("No decorator files are being used.")
+    print("No curated dataset files are being used.")
 \```
 
-This will print "No decorator files are being used." when there are no decorator files detected.
+This will print "No curated dataset files are being used." when there are no curated dataset files detected.
 rajivpant@RP-2021-MacBook-Pro rbot % 
 
 ```
 
 ### Examples of using with Linux/Unix pipes via the command line
 
-Asking it to guess what some of the decorator files I use are for
+Asking it to guess what some of the curated dataset files I use are for
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % find fine-tuning ../rbot-private/fine-tuning -print | ./rbot.py -d fine-tuning/1st-prompt-decorator.md fine-tuning/public/ ../rbot-private/fine-tuning/personal/ ../rbot-private/fine-tuning/hearst/ -p "What do you guess these files are for?" 
-Decorators being used:
- - fine-tuning/1st-prompt-decorator.md
- - fine-tuning/public/travel-food.md
- - fine-tuning/public/employment-history.md
- - fine-tuning/public/about.md
- - fine-tuning/public/biography.md
- - ../rbot-private/fine-tuning/personal/accounts.md
- - ../rbot-private/fine-tuning/personal/contact-info.md
- - ../rbot-private/fine-tuning/personal/personal-family.md
- - ../rbot-private/fine-tuning/hearst/hearst.md
+rajivpant@RP-2021-MacBook-Pro rbot % find curated-datasets ../rbot-private/curated-datasets -print | ./rbot.py -d custom-instructions/ curated-datasets/public/ ../rbot-private/curated-datasets/personal/ ../rbot-private/curated-datasets/hearst/ -p "What do you guess these files are for?" 
+curated datasets being used:
+ - custom-instructions/
+ - curated-datasets/public/travel-food.md
+ - curated-datasets/public/employment-history.md
+ - curated-datasets/public/about.md
+ - curated-datasets/public/biography.md
+ - ../rbot-private/curated-datasets/personal/accounts.md
+ - ../rbot-private/curated-datasets/personal/contact-info.md
+ - ../rbot-private/curated-datasets/personal/personal-family.md
+ - ../rbot-private/curated-datasets/hearst/hearst.md
 Using AI engine openai with model gpt-4
-These files appear to be related to the fine-tuning of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
+These files appear to be related to the curated-datasets of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
 
 Public files:
-- fine-tuning/public/travel-food.md: Rajiv's travel and food preferences
-- fine-tuning/public/employment-history.md: Rajiv's employment history
-- fine-tuning/public/about.md: General information about Rajiv
-- fine-tuning/public/biography.md: Biography of Rajiv
+- curated-datasets/public/travel-food.md: Rajiv's travel and food preferences
+- curated-datasets/public/employment-history.md: Rajiv's employment history
+- curated-datasets/public/about.md: General information about Rajiv
+- curated-datasets/public/biography.md: Biography of Rajiv
 
 Private files (stored in a separate private folder):
-- fine-tuning/personal/accounts.md: Semi-private personal account information, such as frequent flyer numbers or loyalty programs. Does not contain any confidential or sensitive information.
-- fine-tuning/personal/contact-info.md: Personal contact information, such as phone numbers and email addresses. Does not contain any confidential or sensitive information.
-- fine-tuning/personal/personal-family.md: Personal and family information, such as family members and relationships. Does not contain any confidential or sensitive information.
+- curated-datasets/personal/accounts.md: Semi-private personal account information, such as frequent flyer numbers or loyalty programs. Does not contain any confidential or sensitive information.
+- curated-datasets/personal/contact-info.md: Personal contact information, such as phone numbers and email addresses. Does not contain any confidential or sensitive information.
+- curated-datasets/personal/personal-family.md: Personal and family information, such as family members and relationships. Does not contain any confidential or sensitive information.
 
 Hearst-specific files:
-- fine-tuning/hearst/hearst.md: Non-confidential, publicly available information related to the Hearst corporation, including Rajiv's role there
+- curated-datasets/hearst/hearst.md: Non-confidential, publicly available information related to the Hearst corporation, including Rajiv's role there
 
 Overall, these files seem to contain various information about a person, their preferences, and professional background, likely used to tailor the AI system's responses and assistance.
 rajivpant@RP-2021-MacBook-Pro rbot % 
@@ -235,7 +234,7 @@ Using the Anthropic engine with the Claude Instant model
 
 ```console
 rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -e anthropic -m "claude-instant-v1" -p "Tell me 5 fun things to do in NYC."
-No decorator files are being used.
+No curated dataset files are being used.
 Using AI engine anthropic with model claude-instant-v1
  Here are 5 fun things to do in NYC:
 
