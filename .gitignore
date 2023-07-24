@@ -1,4 +1,8 @@
+# Files and folders that contain each users' own data and should not be uploaded to GitHub
 .env
+curated-datasets
+custom-instructions
+# System files used for caching and related uses
 .streamlit
 __pycache__
 .DS_Store
