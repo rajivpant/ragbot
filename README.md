@@ -7,9 +7,9 @@ rbot
 
 Curated datasets are a simpler way to achieve outcomes similar to those of Parameter-Efficient Fine-Tuning (PEFT) methods.
 
-🧠 Curated datasets help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
+Powered by large language models (LLMs), rbot uses a method called [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG) which is a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
 
-A web app for rbot is currently under development. Stay tuned for updates on this project!
+🧠 Curated datasets help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box GPT-4 implementations.
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
