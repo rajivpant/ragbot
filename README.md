@@ -13,7 +13,7 @@ A web app for rbot is currently under development. Stay tuned for updates on thi
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
-Additional Contributors and Advisors
+Contributors and Advisors
 - [Vik Pant, PhD](https://www.linkedin.com/in/vikpant/)
 - [Alexandria Redmon](https://github.com/alexdredmon)
 - [Trace Wax](https://github.com/tracedwax)
