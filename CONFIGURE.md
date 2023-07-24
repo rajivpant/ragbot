@@ -63,18 +63,34 @@ Read the [main documentation](README.md) for examples and more information about
 
 To personalize rbot and make it reflect your own user preferences, you can follow the steps below:
 
-1.  Edit the `1st-prompt-decorator.md` file: This file contains the initial system-level prompt that sets the context for the conversation. You can modify this file to include any specific information or instructions you want to provide to rbot before starting the conversation.
 
-2.  Replace the sample files in the `fine-tuning/` folder: The `fine-tuning/` folder contains sample decorator files that provide additional context and information to rbot. You can replace these sample files with your own decorator files that reflect your personal preferences, such as your job details, family information, travel and food preferences, or any other information you want rbot to be aware of.
+1.  Set up your personalized custom instuctions for rbot.
 
-    You can create new decorator files or modify the existing ones to match your own needs. Each decorator file should contain relevant information related to a specific topic or aspect of your life. For example, you can create a `work.md` file to provide details about your work or a `hobbies.md` file to share information about your hobbies and interests.
+Create a `custom-instructions` folder containing files with your custom instructions that rbot should follow. The files int this folder contains the initial system instructions that set the context for the conversation. You can make a copy of the Rajiv's examples and modify those files to include any specific information or instructions you want to provide to rbot before starting the conversation.
 
-    Make sure to follow the Markdown format when creating or modifying decorator files, as rbot relies on Markdown syntax to parse and process the information.
+To make a copy of Rajiv's own example custom instructions to modify for your own use, make a copy of the example folder for your own custom-instructions and then edit the files using a text or markdown editor.
 
-By personalizing the `1st-prompt-decorator.md` file and replacing the sample files in the `fine-tuning/` folder with your own decorator files, you can customize rbot to better understand your preferences and provide more accurate and relevant responses.
+```bash
+cp -rp example-custom-instructions custom-instructions
+```
 
-Remember to update the paths to your decorator files in the `.env` configuration file to ensure that rbot uses the correct files during conversations.
 
-Feel free to experiment and iterate on your decorator files to refine the context and information provided to rbot, making it an even more personalized AI assistant.
+2.  Set up your curated datasets for rbot.
+
+Make a copy of Rajiv's sample files in the `example-curated-datasets/` folder to your own `curated-datasets/` folder. This folder contains files that provide additional context and information to rbot. You can replace these sample files with your own information that reflect your personal preferences, such as your job details, family information, travel and food preferences, or any other information you want rbot to be aware of.
+
+    You can create new informational files or modify the existing ones to match your own needs. Each  file should contain relevant information related to a specific topic or aspect of your life. For example, you can create a `job-at-company-name.md` file to provide details about your work or a `hobbies.md` file to share information about your hobbies and interests.
+
+    Make sure to follow the Markdown format when creating or modifying these files, as rbot relies on Markdown syntax to parse and process the information.
+
+```bash
+cp -rp example-curated-datasets curated-datasets
+```
+
+By personalizing the files in the `custom-instructions/` and the `curated-datasets/` folders with your own information, you can customize rbot to better understand your preferences and provide more accurate and relevant responses.
+
+Remember to update the paths to your `custom-insturctions` and `curated-datasets` folders and files in the `.env` configuration file to ensure that rbot uses the correct files during conversations.
+
+Feel free to experiment and iterate on your personalized files to refine the context and information provided to rbot, making it an even more personalized AI assistant.
 
 Now, rbot is configured, personalized, and ready to be run!
