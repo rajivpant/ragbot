@@ -62,12 +62,12 @@ def main():
         temperature = temperature_mapping[temperature_option]
 
     # Get the index of the default max_tokens in the options list
-    default_max_tokens_index = ["256", "512", "1024", "2048", "custom"].index(str(default_max_tokens))
+    default_max_tokens_index = ["256", "512", "1024", "2048", "4096", "8192", "custom"].index(str(default_max_tokens))
 
     st.caption("Max tokens is the maximum number of tokens to generate in the response. For English text, 100 tokens is on average about 75 words.")
-    max_tokens_option = st.selectbox("Choose max_tokens", options=["256", "512", "1024", "2048", "custom"], index=default_max_tokens_index)
+    max_tokens_option = st.selectbox("Choose max_tokens", options=["256", "512", "1024", "2048", "4096", "8192", "custom"], index=default_max_tokens_index)
 
-    max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048}
+    max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048, "4096": 4096, "8192": 8192}
 
     if max_tokens_option == "custom":
         max_tokens = st.number_input("Enter a custom value for max_tokens", min_value=1, max_value=65536, value=default_max_tokens, step=128)
