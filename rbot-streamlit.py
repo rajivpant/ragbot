@@ -32,6 +32,8 @@ default_models = {engine: engines_config[engine]['default_model'] for engine in 
 
 def main():
     st.title("rbot: AI augmented brain assistant")
+    debug_mode = st.checkbox("Debug mode", value=False)
+
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
     model = st.selectbox("Choose a model", options=model_choices[engine], index=model_choices[engine].index(default_models[engine]))
 
@@ -61,15 +63,15 @@ def main():
     else:
         temperature = temperature_mapping[temperature_option]
 
-    default_max_tokens_list = ["256", "512", "1024", "2048", "4096", "8192", "custom"]
+    max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048, "4096": 4096, "8192": 8192}
+    default_max_tokens_list = list(max_tokens_mapping.keys())
+    default_max_tokens_list.append("custom")
 
     # Get the index of the default max_tokens in the options list
     default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
 
     st.caption("Max tokens is the maximum number of tokens to generate in the response. For English text, 100 tokens is on average about 75 words.")
     max_tokens_option = st.selectbox("Choose max_tokens", options=default_max_tokens_list, index=default_max_tokens_index)
-
-    max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048, "4096": 4096, "8192": 8192}
 
     if max_tokens_option == "custom":
         max_tokens = st.number_input("Enter a custom value for max_tokens", min_value=1, max_value=65536, value=default_max_tokens, step=128)
@@ -80,7 +82,7 @@ def main():
     default_custom_instruction_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
     # Remove any blank lines
     default_custom_instruction_paths = [path for path in default_custom_instruction_paths if path.strip() != '']
-    custom_instruction_path = st.text_area("Enter files and folders for custom instruction to provide commands", "\n".join(default_custom_instruction_paths))
+    custom_instruction_path = st.text_area("Enter files and folders for custom instructions to provide commands", "\n".join(default_custom_instruction_paths))
 
     # Get default curated_dataset paths from environment variable and populate the text area
     default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
@@ -109,12 +111,24 @@ def main():
     st.write(f"Using AI engine {engine} with model {model}. Creativity temperature set to {temperature} and max_tokens set to {max_tokens}. The current date and time is {date_and_time}.")
 
     if st.button("Get response"):
+
+        if debug_mode:
+            st.write(f"engine: {engine}")
+            st.write(f"model: {model}")
+            st.write(f"max_tokens: {max_tokens}")
+            st.write(f"temperature: {temperature}")
+            st.write(f"custom_instruction_files: {custom_instruction_files}")
+            st.write(f"curated_dataset_files: {curated_dataset_files}")
+            # st.write(f"custom_instructions: {custom_instructions}")
+            # st.write(f"curated_datasets: {curated_datasets}")
+            # st.write(f"history: {history}")
+            st.write(f"prompt: {prompt}")
+            
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
         st.write(f"rbot:")
         st.write(f"{reply}")
-
 
 
 if __name__ == "__main__":
