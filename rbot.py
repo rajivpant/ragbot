@@ -14,7 +14,7 @@ import openai
 import anthropic
 from langchain.llms import OpenAI, OpenAIChat, Anthropic
 # from langchain.chat_models.anthropic import ChatAnthropic
-from helpers import load_curated_dataset_files, load_config, print_saved_files, chat
+from helpers import load_curated_dataset_files, load_custom_instruction_files, load_config, print_saved_files, chat
 
 
 appname = "rbot"
@@ -43,7 +43,7 @@ def main():
     global added_curated_datasets
 
     parser = argparse.ArgumentParser(
-        description="A GPT-4 or Anthropic Claude based chatbot that generates responses based on user prompts."
+        description="A GPT-4 or Anthropic Claude-2 based chatbot that generates responses based on user prompts."
     )
     input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument(
@@ -73,13 +73,22 @@ def main():
         help="Read the user's input from stdin."
     )
     parser.add_argument(
+        "-c", "--custom_instructions", nargs='*', default=[],
+        help="Path to the prompt custom instructions file or folder. Can accept multiple values."
+    )
+    parser.add_argument(
+        "-nc", "--nocusom_instructions",
+        action="store_true",
+        help="Ignore all prompt custom instructions even if they are specified."
+    )
+    parser.add_argument(
         "-d", "--curated_dataset", nargs='*', default=[],
-        help="Path to the prompt context curated_dataset file or folder. Can accept multiple values."
+        help="Path to the prompt context curated dataset file or folder. Can accept multiple values."
     )
     parser.add_argument(
         "-nd", "--nocurated_dataset",
         action="store_true",
-        help="Ignore all prompt context curated_datasets even if they are specified."
+        help="Ignore all prompt context curated dataset even if they are specified."
     )
     parser.add_argument(
         "-e",
@@ -130,6 +139,19 @@ def main():
     curated_datasets = []
     curated_dataset_files = []  # to store file names of curated_datasets
 
+    if not args.custom_instructions:
+        # Load default custom_instructions from .env file
+        default_custom_instructions_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
+        default_custom_instructions_paths = [path for path in default_custom_instructions_paths if path.strip() != '']
+        custom_instructions, custom_instructions_files = load_custom_instruction_files(default_custom_instructions_paths + args.curated_dataset)
+
+    if custom_instructions_files:
+        print("Custom instructions being used:")
+        for file in custom_instructions_files:
+            print(f" - {file}")
+    else:
+        print("No custom instructions files are being used.")
+
     if not args.nocurated_dataset:
         # Load default curated_datasets from .env file
         default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
@@ -137,13 +159,21 @@ def main():
         curated_datasets, curated_dataset_files = load_curated_dataset_files(default_curated_dataset_paths + args.curated_dataset)
 
     if curated_dataset_files:
-        print("Decorators being used:")
+        print("Curated datasets being used:")
         for file in curated_dataset_files:
             print(f" - {file}")
     else:
         print("No curated_dataset files are being used.")
 
     history = []
+    for custom_instruction in custom_instructions:
+        history.append(
+            {
+                "role": "system",
+                "content": custom_instruction,
+            }
+        )
+
     for curated_dataset in curated_datasets:
         history.append(
             {
@@ -207,7 +237,7 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
+            reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
             history.append({"role": "assistant", "content": reply})
             print(f"rbot: {reply}")
             if new_session and args.engine == "anthropic":
@@ -234,7 +264,7 @@ def main():
         if args.engine == "anthropic":
             added_curated_datasets = False  # Reset curated_datasets flag before each user prompt
 
-        reply = chat(prompt=prompt, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
+        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
