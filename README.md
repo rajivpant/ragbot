@@ -1,9 +1,9 @@
-ragbot.ai
+Ragbot.AI
 =========
 
-🤖 [ragbot.ai (formerly named rbot)](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
+🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
-🚀 ragbot.ai processes user prompts and custom curated datasets, enabling context-aware responses. Powered by LLMs including OpenAI's GPT and Anthropic's Claude, ragbot.ai uses RAG which is a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
+🚀 Ragbot.AI processes user prompts and custom curated datasets, enabling context-aware responses. Powered by LLMs including OpenAI's GPT and Anthropic's Claude, Ragbot.AI uses RAG which is a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
 
 🧠 Curated datasets help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box LLMs.
 
@@ -15,14 +15,14 @@ Contributors and Advisors
 - [Trace Wax](https://github.com/tracedwax)
 - [Jim Mortko](https://github.com/jskills)
 
-Blog Post Introducing ragbot.ai
+Blog Post Introducing Ragbot.AI
 --------------------------
 
-[Introducing ragbot.ai: A Personalized AI Assistant, Written by ragbot.ai](https://rajiv.com/blog/2023/05/08/introducing-rbot-a-personalized-ai-assistant-written-by-rbot/)
+[Introducing Ragbot.AI: A Personalized AI Assistant, Written by Ragbot.AI](https://rajiv.com/blog/2023/05/08/introducing-rbot-a-personalized-ai-assistant-written-by-rbot/)
 
 Excerpt from the blog post:
 
-### ragbot.ai: Offering Personalized Assistance Beyond ChatGPT Plus, Bing Chat, and Google Bard Currently Offer
+### Ragbot.AI: Offering Personalized Assistance Beyond ChatGPT Plus, Bing Chat, and Google Bard Currently Offer
 
 As an AI assistant, I provide a unique level of personalization and adaptability that sets me apart from current implementations of ChatGPT Plus, Bing Chat, and Google Bard. By using folders containing customized curated dataset files, I can cater to multiple use cases, such as personal life, work, education, and specific projects. This customization enables me to understand and support you in a way that is tailored to your unique needs.
 
@@ -61,11 +61,11 @@ Using the command line interface
 ```console
 rajiv@RP-2023-MacBook-Air rbot % ./rbot --help
 usage: rbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
-               [-d [CURATED_DATASET ...]] [-nd] [-e {openai,anthropic,google}]
-               [-m MODEL] [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
+               [-c [CUSTOM_INSTRUCTIONS ...]] [-nc] [-d [CURATED_DATASET ...]]
+               [-nd] [-e {openai,anthropic,google}] [-m MODEL]
+               [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
 
-A GPT-4 or Anthropic Claude based chatbot that generates responses based on
-user prompts.
+Ragbot.AI is an augmented brain and asistant. Learn more at https://ragbot.ai
 
 options:
   -h, --help            show this help message and exit
@@ -77,12 +77,18 @@ options:
                         response for.
   -i, --interactive     Enable interactive assistant chatbot mode.
   --stdin               Read the user's input from stdin.
+  -c [CUSTOM_INSTRUCTIONS ...], --custom_instructions [CUSTOM_INSTRUCTIONS ...]
+                        Path to the prompt custom instructions file or folder.
+                        Can accept multiple values.
+  -nc, --nocusom_instructions
+                        Ignore all prompt custom instructions even if they are
+                        specified.
   -d [CURATED_DATASET ...], --curated_dataset [CURATED_DATASET ...]
-                        Path to the prompt context curated_dataset file or
+                        Path to the prompt context curated dataset file or
                         folder. Can accept multiple values.
   -nd, --nocurated_dataset
-                        Ignore all prompt context curated_datasets even if
-                        they are specified.
+                        Ignore all prompt context curated dataset even if they
+                        are specified.
   -e {openai,anthropic,google}, --engine {openai,anthropic,google}
                         The engine to use for the chat.
   -m MODEL, --model MODEL
@@ -100,7 +106,7 @@ rajiv@RP-2023-MacBook-Air rbot %
 
 ### Using curated dataset files
 
-To use ragbot.ai, you can provide curated dataset files and/or folders containing multiple curated dataset files. You can view examples of curated dataset files at <https://github.com/rajivpant/rbot/tree/main/example-curated-datasets>
+To use Ragbot.AI, you can provide curated dataset files and/or folders containing multiple curated dataset files. You can view examples of curated dataset files at <https://github.com/rajivpant/rbot/tree/main/example-curated-datasets>
 
 Example 1:
 
@@ -142,7 +148,7 @@ Example 3:
 
 ### Interactive mode
 
-To use ragbot.ai in interactive mode, use the `-i` or `--interactive` flag without providing a prompt via command line or input file. In this mode, you can enter follow-up prompts after each response.
+To use Ragbot.AI in interactive mode, use the `-i` or `--interactive` flag without providing a prompt via command line or input file. In this mode, you can enter follow-up prompts after each response.
 
 Example:
 
@@ -150,9 +156,9 @@ Example:
 ./rbot.py -i -d curated-datasets/story_characters
 ```
 
-In the first example, ragbot.ai generates a short note in Rajiv's voice using the curated dataset files in the `../rbot-private/curated-datasets` folder. In the second example, ragbot.ai provides information on good practices for software development using the `curated-datasets/software_development.txt` curated dataset file. In the third example, ragbot.ai tells a story about a brave knight and a wise wizard using the curated dataset files in the `curated-datasets/story_characters` folder.
+In the first example, Ragbot.AI generates a short note in Rajiv's voice using the curated dataset files in the `../rbot-private/curated-datasets` folder. In the second example, Ragbot.AI provides information on good practices for software development using the `curated-datasets/software_development.txt` curated dataset file. In the third example, Ragbot.AI tells a story about a brave knight and a wise wizard using the curated dataset files in the `curated-datasets/story_characters` folder.
 
-### Using ragbot.ai to suggest changes to its own code!
+### Using Ragbot.AI to suggest changes to its own code!
 
 ```console
 rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d rbot.py -p "if no curated dataset files are being used, then I want the code to show that."
@@ -214,7 +220,7 @@ rajivpant@RP-2021-MacBook-Pro rbot %
 
 Asking technical questions about a project
 
-> ❗️ In the current version of ragbot.ai, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
+> ❗️ In the current version of Ragbot.AI, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
 ```console
 alexredmon@ar-macbook ~/s/scribe > cat docker-compose.yml | rbot --stdin -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
 In the given docker-compose.yml file, the following services are exposed on their respective ports:
@@ -249,7 +255,7 @@ rajivpant@RP-2021-MacBook-Pro rbot %
 
 Random Creativity
 
-> ❗️ In the current version of ragbot.ai, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
+> ❗️ In the current version of Ragbot.AI, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
 ```console
 alexredmon@ar-macbook ~ > cat names.csv 
 rajiv,

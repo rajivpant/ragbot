@@ -31,8 +31,7 @@ default_models = {engine: engines_config[engine]['default_model'] for engine in 
 
 
 def main():
-    st.title("rbot: AI augmented brain assistant")
-    debug_mode = st.checkbox("Debug mode", value=False)
+    st.header("Ragbot.AI augmented brain & assistant")
 
     engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
     model = st.selectbox("Choose a model", options=model_choices[engine], index=model_choices[engine].index(default_models[engine]))
@@ -109,6 +108,7 @@ def main():
     date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
 
     st.write(f"Using AI engine {engine} with model {model}. Creativity temperature set to {temperature} and max_tokens set to {max_tokens}. The current date and time is {date_and_time}.")
+    debug_mode = st.checkbox("Debug mode", value=False)
 
     if st.button("Get response"):
 
@@ -127,7 +127,8 @@ def main():
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
-        st.write(f"rbot:")
+        st.header(f"Ragbot.AI's response")
+        st.divider()
         st.write(f"{reply}")
 
 
