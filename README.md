@@ -3,9 +3,9 @@ Ragbot.AI
 
 🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
-🚀 Ragbot.AI processes user prompts and custom curated datasets, enabling context-aware responses. Powered by LLMs including OpenAI's GPT and Anthropic's Claude, Ragbot.AI uses RAG which is a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
+🚀 Ragbot.AI processes user prompts along with custom instructions and curated datasets, enabling context-aware responses. Powered by LLMs including OpenAI's GPT and Anthropic's Claude, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
 
-🧠 Curated datasets help the AI assistant better understand the context, resulting in more accurate and relevant responses, surpassing the capabilities of out of the box LLMs.
+🧠 Custom instructions and curated datasets help Ragbot.AI better understand context, resulting in personalized, more accurate, and relevant responses, surpassing the capabilities of out of the box LLMs.
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
@@ -51,7 +51,9 @@ Read the [installation guide](INSTALL.md) and the [configuration and personaliat
 Using the Web version
 ---------------------
 ![](screenshots/Screenshot%202023-06-16%20at%2010.53.12%20PM.png)
-![](screenshots/Screenshot%202023-06-16%20at%2011.32.51%20PM.png)
+![](screenshots/Screenshot%202023-08-02%20at%2010.28.59%20PM.png)
+![](screenshots/Screenshot%202023-08-02%20at%2010.30.37%20PM.png)
+
 
 Using the command line interface
 --------------------------------
