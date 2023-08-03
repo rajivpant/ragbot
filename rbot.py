@@ -43,7 +43,7 @@ def main():
     global added_curated_datasets
 
     parser = argparse.ArgumentParser(
-        description="A GPT-4 or Anthropic Claude-2 based chatbot that generates responses based on user prompts."
+        description="Ragbot.AI is an augmented brain and asistant. Learn more at https://ragbot.ai"
     )
     input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument(
@@ -239,7 +239,7 @@ def main():
             history.append({"role": "user", "content": prompt})
             reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
             history.append({"role": "assistant", "content": reply})
-            print(f"rbot: {reply}")
+            print(f"Ragbot.AI: {reply}")
             if new_session and args.engine == "anthropic":
                     added_curated_datasets = False  # Reset curated_datasets flag after each user prompt
             
