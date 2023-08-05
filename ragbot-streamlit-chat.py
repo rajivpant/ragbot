@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+# ragbot-streamlit-chat.py - https://github.com/rajivpant/rbot
+# Description: Streamlit chat interface for Ragbot.AI
+
 from dotenv import load_dotenv
 import os
 import streamlit as st
@@ -21,7 +25,7 @@ elif engine == 'anthropic':
     anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
 
 
-st.title("rBot: AI augmented brain assistant")
+st.header("Ragbot.AI augmented brain & assistant")
 
 
 if "openai_model" not in st.session_state:
