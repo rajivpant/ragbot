@@ -7,3 +7,4 @@ pathlib
 openai
 anthropic
 langchain
+litellm
