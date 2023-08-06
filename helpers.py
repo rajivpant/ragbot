@@ -11,6 +11,7 @@ import anthropic
 from langchain.llms import OpenAI, OpenAIChat, Anthropic
 from langchain.chat_models import ChatOpenAI, ChatAnthropic, ChatGooglePalm
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from litellm import completion
 
 
 # Function to load configuration from YAML
@@ -95,31 +96,13 @@ def chat(
     :return: The generated response text from the model.
     """
     added_curated_datasets = False
-    
-    match engine:
-
-        case "openai":
-
-            # Call the OpenAI API via LangChain
-            llm_invocation = ChatOpenAI(openai_api_key=openai.api_key, model_name=model, max_tokens=max_tokens, temperature=temperature)
-
-            llm_response =llm_invocation.predict_messages([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
-            response = llm_response.content
-
-
-        case "anthropic":   
-
-            # Call the OpenAI API via LangChain
-            llm_invocation = ChatAnthropic(anthropic_api_key=anthropic.api_key, model=model, max_tokens_to_sample=max_tokens, temperature=temperature)
-
-            llm_response=llm_invocation.predict_messages([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
-            response = llm_response.content
-
-
-        case "google":
-            # Call the Google API via LangChain
-
-            response="Google API not yet implemented."
-
-    return response
+    messages = [
+        {"role": "system", "content": ' '.join(custom_instructions)},
+        {"role": "user", "content": ' '.join(curated_datasets) + prompt}, 
+        
+    ]
+    # litellm allows you to use Google Palm, OpenAI, Azure, Anthropic, Replicate, Cohere LLM models
+    # just pass model="gpt-3.5-turbo" (your model name)
+    llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
+    return llm_response
 
