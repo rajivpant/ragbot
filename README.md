@@ -1,7 +1,7 @@
 Ragbot.AI
 =========
 
-🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/rbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
+🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
 🚀 Ragbot.AI processes user prompts along with custom instructions and curated datasets, enabling context-aware responses. Powered by LLMs including OpenAI's GPT and Anthropic's Claude, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
 
@@ -61,8 +61,8 @@ Using the command line interface
 ### Command line usage: Getting help
 
 ```console
-rajiv@RP-2023-MacBook-Air rbot % ./rbot --help
-usage: rbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
+rajiv@RP-2023-MacBook-Air ragbot % ./ragbot --help
+usage: ragbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
                [-c [CUSTOM_INSTRUCTIONS ...]] [-nc] [-d [CURATED_DATASET ...]]
                [-nd] [-e {openai,anthropic,google}] [-m MODEL]
                [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
@@ -103,27 +103,27 @@ options:
                         The maximum number of tokens to generate in the
                         response.
   -l LOAD, --load LOAD  Load a previous interactive session from a file.
-rajiv@RP-2023-MacBook-Air rbot % 
+rajiv@RP-2023-MacBook-Air ragbot % 
 ```
 
 ### Using curated dataset files
 
-To use Ragbot.AI, you can provide curated dataset files and/or folders containing multiple curated dataset files. You can view examples of curated dataset files at <https://github.com/rajivpant/rbot/tree/main/example-curated-datasets>
+To use Ragbot.AI, you can provide curated dataset files and/or folders containing multiple curated dataset files. You can view examples of curated dataset files at <https://github.com/rajivpant/ragbot/tree/main/example-curated-datasets>
 
 Example 1:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d custom-instructions/ curated-datasets/public/ ../rbot-private/curated-datasets/personal/ ../rbot-private/curated-datasets/example-client -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d custom-instructions/ curated-datasets/public/ ../ragbot-private/curated-datasets/personal/ ../ragbot-private/curated-datasets/example-client -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
 curated datasets being used:
  - custom-instructions/
  - curated-datasets/public/travel-food.md
  - curated-datasets/public/employment-history.md
  - curated-datasets/public/about.md
  - curated-datasets/public/biography.md
- - ../rbot-private/curated-datasets/personal/accounts.md
- - ../rbot-private/curated-datasets/personal/contact-info.md
- - ../rbot-private/curated-datasets/personal/personal-family.md
- - ../rbot-private/curated-datasets/example-client/example-client.md
+ - ../ragbot-private/curated-datasets/personal/accounts.md
+ - ../ragbot-private/curated-datasets/personal/contact-info.md
+ - ../ragbot-private/curated-datasets/personal/personal-family.md
+ - ../ragbot-private/curated-datasets/example-client/example-client.md
 Using AI engine openai with model gpt-4
 [redacted in this example]
 ```
@@ -131,7 +131,7 @@ Using AI engine openai with model gpt-4
 Example 2:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d custom-instructions/ curated-datasets/public/ -p "Write a short resume of Rajiv" 
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d custom-instructions/ curated-datasets/public/ -p "Write a short resume of Rajiv" 
 curated datasets being used:
  - custom-instructions/
  - curated-datasets/public/travel-food.md
@@ -145,7 +145,7 @@ Using AI engine openai with model gpt-4
 Example 3:
 
 ```console
-./rbot.py -p "Tell me a story about a brave knight and a wise wizard." -d curated datasets/story_characters
+./ragbot.py -p "Tell me a story about a brave knight and a wise wizard." -d curated datasets/story_characters
 ```
 
 ### Interactive mode
@@ -155,17 +155,17 @@ To use Ragbot.AI in interactive mode, use the `-i` or `--interactive` flag witho
 Example:
 
 ```console
-./rbot.py -i -d curated-datasets/story_characters
+./ragbot.py -i -d curated-datasets/story_characters
 ```
 
-In the first example, Ragbot.AI generates a short note in Rajiv's voice using the curated dataset files in the `../rbot-private/curated-datasets` folder. In the second example, Ragbot.AI provides information on good practices for software development using the `curated-datasets/software_development.txt` curated dataset file. In the third example, Ragbot.AI tells a story about a brave knight and a wise wizard using the curated dataset files in the `curated-datasets/story_characters` folder.
+In the first example, Ragbot.AI generates a short note in Rajiv's voice using the curated dataset files in the `../ragbot-private/curated-datasets` folder. In the second example, Ragbot.AI provides information on good practices for software development using the `curated-datasets/software_development.txt` curated dataset file. In the third example, Ragbot.AI tells a story about a brave knight and a wise wizard using the curated dataset files in the `curated-datasets/story_characters` folder.
 
 ### Using Ragbot.AI to suggest changes to its own code!
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -d rbot.py -p "if no curated dataset files are being used, then I want the code to show that."
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d ragbot.py -p "if no curated dataset files are being used, then I want the code to show that."
 curated datasets being used:
- - rbot.py
+ - ragbot.py
 Using AI engine openai with model gpt-4
 To modify the code to show a message when no curated dataset files are being used, you can add an else statement after checking for the curated dataset files. Update the code in the `main()` function as follows:
 
@@ -179,7 +179,7 @@ else:
 \```
 
 This will print "No curated dataset files are being used." when there are no curated dataset files detected.
-rajivpant@RP-2021-MacBook-Pro rbot % 
+rajivpant@RP-2021-MacBook-Pro ragbot % 
 
 ```
 
@@ -188,17 +188,17 @@ rajivpant@RP-2021-MacBook-Pro rbot %
 Asking it to guess what some of the curated dataset files I use are for
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % find curated-datasets ../rbot-private/curated-datasets -print | ./rbot.py -d custom-instructions/ curated-datasets/public/ ../rbot-private/curated-datasets/personal/ ../rbot-private/curated-datasets/example-client/ -p "What do you guess these files are for?" 
+rajivpant@RP-2021-MacBook-Pro ragbot % find curated-datasets ../ragbot-private/curated-datasets -print | ./ragbot.py -d custom-instructions/ curated-datasets/public/ ../ragbot-private/curated-datasets/personal/ ../ragbot-private/curated-datasets/example-client/ -p "What do you guess these files are for?" 
 curated datasets being used:
  - custom-instructions/
  - curated-datasets/public/travel-food.md
  - curated-datasets/public/employment-history.md
  - curated-datasets/public/about.md
  - curated-datasets/public/biography.md
- - ../rbot-private/curated-datasets/personal/accounts.md
- - ../rbot-private/curated-datasets/personal/contact-info.md
- - ../rbot-private/curated-datasets/personal/personal-family.md
- - ../rbot-private/curated-datasets/example-client/example-client.md
+ - ../ragbot-private/curated-datasets/personal/accounts.md
+ - ../ragbot-private/curated-datasets/personal/contact-info.md
+ - ../ragbot-private/curated-datasets/personal/personal-family.md
+ - ../ragbot-private/curated-datasets/example-client/example-client.md
 Using AI engine openai with model gpt-4
 These files appear to be related to the curated-datasets of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
 
@@ -217,14 +217,14 @@ Example-Client-specific files:
 - curated-datasets/example-client/example-client.md: Non-confidential, publicly available information related to the Example-Client corporation, including Rajiv's role there
 
 Overall, these files seem to contain various information about a person, their preferences, and professional background, likely used to tailor the AI system's responses and assistance.
-rajivpant@RP-2021-MacBook-Pro rbot % 
+rajivpant@RP-2021-MacBook-Pro ragbot % 
 ```
 
 Asking technical questions about a project
 
 > ❗️ In the current version of Ragbot.AI, the --stdin and --prompt options are mutually exclusive, so the following example no longer works as is. In a future update to this README file, I will give an alternate example to obtain the similar results.
 ```console
-alexredmon@ar-macbook ~/s/scribe > cat docker-compose.yml | rbot --stdin -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
+alexredmon@ar-macbook ~/s/scribe > cat docker-compose.yml | ragbot --stdin -p "which services will be exposed on which ports by running all services in the following docker-compose.yml file?" 
 In the given docker-compose.yml file, the following services are exposed on their respective ports:
 1. "scribe" service: - Exposed on port 80 - Exposed on port 9009 (mapped to internal port 9009)
 2. "scribe-feature" service: - Exposed on port 80
@@ -237,7 +237,7 @@ alexredmon@ar-macbook ~/s/scribe >
 Using the Anthropic engine with the Claude Instant model
 
 ```console
-rajivpant@RP-2021-MacBook-Pro rbot % ./rbot.py -e anthropic -m "claude-instant-v1" -p "Tell me 5 fun things to do in NYC."
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -e anthropic -m "claude-instant-v1" -p "Tell me 5 fun things to do in NYC."
 No curated dataset files are being used.
 Using AI engine anthropic with model claude-instant-v1
  Here are 5 fun things to do in NYC:
@@ -251,7 +251,7 @@ Using AI engine anthropic with model claude-instant-v1
 4. Shop and dine in SoHo and the West Village. Explore trendy boutique shops and dig into meals at charming sidewalk cafes.  
 
 5. Take a free walking tour. There are numerous companies that offer guided walking tours of various NYC neighborhoods, covering history, culture, architecture and more.
-rajivpant@RP-2021-MacBook-Pro rbot % 
+rajivpant@RP-2021-MacBook-Pro ragbot % 
 ```
 
 
@@ -264,7 +264,7 @@ rajiv,
 jim,
 dennis,
 alexandria
-alexredmon@ar-macbook ~ > catnames.csv | rbot.py --stdin -p "Generate a creative nickname for each of the following people" 
+alexredmon@ar-macbook ~ > catnames.csv | ragbot.py --stdin -p "Generate a creative nickname for each of the following people" 
 rajiv, Rajiv Razzle-Dazzle
 jim, Jolly JimJam
 dennis, Daring Denmaster

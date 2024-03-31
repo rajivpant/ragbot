@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# rbot.py - https://github.com/rajivpant/rbot
+# ragbot.py - https://github.com/rajivpant/ragbot
 
 import glob
 import os
@@ -17,7 +17,7 @@ from langchain.llms import OpenAI, OpenAIChat, Anthropic
 from helpers import load_curated_dataset_files, load_custom_instruction_files, load_config, print_saved_files, chat
 
 
-appname = "rbot"
+appname = "ragbot"
 appauthor = "Rajiv Pant"
 
 data_dir = appdirs.user_data_dir(appname, appauthor)
