@@ -1,7 +1,7 @@
-Installation Instructions for rbot
-==================================
+Installation Instructions for RagBot.AI
+=======================================
 
-Below are the step-by-step instructions for all the prerequisites needed to install rbot. Please follow the section that corresponds to your operating system: Mac, Windows, or Linux.
+Below are the step-by-step instructions for all the prerequisites needed to install RagBot.AI. Please follow the section that corresponds to your operating system: Mac, Windows, or Linux.
 
 ### Prerequisites
 
@@ -58,20 +58,20 @@ Below are the step-by-step instructions for all the prerequisites needed to inst
 
 For other Linux distributions, please follow the respective package manager commands to install Python, pip and Visual Studio Code.
 
-### Running rbot
+### Running RagBot.AI
 
-Once you have Python and pip installed, you can download the rbot code from its GitHub repository and install its dependencies using pip.
+Once you have Python and pip installed, you can download the RagBot.AI code from its GitHub repository and install its dependencies using pip.
 
-1.  Clone the rbot repository from GitHub:
+1.  Clone the RagBot.AI repository from GitHub:
 
     ```bash
-    git clone https://github.com/rajivpant/rbot.git
+    git clone https://github.com/rajivpant/ragbot.git
     ```
 
-2.  Navigate to the rbot directory:
+2.  Navigate to the RagBot.AI directory:
 
     ```bash
-    cd rbot
+    cd ragbot
     ```
 
 3.  Install the Python package dependencies including APIs to access LLM engines:
@@ -80,10 +80,10 @@ Once you have Python and pip installed, you can download the rbot code from its 
     pip install -r requirements.txt
     ```
 
-4.  You're all set to configure, personalize, and run rbot!
+4.  You're all set to configure, personalize, and run RagBot.AI!
     Read the [configuration and personaliation guide](CONFIGURE.md) and the [main documentation](README.md).
 
 * * * * *
 
-Remember, while Visual Studio Code is a popular and powerful IDE, its installation is entirely optional. You may use any other text editor or IDE you're comfortable with to explore and contribute to the rbot project. Happy coding!
+Remember, while Visual Studio Code is a popular and powerful IDE, its installation is entirely optional. You may use any other text editor or IDE you're comfortable with to explore and contribute to the RagBot.AI project. Happy coding!
 

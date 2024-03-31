@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# rbot-streamlit.py - https://github.com/rajivpant/rbot
+# ragbot_streamlit.py - https://github.com/rajivpant/ragbot
 
 from dotenv import load_dotenv
 from datetime import datetime

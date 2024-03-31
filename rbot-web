@@ -1,3 +1,0 @@
-#!/bin/bash
-# Shell script shortcut to run the web browser version of rbot using Streamlit
-streamlit run rbot-streamlit.py "$@"
