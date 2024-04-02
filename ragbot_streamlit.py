@@ -13,7 +13,7 @@ import openai
 import anthropic
 from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat
 
-from langchain.llms import OpenAI, OpenAIChat, Anthropic
+from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
 
 load_dotenv() # Load environment variables from .env file
 
