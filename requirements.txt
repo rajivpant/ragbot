@@ -9,3 +9,4 @@ anthropic
 langchain
 langchain-community
 langchain-anthropic
+google-generativeai
