@@ -44,8 +44,11 @@ engines:
         max_tokens: 1024
         max_temperature: 1
         temperature: 0.75
-    default_model: gemini-pro    
-# The default engine is used when the engine is not specified in the request.
+      - name: gemini-pro-vision
+        max_tokens: 1024
+        max_temperature: 1
+        temperature: 0.75
+    default_model: gemini-pro
 default: openai
 # These are the preset creativity temperature settings for the engine and model.
 temperature_settings:

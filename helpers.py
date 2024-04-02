@@ -14,6 +14,7 @@ from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
 
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -124,8 +125,15 @@ def chat(
 
         case "google":
             # Call the Google API via LangChain
-            llm_invocation = ChatGooglePalm(model=model, max_tokens=max_tokens, temperature=temperature)
-            llm_response = llm_invocation.predict_messages([SystemMessage(content=' '.join(custom_instructions)), HumanMessage(content=' '.join(curated_datasets) + prompt)])
+            llm_invocation = ChatGoogleGenerativeAI(model=model, max_tokens=max_tokens, temperature=temperature)
+            
+            messages = [
+                HumanMessage(content=' '.join(custom_instructions)),
+                AIMessage(content=' '.join(curated_datasets)),
+                HumanMessage(content=prompt)
+            ]
+
+            llm_response = llm_invocation.invoke(messages)
             response = llm_response.content
 
     return response
