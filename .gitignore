@@ -2,6 +2,7 @@
 .env
 curated-datasets
 custom-instructions
+prompts
 # System files used for caching and related uses
 .streamlit
 __pycache__

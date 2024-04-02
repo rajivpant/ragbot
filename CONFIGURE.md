@@ -63,6 +63,19 @@ Read the [main documentation](README.md) for examples and more information about
 
 To personalize RagBot.AI and make it reflect your own user preferences, you can follow the steps below:
 
+**Where to Store Your RagBot.AI Data**
+
+RagBot.AI uses a folder to store your custom instructions, datasets, and prompts. This data may be sensitive, so it's important to store it securely. The default location is:
+
+* **macOS/Linux:** `~/ragbot-data` 
+* **Windows:**  `%USERPROFILE%\ragbot-data`
+
+**Important Notes**
+
+* **Version Control:** If you plan to use version control (such as Git) on your `ragbot-data` folder, it's **strongly recommended** that you do not place it within a location that is synced by iCloud, Dropbox, OneDrive, or similar services. Syncing can interfere with version control features.
+
+* **Cloud Backups (Optional):** If you'd like cloud-based backups of your data and are not using version control, you may choose to place the `ragbot-data` folder within a cloud-synced location.
+
 
 1.  Set up your personalized custom instuctions for rbot.
 
