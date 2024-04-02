@@ -7,4 +7,5 @@ pathlib
 openai
 anthropic
 langchain
+langchain-community
 langchain-anthropic

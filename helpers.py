@@ -8,8 +8,10 @@ import yaml
 import pathlib
 import openai
 import anthropic
-from langchain.llms import OpenAI, OpenAIChat, Anthropic
-from langchain.chat_models import ChatOpenAI, ChatAnthropic, ChatGooglePalm
+
+from langchain_community.chat_models import ChatOpenAI, ChatAnthropic, ChatGooglePalm
+from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
+
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_anthropic import ChatAnthropic
 
@@ -122,8 +124,9 @@ def chat(
 
         case "google":
             # Call the Google API via LangChain
-
-            response="Google API not yet implemented."
+            llm_invocation = ChatGooglePalm(model=model, max_tokens=max_tokens, temperature=temperature)
+            llm_response = llm_invocation.predict_messages([SystemMessage(content=' '.join(custom_instructions)), HumanMessage(content=' '.join(curated_datasets) + prompt)])
+            response = llm_response.content
 
     return response
 
