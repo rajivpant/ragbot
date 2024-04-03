@@ -8,6 +8,7 @@ import yaml
 import pathlib
 import openai
 import anthropic
+import tiktoken
 
 from langchain_community.chat_models import ChatOpenAI, ChatAnthropic, ChatGooglePalm
 from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
@@ -59,6 +60,24 @@ def load_curated_dataset_files(curated_dataset_path):
                         curated_datasets.append(file.read())
                         curated_dataset_files.append(filepath)  # save file name
     return curated_datasets, curated_dataset_files
+
+
+def count_tokens(file_paths):
+    tokenizer = tiktoken.get_encoding('p50k_base')
+    total_tokens = 0
+    for file_path in file_paths:
+        with open(file_path, 'r') as file:
+            content = file.read()
+            total_tokens += len(tokenizer.encode(content))
+    return total_tokens
+
+def count_custom_instructions_tokens(custom_instruction_path):
+    _, custom_instruction_files = load_custom_instruction_files(custom_instruction_path)
+    return count_tokens(custom_instruction_files)
+
+def count_curated_datasets_tokens(curated_dataset_path):
+    _, curated_dataset_files = load_curated_dataset_files(curated_dataset_path)
+    return count_tokens(curated_dataset_files)
 
 
 def print_saved_files(directory):

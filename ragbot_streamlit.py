@@ -11,7 +11,7 @@ import yaml
 import json
 import openai
 import anthropic
-from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat
+from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens
 
 from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
 
@@ -28,6 +28,12 @@ model_choices = {engine: [model['name'] for model in engines_config[engine]['mod
 
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
+
+@st.cache_data
+def get_token_counts(custom_instruction_path, curated_dataset_path):
+    custom_instructions_tokens = count_custom_instructions_tokens(custom_instruction_path)
+    curated_datasets_tokens = count_curated_datasets_tokens(curated_dataset_path)
+    return custom_instructions_tokens, curated_datasets_tokens
 
 
 def main():
@@ -77,17 +83,23 @@ def main():
     else: 
         max_tokens = max_tokens_mapping[max_tokens_option]
 
-    # Get default curated_dataset paths from environment variable and populate the text area
+    # Get default custom_instruction paths from environment variable and populate the text area
     default_custom_instruction_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
-    # Remove any blank lines
+
     default_custom_instruction_paths = [path for path in default_custom_instruction_paths if path.strip() != '']
     custom_instruction_path = st.text_area("Enter files and folders for custom instructions to provide commands", "\n".join(default_custom_instruction_paths))
 
     # Get default curated_dataset paths from environment variable and populate the text area
     default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
-    # Remove any blank lines
+
     default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
     curated_dataset_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_curated_dataset_paths))
+
+    # Display token counts
+    custom_instructions_tokens, curated_datasets_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split())
+    total_tokens = custom_instructions_tokens + curated_datasets_tokens
+    token_info = f"Total tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens})"
+    st.caption(token_info)
 
     prompt = st.text_area("Enter your prompt here")
     custom_instructions, custom_instruction_files = load_custom_instruction_files(custom_instruction_path=custom_instruction_path.split())   
@@ -130,6 +142,8 @@ def main():
         st.header(f"Ragbot.AI's response")
         st.divider()
         st.write(f"{reply}")
+
+
 
 
 if __name__ == "__main__":

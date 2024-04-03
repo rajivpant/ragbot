@@ -11,3 +11,4 @@ langchain-community
 langchain-anthropic
 langchain-google-genai
 google-generativeai
+tiktoken

@@ -41,11 +41,11 @@ engines:
     api_key_name: GOOGLE_API_KEY
     models:
       - name: gemini-pro
-        max_tokens: 1024
+        max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
       - name: gemini-pro-vision
-        max_tokens: 1024
+        max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
     default_model: gemini-pro
