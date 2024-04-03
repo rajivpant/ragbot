@@ -75,14 +75,6 @@ def main():
     # Get the index of the default max_tokens in the options list
     default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
 
-    st.caption("Max tokens is the maximum number of tokens to generate in the response. For English text, 100 tokens is on average about 75 words.")
-    max_tokens_option = st.selectbox("Choose max_tokens", options=default_max_tokens_list, index=default_max_tokens_index)
-
-    if max_tokens_option == "custom":
-        max_tokens = st.number_input("Enter a custom value for max_tokens", min_value=1, max_value=65536, value=default_max_tokens, step=128)
-    else: 
-        max_tokens = max_tokens_mapping[max_tokens_option]
-
     # Get default custom_instruction paths from environment variable and populate the text area
     default_custom_instruction_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
 
@@ -95,13 +87,23 @@ def main():
     default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
     curated_dataset_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_curated_dataset_paths))
 
+
+    prompt = st.text_area("Enter your prompt here")
+
     # Display token counts
     custom_instructions_tokens, curated_datasets_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split())
     total_tokens = custom_instructions_tokens + curated_datasets_tokens
-    token_info = f"Total tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens})"
+    token_info = f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens})"
     st.caption(token_info)
+    st.caption("A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
+    max_tokens_option = st.selectbox("Choose max_tokens for the response", options=default_max_tokens_list, index=default_max_tokens_index)
 
-    prompt = st.text_area("Enter your prompt here")
+    if max_tokens_option == "custom":
+        max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
+    else: 
+        max_tokens = max_tokens_mapping[max_tokens_option]
+
+
     custom_instructions, custom_instruction_files = load_custom_instruction_files(custom_instruction_path=custom_instruction_path.split())   
     curated_datasets, curated_dataset_files = load_curated_dataset_files(curated_dataset_path=curated_dataset_path.split())
     history = []
