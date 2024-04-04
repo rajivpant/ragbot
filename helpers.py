@@ -10,10 +10,8 @@ import openai
 import anthropic
 import tiktoken
 
-from langchain_community.chat_models import ChatOpenAI, ChatAnthropic, ChatGooglePalm
-from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
-
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
