@@ -8,6 +8,7 @@ openai
 anthropic
 langchain
 langchain-community
+langchain-openai
 langchain-anthropic
 langchain-google-genai
 google-generativeai
