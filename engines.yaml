@@ -44,11 +44,11 @@ engines:
         max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
-      - name: gemini-pro-vision
-        max_tokens: 4096
+      - name: gemini-1.5-pro-latest
+        max_tokens: 8192
         max_temperature: 1
         temperature: 0.75
-    default_model: gemini-pro
+    default_model: gemini-1.5-pro-latest
 default: openai
 # These are the preset creativity temperature settings for the engine and model.
 temperature_settings:
