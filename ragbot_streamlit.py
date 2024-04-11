@@ -11,7 +11,8 @@ import yaml
 import json
 import openai
 import anthropic
-from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens
+import tiktoken
+from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles
 
 from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
 
@@ -75,14 +76,24 @@ def main():
     # Get the index of the default max_tokens in the options list
     default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
 
-    # Get default custom_instruction paths from environment variable and populate the text area
-    default_custom_instruction_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
+    # Load profiles from profiles.yaml
+    profiles = load_profiles('profiles.yaml')
+    profile_choices = [profile['name'] for profile in profiles]
+
+    # Select profile
+    selected_profile = st.selectbox("Choose a profile", options=profile_choices)
+
+    # Get custom instruction and curated dataset paths from selected profile
+    selected_profile_data = next(profile for profile in profiles if profile['name'] == selected_profile)
+    default_custom_instruction_paths = selected_profile_data.get('custom_instructions', [])
+    default_curated_dataset_paths = selected_profile_data.get('curated_datasets', [])
+
+    # default_custom_instruction_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
 
     default_custom_instruction_paths = [path for path in default_custom_instruction_paths if path.strip() != '']
     custom_instruction_path = st.text_area("Enter files and folders for custom instructions to provide commands", "\n".join(default_custom_instruction_paths))
 
-    # Get default curated_dataset paths from environment variable and populate the text area
-    default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
+    # default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
 
     default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
     curated_dataset_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_curated_dataset_paths))
@@ -90,10 +101,15 @@ def main():
 
     prompt = st.text_area("Enter your prompt here")
 
+    # Calculate prompt tokens
+    tokenizer = tiktoken.get_encoding("cl100k_base")  # Choose appropriate encoding
+    prompt_tokens = len(tokenizer.encode(prompt))
+
+
     # Display token counts
     custom_instructions_tokens, curated_datasets_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split())
-    total_tokens = custom_instructions_tokens + curated_datasets_tokens
-    token_info = f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens})"
+    total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
+    token_info = f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})"
     st.caption(token_info)
     st.caption("A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
     max_tokens_option = st.selectbox("Choose max_tokens for the response", options=default_max_tokens_list, index=default_max_tokens_index)

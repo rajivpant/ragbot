@@ -40,7 +40,7 @@ engines:
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
-      - name: gemini-pro
+      - name: gemini-1.0-pro-latest
         max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
@@ -49,7 +49,7 @@ engines:
         max_temperature: 1
         temperature: 0.75
     default_model: gemini-1.5-pro-latest
-default: openai
+default: google
 # These are the preset creativity temperature settings for the engine and model.
 temperature_settings:
   precise: 0.25

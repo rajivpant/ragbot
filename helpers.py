@@ -22,6 +22,14 @@ def load_config(config_file):
         config = yaml.safe_load(stream)
     return config
 
+# Function to load profiles from YAML
+def load_profiles(profiles_file):
+    """Load profiles from YAML."""
+    with open(profiles_file, 'r') as stream:
+        profiles = yaml.safe_load(stream)
+    return profiles['profiles']
+
+# Function to load files containing custom instructions
 def load_custom_instruction_files(custom_instruction_path):
 
     """Load custom_instruction files."""
@@ -41,6 +49,7 @@ def load_custom_instruction_files(custom_instruction_path):
 
     return custom_instructions, custom_instruction_files
 
+# Function to load files containing curated datasets
 def load_curated_dataset_files(curated_dataset_path):
 
     """Load curated_dataset files."""
@@ -59,7 +68,7 @@ def load_curated_dataset_files(curated_dataset_path):
                         curated_dataset_files.append(filepath)  # save file name
     return curated_datasets, curated_dataset_files
 
-
+# Function to count tokens in a list of files
 def count_tokens(file_paths):
     tokenizer = tiktoken.get_encoding('p50k_base')
     total_tokens = 0
