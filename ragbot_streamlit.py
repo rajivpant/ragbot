@@ -69,7 +69,7 @@ def main():
     else:
         temperature = temperature_mapping[temperature_option]
 
-    max_tokens_mapping = {"256": 256, "512": 512, "1024": 1024, "2048": 2048, "4096": 4096, "8192": 8192}
+    max_tokens_mapping = {str(2**i): 2**i for i in range(8, 17)}  # Powers of 2 from 256 to 65536ß
     default_max_tokens_list = list(max_tokens_mapping.keys())
     default_max_tokens_list.append("custom")
 
