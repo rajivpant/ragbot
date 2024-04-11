@@ -51,7 +51,7 @@ Read the [installation guide](INSTALL.md) and the [configuration and personaliat
 Using the Web version
 ---------------------
 ![](screenshots/Screenshot%202023-06-16%20at%2010.53.12%20PM.png)
-![](screenshots/Screenshot%202023-08-02%20at%2010.28.59%20PM.png)
+![](screenshots/Screenshot%202024-04-10%20at%2010.46.02 PM.png)
 ![](screenshots/Screenshot%202023-08-02%20at%2010.30.37%20PM.png)
 
 

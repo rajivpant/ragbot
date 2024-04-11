@@ -55,7 +55,7 @@ You can also run RagBot.AI in a web browser locally on your computer:
 ```bash
 ./rbot-web
 ```
-![](screenshots/Cursor_and_rbot-streamlit_%C2%B7_Streamlit.png)
+![](screenshots/Screenshot%202024-04-10%20at%2010.46.02 PM.png)
 
 Read the [main documentation](README.md) for examples and more information about RagBot.AI.
 
@@ -63,18 +63,29 @@ Read the [main documentation](README.md) for examples and more information about
 
 To personalize RagBot.AI and make it reflect your own user preferences, you can follow the steps below:
 
-**Where to Store Your RagBot.AI Data**
+#### Where to Store Your Ragbot.AI Data
 
-RagBot.AI uses a folder to store your custom instructions, datasets, and prompts. This data may be sensitive, so it's important to store it securely. The default location is:
+Ragbot.AI uses a dedicated folder to store your custom instructions, curated datasets, and any saved prompts or conversations. This data may contain personal or sensitive information, so choosing a secure location is crucial.
 
-* **macOS/Linux:** `~/ragbot-data` 
-* **Windows:**  `%USERPROFILE%\ragbot-data`
+Here's how to determine the default data storage location for your operating system:
 
-**Important Notes**
+-   macOS/Linux: `~/ragbot-data` (This translates to a folder named `ragbot-data` within your home directory.)
+-   Windows: `%USERPROFILE%\ragbot-data` (This translates to a folder named `ragbot-data` within your user profile directory.)
 
-* **Version Control:** If you plan to use version control (such as Git) on your `ragbot-data` folder, it's **strongly recommended** that you do not place it within a location that is synced by iCloud, Dropbox, OneDrive, or similar services. Syncing can interfere with version control features.
+#### Important Considerations for Data Storage
 
-* **Cloud Backups (Optional):** If you'd like cloud-based backups of your data and are not using version control, you may choose to place the `ragbot-data` folder within a cloud-synced location.
+-   Version Control: If you intend to use version control systems like Git to manage your `ragbot-data` folder, it's highly recommended to avoid placing it within a directory that is synchronized with cloud storage services such as iCloud, Dropbox, OneDrive, or similar. Cloud syncing can lead to conflicts and unexpected behavior with version control.
+
+-   Cloud Backups (Optional): If you prefer having cloud-based backups of your Ragbot.AI data and are not using version control, you may choose to place the `ragbot-data` folder within a directory that is synchronized with your preferred cloud storage provider. This ensures your data is backed up and accessible from multiple devices.
+
+#### Organizing Your Ragbot.AI Data
+
+Within the `ragbot-data` folder, it's recommended to create subfolders to organize your custom instructions and curated datasets:
+
+-   `custom-instructions`: This subfolder will hold your custom instruction files in Markdown format (`.md`). These files provide Ragbot.AI with guidelines and preferences for its responses.
+-   `curated-datasets`: This subfolder will contain your curated dataset files, also in Markdown format. These files offer contextual information and knowledge to Ragbot.AI, allowing it to generate more relevant and informed responses.
+
+Remember: Always prioritize the security and privacy of your Ragbot.AI data by choosing a storage location that aligns with your needs and security preferences.
 
 
 1.  Set up your personalized custom instuctions for rbot.
