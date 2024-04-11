@@ -31,10 +31,36 @@ default_models = {engine: engines_config[engine]['default_model'] for engine in 
 
 
 @st.cache_data
-def get_token_counts(custom_instruction_path, curated_dataset_path):
+
+def get_token_counts(custom_instruction_path, curated_dataset_path, engine, model):
     custom_instructions_tokens = count_custom_instructions_tokens(custom_instruction_path)
     curated_datasets_tokens = count_curated_datasets_tokens(curated_dataset_path)
-    return custom_instructions_tokens, curated_datasets_tokens
+
+    # Find selected model and get context length
+    selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
+    context_length = selected_model.get('context_length', 4096)  # Default to 4096 if not found
+
+    return custom_instructions_tokens, curated_datasets_tokens, context_length
+
+
+def find_closest_max_tokens(suggested_max_tokens, max_tokens_mapping):
+    """Finds the closest max_tokens option that is less than or equal to the suggested value,
+       or returns the lowest available option if the suggested value is too low."""
+
+    closest_option = None
+    closest_difference = float('inf')
+
+    for option, value in max_tokens_mapping.items():
+        difference = suggested_max_tokens - value
+        if 0 <= difference < closest_difference:
+            closest_option = option
+            closest_difference = difference
+
+    # If no suitable option found, return the lowest available option
+    if closest_option is None:
+        return min(max_tokens_mapping, key=max_tokens_mapping.get) 
+
+    return closest_option
 
 
 def main():
@@ -105,14 +131,28 @@ def main():
     tokenizer = tiktoken.get_encoding("cl100k_base")  # Choose appropriate encoding
     prompt_tokens = len(tokenizer.encode(prompt))
 
-
     # Display token counts
-    custom_instructions_tokens, curated_datasets_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split())
+    custom_instructions_tokens, curated_datasets_tokens, context_length = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
     total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
-    token_info = f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})"
-    st.caption(token_info)
+
+    # Calculate suggested max_tokens
+    suggested_max_tokens = context_length - total_tokens
+
+    # Find the closest rounded-down max_tokens option that is less than or equal to the model's max_tokens
+    closest_max_tokens_option = find_closest_max_tokens(min(suggested_max_tokens, default_max_tokens), max_tokens_mapping)
+
+    # Get the index of the closest max_tokens option in the list
+    closest_max_tokens_index = default_max_tokens_list.index(closest_max_tokens_option)
+
+    # Validate index and handle edge cases
+    if closest_max_tokens_index >= len(default_max_tokens_list):
+        closest_max_tokens_index = 0  # Default to the first option if the index is out of range
+
+    # Display token information and suggestion
+    st.caption(f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})")
     st.caption("A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
-    max_tokens_option = st.selectbox("Choose max_tokens for the response", options=default_max_tokens_list, index=default_max_tokens_index)
+
+    max_tokens_option = st.selectbox("Choose max_tokens for the response (suggested < ~" + str(suggested_max_tokens) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
 
     if max_tokens_option == "custom":
         max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
@@ -137,7 +177,7 @@ def main():
     # Convert to a string in the format of "2021/January/01 01:01 AM (UTC)"
     date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
 
-    st.write(f"Using AI engine {engine} with model {model}. Creativity temperature set to {temperature} and max_tokens set to {max_tokens}. The current date and time is {date_and_time}.")
+    st.write(f"Using AI engine {engine} with model {model} ({context_length} context length, {default_max_tokens} max output tokens). Creativity temperature set to {temperature} and max_tokens set to {max_tokens}. The current date and time is {date_and_time}.")
     debug_mode = st.checkbox("Debug mode", value=False)
 
     if st.button("Get response"):
