@@ -12,9 +12,8 @@ import json
 import appdirs
 import openai
 import anthropic
-from langchain.llms import OpenAI, OpenAIChat, Anthropic
-# from langchain.chat_models.anthropic import ChatAnthropic
-from helpers import load_curated_dataset_files, load_custom_instruction_files, load_config, print_saved_files, chat
+from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
+from helpers import load_curated_dataset_files, load_custom_instruction_files, load_config, print_saved_files, chat, load_profiles
 
 
 appname = "ragbot"
@@ -71,6 +70,11 @@ def main():
         "--stdin",
         action="store_true",
         help="Read the user's input from stdin."
+    )
+    parser.add_argument(
+        "-profile",
+        "--profile",
+        help="Name of the profile to use.",
     )
     parser.add_argument(
         "-c", "--custom_instructions", nargs='*', default=[],
@@ -139,9 +143,25 @@ def main():
     curated_datasets = []
     curated_dataset_files = []  # to store file names of curated_datasets
 
+    # Load profiles
+    profiles = load_profiles('profiles.yaml')
+
+    if args.profile:
+        # Get custom instruction and curated dataset paths from selected profile
+        selected_profile_data = next((profile for profile in profiles if profile['name'] == args.profile), None)
+        if not selected_profile_data:
+            print(f"Error: Profile '{args.profile}' not found in profiles.yaml")
+            sys.exit(1)
+        custom_instruction_paths = selected_profile_data.get('custom_instructions', [])
+        curated_dataset_paths = selected_profile_data.get('curated_datasets', [])
+    else:
+        custom_instruction_paths = []
+        curated_dataset_paths = []
+
+
     if not args.custom_instructions:
-        # Load default custom_instructions from .env file
-        default_custom_instructions_paths = os.getenv("CUSTOM_INSTRUCTIONS", "").split("\n")
+        # Load default custom_instructions for profile
+        default_custom_instructions_paths = custom_instruction_paths
         default_custom_instructions_paths = [path for path in default_custom_instructions_paths if path.strip() != '']
         custom_instructions, custom_instructions_files = load_custom_instruction_files(default_custom_instructions_paths + args.curated_dataset)
 
@@ -153,8 +173,8 @@ def main():
         print("No custom instructions files are being used.")
 
     if not args.nocurated_dataset:
-        # Load default curated_datasets from .env file
-        default_curated_dataset_paths = os.getenv("CURATED_DATASETS", "").split("\n")
+        # Load default curated_datasets profile
+        default_curated_dataset_paths = curated_dataset_paths
         default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
         curated_datasets, curated_dataset_files = load_curated_dataset_files(default_curated_dataset_paths + args.curated_dataset)
 
