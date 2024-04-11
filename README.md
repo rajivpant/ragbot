@@ -68,11 +68,12 @@ Using the command line interface
 ### Command line usage: Getting help
 
 ```console
-rajiv@RP-2023-MacBook-Air ragbot % ./ragbot --help
+rajivpant@rp-2023-mac-mini ragbot % ./ragbot --help
 usage: ragbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
-               [-c [CUSTOM_INSTRUCTIONS ...]] [-nc] [-d [CURATED_DATASET ...]]
-               [-nd] [-e {openai,anthropic,google}] [-m MODEL]
-               [-t TEMPERATURE] [-mt MAX_TOKENS] [-l LOAD]
+                 [-profile PROFILE] [-c [CUSTOM_INSTRUCTIONS ...]] [-nc]
+                 [-d [CURATED_DATASET ...]] [-nd]
+                 [-e {openai,anthropic,google}] [-m MODEL] [-t TEMPERATURE]
+                 [-mt MAX_TOKENS] [-l LOAD]
 
 Ragbot.AI is an augmented brain and asistant. Learn more at https://ragbot.ai
 
@@ -86,6 +87,8 @@ options:
                         response for.
   -i, --interactive     Enable interactive assistant chatbot mode.
   --stdin               Read the user's input from stdin.
+  -profile PROFILE, --profile PROFILE
+                        Name of the profile to use.
   -c [CUSTOM_INSTRUCTIONS ...], --custom_instructions [CUSTOM_INSTRUCTIONS ...]
                         Path to the prompt custom instructions file or folder.
                         Can accept multiple values.
@@ -110,7 +113,7 @@ options:
                         The maximum number of tokens to generate in the
                         response.
   -l LOAD, --load LOAD  Load a previous interactive session from a file.
-rajiv@RP-2023-MacBook-Air ragbot % 
+rajivpant@rp-2023-mac-mini ragbot % 
 ```
 
 ### Using curated dataset files
