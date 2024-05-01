@@ -132,7 +132,7 @@ def chat(
             # Call the OpenAI API via LangChain
             llm_invocation = ChatOpenAI(openai_api_key=openai.api_key, model_name=model, max_tokens=max_tokens, temperature=temperature)
 
-            llm_response =llm_invocation.predict_messages([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
+            llm_response =llm_invocation.invoke([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
             response = llm_response.content
 
 
@@ -146,7 +146,7 @@ def chat(
                 HumanMessage(content=prompt)
             ]
 
-            llm_response = llm_invocation.predict_messages(messages)
+            llm_response = llm_invocation.invoke(messages)
             response = llm_response.content
 
         case "google":
