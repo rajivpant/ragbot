@@ -1,0 +1,24 @@
+# example-profiles.yaml
+# This is a YAML file that contains a list of profiles that you can use to customize the behavior of Ragbot.AI
+# Each profile can have a list of custom instructions and curated datasets that you want to use with that profile.
+profiles:
+  - name: "My Personal Profile"
+    custom_instructions:
+      - "/path/to/my/custom-instructions/personal-instructions.md"
+    curated_datasets:
+      - "/path/to/my/curated-datasets/personal-information/"
+      - "/path/to/my/curated-datasets/family-and-friends/"
+
+  - name: "My Work Profile"
+    custom_instructions:
+      - "/path/to/my/custom-instructions/work-instructions.md"
+    curated_datasets:
+      - "/path/to/my/curated-datasets/work-projects/"
+      - "/path/to/my/curated-datasets/industry-knowledge/"
+
+  - name: "Ragbot Source Code"
+    custom_instructions:
+      - "/path/to/ragbot/example-custom-instructions/ragbot-default-instructions.md"
+    curated_datasets:
+      - "/path/to/ragbot/"
+      

@@ -8,11 +8,13 @@ import yaml
 import pathlib
 import openai
 import anthropic
-from langchain.llms import OpenAI, OpenAIChat, Anthropic
-from langchain.chat_models import ChatOpenAI, ChatAnthropic, ChatGooglePalm
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from litellm import completion
+import tiktoken
 
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -21,6 +23,14 @@ def load_config(config_file):
         config = yaml.safe_load(stream)
     return config
 
+# Function to load profiles from YAML
+def load_profiles(profiles_file):
+    """Load profiles from YAML."""
+    with open(profiles_file, 'r') as stream:
+        profiles = yaml.safe_load(stream)
+    return profiles['profiles']
+
+# Function to load files containing custom instructions
 def load_custom_instruction_files(custom_instruction_path):
 
     """Load custom_instruction files."""
@@ -40,6 +50,7 @@ def load_custom_instruction_files(custom_instruction_path):
 
     return custom_instructions, custom_instruction_files
 
+# Function to load files containing curated datasets
 def load_curated_dataset_files(curated_dataset_path):
 
     """Load curated_dataset files."""
@@ -57,6 +68,24 @@ def load_curated_dataset_files(curated_dataset_path):
                         curated_datasets.append(file.read())
                         curated_dataset_files.append(filepath)  # save file name
     return curated_datasets, curated_dataset_files
+
+# Function to count tokens in a list of files
+def count_tokens(file_paths):
+    tokenizer = tiktoken.get_encoding('p50k_base')
+    total_tokens = 0
+    for file_path in file_paths:
+        with open(file_path, 'r') as file:
+            content = file.read()
+            total_tokens += len(tokenizer.encode(content))
+    return total_tokens
+
+def count_custom_instructions_tokens(custom_instruction_path):
+    _, custom_instruction_files = load_custom_instruction_files(custom_instruction_path)
+    return count_tokens(custom_instruction_files)
+
+def count_curated_datasets_tokens(curated_dataset_path):
+    _, curated_dataset_files = load_curated_dataset_files(curated_dataset_path)
+    return count_tokens(curated_dataset_files)
 
 
 def print_saved_files(directory):
@@ -96,6 +125,7 @@ def chat(
     :return: The generated response text from the model.
     """
     added_curated_datasets = False
+
     messages = [
         {"role": "system", "content": ' '.join(custom_instructions)},
         {"role": "user", "content": ' '.join(curated_datasets) + prompt}, 
@@ -105,4 +135,42 @@ def chat(
     # just pass model="gpt-3.5-turbo" (your model name)
     llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
     return llm_response
-
+    
+#    match engine:
+#
+#        case "openai":
+#
+#            # Call the OpenAI API via LangChain
+#            llm_invocation = ChatOpenAI(openai_api_key=openai.api_key, model_name=model, max_tokens=max_tokens, temperature=temperature)
+#
+#            llm_response =llm_invocation.invoke([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
+#            response = llm_response.content
+#
+#
+#        case "anthropic":
+#            # Call the Anthropic API via LangChain
+#            llm_invocation = ChatAnthropic(model=model, max_tokens_to_sample=max_tokens, temperature=temperature)
+#
+#            messages = [
+#                HumanMessage(content=' '.join(custom_instructions)),
+#                AIMessage(content=' '.join(curated_datasets)),
+#                HumanMessage(content=prompt)
+#            ]
+#
+#            llm_response = llm_invocation.invoke(messages)
+#            response = llm_response.content
+#
+#        case "google":
+#            # Call the Google API via LangChain
+#            llm_invocation = ChatGoogleGenerativeAI(model=model, max_tokens=max_tokens, temperature=temperature)
+#            
+#            messages = [
+#                HumanMessage(content=' '.join(custom_instructions)),
+#                AIMessage(content=' '.join(curated_datasets)),
+#                HumanMessage(content=prompt)
+#            ]
+#
+#            llm_response = llm_invocation.invoke(messages)
+#            response = llm_response.content
+#
+#    return response
