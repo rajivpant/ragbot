@@ -134,7 +134,7 @@ def chat(
     # litellm allows you to use Google Palm, OpenAI, Azure, Anthropic, Replicate, Cohere LLM models
     # just pass model="gpt-3.5-turbo" (your model name)
     llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
-    return llm_response
+    response = llm_response.get('choices', [{}])[0].get('message', {}).get('content')
     
 #    match engine:
 #
@@ -173,4 +173,4 @@ def chat(
 #            llm_response = llm_invocation.invoke(messages)
 #            response = llm_response.content
 #
-#    return response
+    return response
