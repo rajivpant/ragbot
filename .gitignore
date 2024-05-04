@@ -1,7 +1,9 @@
 # Files and folders that contain each users' own data and should not be uploaded to GitHub
 .env
+profiles.yaml
 curated-datasets
 custom-instructions
+prompts
 # System files used for caching and related uses
 .streamlit
 __pycache__
