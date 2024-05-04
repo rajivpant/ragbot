@@ -8,6 +8,7 @@ import yaml
 import pathlib
 import openai
 import anthropic
+from litellm import completion
 import tiktoken
 
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
@@ -124,43 +125,52 @@ def chat(
     :return: The generated response text from the model.
     """
     added_curated_datasets = False
+
+    messages = [
+        {"role": "system", "content": ' '.join(custom_instructions)},
+        {"role": "user", "content": ' '.join(curated_datasets) + prompt}, 
+        
+    ]
+    # litellm allows you to use Google Palm, OpenAI, Azure, Anthropic, Replicate, Cohere LLM models
+    # just pass model="gpt-3.5-turbo" (your model name)
+    llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
+    return llm_response
     
-    match engine:
-
-        case "openai":
-
-            # Call the OpenAI API via LangChain
-            llm_invocation = ChatOpenAI(openai_api_key=openai.api_key, model_name=model, max_tokens=max_tokens, temperature=temperature)
-
-            llm_response =llm_invocation.invoke([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
-            response = llm_response.content
-
-
-        case "anthropic":
-            # Call the Anthropic API via LangChain
-            llm_invocation = ChatAnthropic(model=model, max_tokens_to_sample=max_tokens, temperature=temperature)
-
-            messages = [
-                HumanMessage(content=' '.join(custom_instructions)),
-                AIMessage(content=' '.join(curated_datasets)),
-                HumanMessage(content=prompt)
-            ]
-
-            llm_response = llm_invocation.invoke(messages)
-            response = llm_response.content
-
-        case "google":
-            # Call the Google API via LangChain
-            llm_invocation = ChatGoogleGenerativeAI(model=model, max_tokens=max_tokens, temperature=temperature)
-            
-            messages = [
-                HumanMessage(content=' '.join(custom_instructions)),
-                AIMessage(content=' '.join(curated_datasets)),
-                HumanMessage(content=prompt)
-            ]
-
-            llm_response = llm_invocation.invoke(messages)
-            response = llm_response.content
-
-    return response
-
+#    match engine:
+#
+#        case "openai":
+#
+#            # Call the OpenAI API via LangChain
+#            llm_invocation = ChatOpenAI(openai_api_key=openai.api_key, model_name=model, max_tokens=max_tokens, temperature=temperature)
+#
+#            llm_response =llm_invocation.invoke([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
+#            response = llm_response.content
+#
+#
+#        case "anthropic":
+#            # Call the Anthropic API via LangChain
+#            llm_invocation = ChatAnthropic(model=model, max_tokens_to_sample=max_tokens, temperature=temperature)
+#
+#            messages = [
+#                HumanMessage(content=' '.join(custom_instructions)),
+#                AIMessage(content=' '.join(curated_datasets)),
+#                HumanMessage(content=prompt)
+#            ]
+#
+#            llm_response = llm_invocation.invoke(messages)
+#            response = llm_response.content
+#
+#        case "google":
+#            # Call the Google API via LangChain
+#            llm_invocation = ChatGoogleGenerativeAI(model=model, max_tokens=max_tokens, temperature=temperature)
+#            
+#            messages = [
+#                HumanMessage(content=' '.join(custom_instructions)),
+#                AIMessage(content=' '.join(curated_datasets)),
+#                HumanMessage(content=prompt)
+#            ]
+#
+#            llm_response = llm_invocation.invoke(messages)
+#            response = llm_response.content
+#
+#    return response
