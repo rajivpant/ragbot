@@ -9,11 +9,12 @@ Ragbot.AI
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
-Contributors and Advisors
-- [Vik Pant, PhD](https://www.linkedin.com/in/vikpant/)
+Code Contributors & Collaborators
 - [Alexandria Redmon](https://github.com/alexdredmon)
+- [Ishaan Jaffer](https://www.linkedin.com/in/reffajnaahsi/)
 - [Trace Wax](https://github.com/tracedwax)
 - [Jim Mortko](https://github.com/jskills)
+- [Vik Pant](https://www.linkedin.com/in/vikpant/)
 
 Blog Post Introducing Ragbot.AI
 --------------------------
