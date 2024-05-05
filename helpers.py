@@ -30,44 +30,24 @@ def load_profiles(profiles_file):
         profiles = yaml.safe_load(stream)
     return profiles['profiles']
 
-# Function to load files containing custom instructions
-def load_custom_instruction_files(custom_instruction_path):
-
-    """Load custom_instruction files."""
-    custom_instructions = []
-    custom_instruction_files = []  # to store file names of custom_instructions
-    for path in custom_instruction_path:
+# Function to load files containing custom instructions or curated datasets
+def load_files(file_paths):
+    """Load files containing custom instructions or curated datasets."""
+    files_content = []
+    files_list = []  # to store file names
+    for path in file_paths:
         if os.path.isfile(path):
             with open(path, "r") as file:
-                custom_instructions.append(file.read())
-                custom_instruction_files.append(path)  # save file name
+                files_content.append(file.read())
+                files_list.append(path)  # save file name
         elif os.path.isdir(path):
             for filepath in glob.glob(os.path.join(path, "*")):
                 if os.path.isfile(filepath):  # Check if the path is a file
                     with open(filepath, "r") as file:
-                        custom_instructions.append(file.read())
-                        custom_instruction_files.append(filepath)  # save file name
+                        files_content.append(file.read())
+                        files_list.append(filepath)  # save file name
 
-    return custom_instructions, custom_instruction_files
-
-# Function to load files containing curated datasets
-def load_curated_dataset_files(curated_dataset_path):
-
-    """Load curated_dataset files."""
-    curated_datasets = []
-    curated_dataset_files = []  # to store file names of curated_datasets
-    for path in curated_dataset_path:
-        if os.path.isfile(path):
-            with open(path, "r") as file:
-                curated_datasets.append(file.read())
-                curated_dataset_files.append(path)  # save file name
-        elif os.path.isdir(path):
-            for filepath in glob.glob(os.path.join(path, "*")):
-                if os.path.isfile(filepath):  # Check if the path is a file
-                    with open(filepath, "r") as file:
-                        curated_datasets.append(file.read())
-                        curated_dataset_files.append(filepath)  # save file name
-    return curated_datasets, curated_dataset_files
+    return files_content, files_list
 
 # Function to count tokens in a list of files
 def count_tokens(file_paths):
@@ -80,11 +60,11 @@ def count_tokens(file_paths):
     return total_tokens
 
 def count_custom_instructions_tokens(custom_instruction_path):
-    _, custom_instruction_files = load_custom_instruction_files(custom_instruction_path)
+    _, custom_instruction_files = load_files(custom_instruction_path)
     return count_tokens(custom_instruction_files)
 
 def count_curated_datasets_tokens(curated_dataset_path):
-    _, curated_dataset_files = load_curated_dataset_files(curated_dataset_path)
+    _, curated_dataset_files = load_files(curated_dataset_path)
     return count_tokens(curated_dataset_files)
 
 
@@ -136,41 +116,4 @@ def chat(
     llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
     response = llm_response.get('choices', [{}])[0].get('message', {}).get('content')
     
-#    match engine:
-#
-#        case "openai":
-#
-#            # Call the OpenAI API via LangChain
-#            llm_invocation = ChatOpenAI(openai_api_key=openai.api_key, model_name=model, max_tokens=max_tokens, temperature=temperature)
-#
-#            llm_response =llm_invocation.invoke([SystemMessage(content=' '.join(custom_instructions)),HumanMessage(content=' '.join(curated_datasets) + prompt)])
-#            response = llm_response.content
-#
-#
-#        case "anthropic":
-#            # Call the Anthropic API via LangChain
-#            llm_invocation = ChatAnthropic(model=model, max_tokens_to_sample=max_tokens, temperature=temperature)
-#
-#            messages = [
-#                HumanMessage(content=' '.join(custom_instructions)),
-#                AIMessage(content=' '.join(curated_datasets)),
-#                HumanMessage(content=prompt)
-#            ]
-#
-#            llm_response = llm_invocation.invoke(messages)
-#            response = llm_response.content
-#
-#        case "google":
-#            # Call the Google API via LangChain
-#            llm_invocation = ChatGoogleGenerativeAI(model=model, max_tokens=max_tokens, temperature=temperature)
-#            
-#            messages = [
-#                HumanMessage(content=' '.join(custom_instructions)),
-#                AIMessage(content=' '.join(curated_datasets)),
-#                HumanMessage(content=prompt)
-#            ]
-#
-#            llm_response = llm_invocation.invoke(messages)
-#            response = llm_response.content
-#
     return response
