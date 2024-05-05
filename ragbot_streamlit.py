@@ -160,8 +160,8 @@ def main():
         max_tokens = max_tokens_mapping[max_tokens_option]
 
 
-    custom_instructions, custom_instructions_files = load_files(custom_instruction_path.split())
-    curated_datasets, curated_dataset_files = load_files(curated_dataset_path.split())
+    custom_instructions, custom_instructions_files = load_files(file_paths=custom_instruction_path.split(), file_type="custom_instructions")
+    curated_datasets, curated_dataset_files = load_files(file_paths=curated_dataset_path.split(), file_type="curated_datasets")
 
     history = []
     for curated_dataset in curated_datasets:
@@ -188,11 +188,11 @@ def main():
             st.write(f"model: {model}")
             st.write(f"max_tokens: {max_tokens}")
             st.write(f"temperature: {temperature}")
-            st.write(f"custom_instruction_files: {custom_instruction_files}")
+            st.write(f"custom_instruction_files: {custom_instructions_files}")
             st.write(f"curated_dataset_files: {curated_dataset_files}")
-            # st.write(f"custom_instructions: {custom_instructions}")
-            # st.write(f"curated_datasets: {curated_datasets}")
-            # st.write(f"history: {history}")
+            #st.write(f"custom_instructions: {custom_instructions}")
+            #st.write(f"curated_datasets: {curated_datasets}")
+            #st.write(f"history: {history}")
             st.write(f"prompt: {prompt}")
             
         history.append({"role": "user", "content": prompt})

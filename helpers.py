@@ -6,15 +6,17 @@ import os
 import glob
 import yaml
 import pathlib
+import uuid
+
 import openai
 import anthropic
-from litellm import completion
 import tiktoken
 
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
+from litellm import completion
 
 # Function to load configuration from YAML
 def load_config(config_file):
@@ -31,14 +33,17 @@ def load_profiles(profiles_file):
     return profiles['profiles']
 
 # Function to load files containing custom instructions or curated datasets
-def load_files(file_paths):
+def load_files(file_paths, file_type):
     """Load files containing custom instructions or curated datasets."""
     files_content = []
     files_list = []  # to store file names
     for path in file_paths:
         if os.path.isfile(path):
             with open(path, "r") as file:
+                unique_id = str(uuid.uuid4())
+                files_content.append(f"<ragbot-file:{unique_id} path=\"{path}\" type=\"{file_type}\">")
                 files_content.append(file.read())
+                files_content.append(f"</ragbot-file:{unique_id}>")
                 files_list.append(path)  # save file name
         elif os.path.isdir(path):
             for filepath in glob.glob(os.path.join(path, "*")):
@@ -60,11 +65,11 @@ def count_tokens(file_paths):
     return total_tokens
 
 def count_custom_instructions_tokens(custom_instruction_path):
-    _, custom_instruction_files = load_files(custom_instruction_path)
+    _, custom_instruction_files = load_files(file_paths=custom_instruction_path, file_type="custom_instructions")
     return count_tokens(custom_instruction_files)
 
 def count_curated_datasets_tokens(curated_dataset_path):
-    _, curated_dataset_files = load_files(curated_dataset_path)
+    _, curated_dataset_files = load_files(file_paths=curated_dataset_path, file_type="curated_datasets")
     return count_tokens(curated_dataset_files)
 
 
