@@ -12,7 +12,7 @@ import json
 import openai
 import anthropic
 import tiktoken
-from helpers import load_custom_instruction_files, load_curated_dataset_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles
+from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles
 
 from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
 
@@ -160,8 +160,9 @@ def main():
         max_tokens = max_tokens_mapping[max_tokens_option]
 
 
-    custom_instructions, custom_instruction_files = load_custom_instruction_files(custom_instruction_path=custom_instruction_path.split())   
-    curated_datasets, curated_dataset_files = load_curated_dataset_files(curated_dataset_path=curated_dataset_path.split())
+    custom_instructions, custom_instructions_files = load_files(custom_instruction_path.split())
+    curated_datasets, curated_dataset_files = load_files(curated_dataset_path.split())
+
     history = []
     for curated_dataset in curated_datasets:
         history.append({"role": "system", "content": curated_dataset,})
