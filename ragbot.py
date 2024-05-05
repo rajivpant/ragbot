@@ -13,7 +13,7 @@ import appdirs
 import openai
 import anthropic
 from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
-from helpers import load_curated_dataset_files, load_custom_instruction_files, load_config, print_saved_files, chat, load_profiles
+from helpers import load_files, load_config, print_saved_files, chat, load_profiles
 
 
 appname = "ragbot"
@@ -163,7 +163,7 @@ def main():
         # Load default custom_instructions for profile
         default_custom_instructions_paths = custom_instruction_paths
         default_custom_instructions_paths = [path for path in default_custom_instructions_paths if path.strip() != '']
-        custom_instructions, custom_instructions_files = load_custom_instruction_files(default_custom_instructions_paths + args.curated_dataset)
+        custom_instructions, custom_instructions_files = load_files(default_custom_instructions_paths + args.curated_dataset)
 
     if custom_instructions_files:
         print("Custom instructions being used:")
@@ -176,7 +176,7 @@ def main():
         # Load default curated_datasets profile
         default_curated_dataset_paths = curated_dataset_paths
         default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
-        curated_datasets, curated_dataset_files = load_curated_dataset_files(default_curated_dataset_paths + args.curated_dataset)
+        curated_datasets, curated_dataset_files = load_files(default_curated_dataset_paths + args.curated_dataset)
 
     if curated_dataset_files:
         print("Curated datasets being used:")
