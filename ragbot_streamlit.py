@@ -178,32 +178,30 @@ def main():
     # Convert to a string in the format of "2021/January/01 01:01 AM (UTC)"
     date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
 
-    st.write(f"Using AI engine {engine} with model {model} ({context_length} context length, {default_max_tokens} max output tokens). Creativity temperature set to {temperature} and max_tokens set to {max_tokens}. The current date and time is {date_and_time}.")
-    debug_mode = st.checkbox("Debug mode", value=False)
+    debug_expander = st.expander("Debug Information")
+
+    with debug_expander:
+        st.write(f"The current date and time is {date_and_time}.")
+        st.write(f"engine: {engine}")
+        st.write(f"model: {model}")
+        st.write(f"context_length: {context_length}")
+        st.write(f"max_tokens: {max_tokens}")
+        st.write(f"default_max_tokens: {default_max_tokens}")
+        st.write(f"temperature: {temperature}")
+        st.write(f"custom_instruction_files: {custom_instructions_files}")
+        st.write(f"curated_dataset_files: {curated_dataset_files}")
+        st.write(f"prompt: {prompt}")
+        #st.write(f"custom_instructions: {custom_instructions}")
+        #st.write(f"curated_datasets: {curated_datasets}")
+        #st.write(f"history: {history}")
 
     if st.button("Get response"):
-
-        if debug_mode:
-            st.write(f"engine: {engine}")
-            st.write(f"model: {model}")
-            st.write(f"max_tokens: {max_tokens}")
-            st.write(f"temperature: {temperature}")
-            st.write(f"custom_instruction_files: {custom_instructions_files}")
-            st.write(f"curated_dataset_files: {curated_dataset_files}")
-            #st.write(f"custom_instructions: {custom_instructions}")
-            #st.write(f"curated_datasets: {curated_datasets}")
-            #st.write(f"history: {history}")
-            st.write(f"prompt: {prompt}")
-            
         history.append({"role": "user", "content": prompt})
         reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
         st.header(f"Ragbot.AI's response")
         st.divider()
         st.write(f"{reply}")
-
-
-
 
 if __name__ == "__main__":
     main()
