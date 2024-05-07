@@ -149,8 +149,8 @@ def main():
         closest_max_tokens_index = 0  # Default to the first option if the index is out of range
 
     # Display token information and suggestion
-    st.caption(f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})")
-    st.caption("A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
+    st.markdown(f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})"\
+                , help="A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
 
     max_tokens_option = st.selectbox("Choose max_tokens for the response (suggested < ~" + str(suggested_max_tokens) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
 
