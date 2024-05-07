@@ -2,29 +2,8 @@
 # generate_prompt_template.py - https://github.com/rajivpant/ragbot
 
 import os
+from helpers import load_files, load_profiles
 import argparse
-
-def concatenate_files(directories, output_file, recursive=False):
-    content = ""
-    for directory in directories:
-        if recursive:
-            for root, dirs, files in os.walk(directory):
-                for file in files:
-                    if file.endswith('.md'):
-                        file_path = os.path.join(root, file)
-                        with open(file_path, 'r') as infile:
-                            content += f"# {file}\n\n"
-                            content += infile.read()
-                            content += "\n\n---\n\n"
-        else:
-            for file in os.listdir(directory):
-                if file.endswith('.md'):
-                    file_path = os.path.join(directory, file)
-                    with open(file_path, 'r') as infile:
-                        content += f"# {file}\n\n"
-                        content += infile.read()
-                        content += "\n\n---\n\n"
-    return content.strip()
 
 def generate_prompt_template(instructions_content, datasets_content, output_file):
     prompt_template = f"""
@@ -62,18 +41,24 @@ When responding, please adhere to the following guidelines:
         outfile.write(prompt_template)
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate a prompt template with concatenated instructions and datasets')
-    parser.add_argument('-i', '--instructions', help='Directories containing custom instructions', nargs='+', required=True)
-    parser.add_argument('-d', '--datasets', help='Directories containing curated datasets', nargs='+', required=True)
-    parser.add_argument('-o', '--output', help='Output file for the prompt template', required=True)
-    parser.add_argument('-r', '--recursive', help='Search for .md files recursively in subdirectories', action='store_true', default=False)
+    """Parses arguments and generates the prompt template."""
 
+    # Load profile names for choices
+    profile_names = [profile['name'] for profile in load_profiles("profiles.yaml")]
+
+    parser = argparse.ArgumentParser(description="Generates a prompt template for AI assistants.")
+    parser.add_argument("--profile", required=True, choices=profile_names, help="Name of the profile to use.")
+    parser.add_argument("--output", required=True, help="Output file name for the prompt template.")
     args = parser.parse_args()
 
-    instructions_content = concatenate_files(args.instructions, "", args.recursive)
-    datasets_content = concatenate_files(args.datasets, "", args.recursive)
-
-    generate_prompt_template(instructions_content, datasets_content, args.output)
+    try:
+        profile_data = next(profile for profile in load_profiles("profiles.yaml") if profile["name"] == args.profile)
+        custom_instructions, _ = load_files(profile_data.get("custom_instructions", []), file_type="custom_instructions")
+        curated_datasets, _ = load_files(profile_data.get("curated_datasets", []), file_type="curated_datasets")
+        generate_prompt_template(custom_instructions, curated_datasets, args.output)
+        print(f"Prompt template generated successfully: {args.output}")
+    except Exception as e:
+        print(f"Error generating prompt template: {e}")
 
 if __name__ == '__main__':
     main()

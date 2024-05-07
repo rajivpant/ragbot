@@ -1,12 +1,11 @@
 # Generate Prompt Template
 
-`generate_prompt_template.py` is a Python script that generates a prompt template for AI assistants by concatenating custom instructions and curated datasets. The script is designed to help users create personalized and context-aware prompts for their AI-powered tools, enhancing the effectiveness and reliability of the AI's responses.
+`generate_prompt_template.py` is a Python script that generates a prompt template for AI assistants by concatenating custom instructions and curated datasets for a given profile as defined in your Ragbot.AI configuration. The script is designed to help you create personalized and context-aware prompts for use with the standard web UIs of ChatGPT, Anthropic Claude Chat, Google Gemini, and others, enhancing the effectiveness and reliability of the AI's responses.
 
 ## Features
 
-- Concatenates custom instruction files and curated dataset files into a single prompt template
-- Supports recursive search for markdown files (`.md`) in specified directories
-- Generates a prompt template with placeholders for user queries
+- Concatenates custom instruction files and curated dataset files for a profile into a single prompt template that can be copied and pasted into the standard web UIs of ChatGPT, Anthropic Claude Chat, Google Gemini, and others
+- Generates a prompt template with placeholders for the user query, i.e. main prompt
 - Provides guidelines for the AI assistant to follow when responding to queries
 - Customizable and reusable for various AI assistants and use cases
 
@@ -16,18 +15,29 @@
 
 ## Usage
 
+```bash
+./generate_prompt_template.py -h
+```
+
+```text
+usage: generate_prompt_template.py [-h] --profile {Rajiv Personal,Rajiv
+                                   Project 1,Rajiv Project 2,Ragbot Source
+                                   Code} --output OUTPUT
+
+Generates a prompt template for AI assistants.
+
+options:
+  -h, --help            show this help message and exit
+  --profile {Rajiv Personal,Rajiv Project 1,Rajiv Project 2,Ragbot Source Code}
+                        Name of the profile to use.
+  --output OUTPUT       Output file name for the prompt template.
+```
+
 1. Prepare your custom instruction files and curated dataset files in markdown format (`.md`).
 
 2. Open a terminal and navigate to the directory containing the `generate_prompt_template.py` script.
 
-3. Run the script with the following command-line arguments:
-```
-python generate_prompt_template.py -i /path/to/instructions/dir1 /path/to/instructions/dir2 -d /path/to/datasets/dir1 /path/to/datasets/dir2 -o /path/to/output/file.txt -r
-```
-- `-i` or `--instructions`: Specify the directories containing custom instruction files (separated by spaces if multiple directories).
-- `-d` or `--datasets`: Specify the directories containing curated dataset files (separated by spaces if multiple directories).
-- `-o` or `--output`: Specify the output file where the generated prompt template will be saved.
-- `-r` or `--recursive` (optional): Include this flag to search for markdown files recursively in subdirectories.
+3. Run the script with the command-line arguments as described above.
 
 4. The script will concatenate the contents of the markdown files found in the specified directories and generate a prompt template with placeholders for user queries.
 
