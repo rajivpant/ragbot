@@ -32,27 +32,37 @@ def load_profiles(profiles_file):
         profiles = yaml.safe_load(stream)
     return profiles['profiles']
 
-# Function to load files containing custom instructions or curated datasets
+def process_file(filepath, file_type):
+    """Helper function to read and format the content of a file."""
+    unique_id = str(uuid.uuid4())
+    document_start_tag = f"<document:{unique_id} path=\"{filepath}\" type=\"{file_type}\">"
+    document_end_tag = f"</document:{unique_id}>"
+    with open(filepath, "r") as file:
+        # Read the entire file content as a single string
+        file_content = file.read() 
+
+    # Ensuring newline characters are added only where needed
+    full_content = f"{document_start_tag}\n{file_content}{document_end_tag}\n"
+    return full_content, filepath
+
 def load_files(file_paths, file_type):
     """Load files containing custom instructions or curated datasets."""
     files_content = []
     files_list = []  # to store file names
     for path in file_paths:
         if os.path.isfile(path):
-            with open(path, "r") as file:
-                unique_id = str(uuid.uuid4())
-                files_content.append(f"<ragbot-file:{unique_id} path=\"{path}\" type=\"{file_type}\">")
-                files_content.append(file.read())
-                files_content.append(f"</ragbot-file:{unique_id}>")
-                files_list.append(path)  # save file name
+            content, filename = process_file(path, file_type)
+            files_content.append(content)
+            files_list.append(filename)  # save file name
         elif os.path.isdir(path):
             for filepath in glob.glob(os.path.join(path, "*")):
-                if os.path.isfile(filepath):  # Check if the path is a file
-                    with open(filepath, "r") as file:
-                        files_content.append(file.read())
-                        files_list.append(filepath)  # save file name
+                if os.path.isfile(filepath):
+                    content, filename = process_file(filepath, file_type)
+                    files_content.append(content)
+                    files_list.append(filename)  # save file name
 
-    return files_content, files_list
+    files_content_str = "\n".join(files_content)
+    return files_content_str, files_list
 
 # Function to count tokens in a list of files
 def count_tokens(file_paths):
