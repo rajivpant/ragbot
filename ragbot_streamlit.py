@@ -64,43 +64,51 @@ def find_closest_max_tokens(suggested_max_tokens, max_tokens_mapping):
 
 
 def main():
+
+    st.set_page_config(layout="wide")  # Set the page to wide mode to give more space for sidebar
+
+    # Sidebar for initial options
+    with st.sidebar:
+        st.header("Configuration")
+        engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
+        model = st.selectbox("Choose a model", options=model_choices[engine], index=model_choices[engine].index(default_models[engine]))
+
+        # Find the selected model in the engines config and get default temperature and tokens
+        selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
+        if selected_model:
+            default_temperature = selected_model['temperature']
+            default_max_tokens = selected_model['max_tokens']
+        else:
+            default_temperature = default_temperature = temperature_creative
+            default_max_tokens = 1024
+
+        temperature_precise = temperature_settings.get('precise', 0.20)
+        temperature_balanced = temperature_settings.get('balanced', 0.50)
+        temperature_creative = temperature_settings.get('creative', 0.75)
+
+        temperature_precise_label = "precise leaning " + "(" + str(temperature_precise) + ")"
+        temperature_balanced_label = "balanced " + "(" + str(temperature_balanced) + ")"
+        temperature_creative_label = "creative leaning " + "(" + str(temperature_creative) + ")"
+        temperature_custom_label = "custom"
+
+        temperature_option = st.selectbox("Choose desired creativity option (called temperature)", options=[temperature_creative_label, temperature_balanced_label, temperature_precise_label, temperature_custom_label])
+        temperature_mapping = {temperature_creative_label: temperature_creative, temperature_balanced_label: temperature_balanced, temperature_precise_label: temperature_precise}
+
+        if temperature_option == temperature_custom_label:
+            temperature = st.number_input("Enter a custom temperature", min_value=0.0, max_value=1.0, value=default_temperature, step=0.01)
+        else:
+            temperature = temperature_mapping[temperature_option]
+
+        max_tokens_mapping = {str(2**i): 2**i for i in range(8, 17)}  # Powers of 2 from 256 to 65536ß
+        default_max_tokens_list = list(max_tokens_mapping.keys())
+        default_max_tokens_list.append("custom")
+
+        # Get the index of the default max_tokens in the options list
+        default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
+
+
     st.header("Ragbot.AI augmented brain & assistant")
 
-    engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
-    model = st.selectbox("Choose a model", options=model_choices[engine], index=model_choices[engine].index(default_models[engine]))
-
-    # Find the selected model in the engines config and get default temperature and tokens
-    selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
-    if selected_model:
-        default_temperature = selected_model['temperature']
-        default_max_tokens = selected_model['max_tokens']
-    else:
-        default_temperature = default_temperature = temperature_creative
-        default_max_tokens = 1024
-
-    temperature_precise = temperature_settings.get('precise', 0.20)
-    temperature_balanced = temperature_settings.get('balanced', 0.50)
-    temperature_creative = temperature_settings.get('creative', 0.75)
-
-    temperature_precise_label = "precise leaning " + "(" + str(temperature_precise) + ")"
-    temperature_balanced_label = "balanced " + "(" + str(temperature_balanced) + ")"
-    temperature_creative_label = "creative leaning " + "(" + str(temperature_creative) + ")"
-    temperature_custom_label = "custom"
-
-    temperature_option = st.selectbox("Choose desired creativity option (called temperature)", options=[temperature_creative_label, temperature_balanced_label, temperature_precise_label, temperature_custom_label])
-    temperature_mapping = {temperature_creative_label: temperature_creative, temperature_balanced_label: temperature_balanced, temperature_precise_label: temperature_precise}
-
-    if temperature_option == temperature_custom_label:
-        temperature = st.number_input("Enter a custom temperature", min_value=0.0, max_value=1.0, value=default_temperature, step=0.01)
-    else:
-        temperature = temperature_mapping[temperature_option]
-
-    max_tokens_mapping = {str(2**i): 2**i for i in range(8, 17)}  # Powers of 2 from 256 to 65536ß
-    default_max_tokens_list = list(max_tokens_mapping.keys())
-    default_max_tokens_list.append("custom")
-
-    # Get the index of the default max_tokens in the options list
-    default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
 
     # Load profiles from profiles.yaml
     profiles = load_profiles('profiles.yaml')
@@ -127,37 +135,38 @@ def main():
 
     prompt = st.text_area("Enter your prompt here")
 
-    # Calculate prompt tokens
-    tokenizer = tiktoken.get_encoding("cl100k_base")  # Choose appropriate encoding
-    prompt_tokens = len(tokenizer.encode(prompt))
+    with st.sidebar:
+        # Calculate prompt tokens
+        tokenizer = tiktoken.get_encoding("cl100k_base")  # Choose appropriate encoding
+        prompt_tokens = len(tokenizer.encode(prompt))
 
-    # Display token counts
-    custom_instructions_tokens, curated_datasets_tokens, context_length = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
-    total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
+        # Display token counts
+        custom_instructions_tokens, curated_datasets_tokens, context_length = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
+        total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
 
-    # Calculate suggested max_tokens
-    suggested_max_tokens = context_length - total_tokens
+        # Calculate suggested max_tokens
+        suggested_max_tokens = context_length - total_tokens
 
-    # Find the closest rounded-down max_tokens option that is less than or equal to the model's max_tokens
-    closest_max_tokens_option = find_closest_max_tokens(min(suggested_max_tokens, default_max_tokens), max_tokens_mapping)
+        # Find the closest rounded-down max_tokens option that is less than or equal to the model's max_tokens
+        closest_max_tokens_option = find_closest_max_tokens(min(suggested_max_tokens, default_max_tokens), max_tokens_mapping)
 
-    # Get the index of the closest max_tokens option in the list
-    closest_max_tokens_index = default_max_tokens_list.index(closest_max_tokens_option)
+        # Get the index of the closest max_tokens option in the list
+        closest_max_tokens_index = default_max_tokens_list.index(closest_max_tokens_option)
 
-    # Validate index and handle edge cases
-    if closest_max_tokens_index >= len(default_max_tokens_list):
-        closest_max_tokens_index = 0  # Default to the first option if the index is out of range
+        # Validate index and handle edge cases
+        if closest_max_tokens_index >= len(default_max_tokens_list):
+            closest_max_tokens_index = 0  # Default to the first option if the index is out of range
 
-    # Display token information and suggestion
-    st.markdown(f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})"\
-                , help="A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
+        # Display token information and suggestion
+        st.markdown(f"Tokens used: {total_tokens} (Custom Instructions: {custom_instructions_tokens}, Curated Datasets: {curated_datasets_tokens}, Prompt: {prompt_tokens})"\
+                    , help="A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
 
-    max_tokens_option = st.selectbox("Choose max_tokens for the response (suggested < ~" + str(suggested_max_tokens) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
+        max_tokens_option = st.selectbox("Choose max_tokens for the response (suggested < ~" + str(suggested_max_tokens) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
 
-    if max_tokens_option == "custom":
-        max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
-    else: 
-        max_tokens = max_tokens_mapping[max_tokens_option]
+        if max_tokens_option == "custom":
+            max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
+        else: 
+            max_tokens = max_tokens_mapping[max_tokens_option]
 
 
     custom_instructions, custom_instructions_files = load_files(file_paths=custom_instruction_path.split(), file_type="custom_instructions")
@@ -178,22 +187,23 @@ def main():
     # Convert to a string in the format of "2021/January/01 01:01 AM (UTC)"
     date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
 
-    debug_expander = st.expander("Debug Information")
+    with st.sidebar:
+        debug_expander = st.expander("Debug Information")
 
-    with debug_expander:
-        st.write(f"The current date and time is {date_and_time}.")
-        st.write(f"engine: {engine}")
-        st.write(f"model: {model}")
-        st.write(f"context_length: {context_length}")
-        st.write(f"max_tokens: {max_tokens}")
-        st.write(f"default_max_tokens: {default_max_tokens}")
-        st.write(f"temperature: {temperature}")
-        st.write(f"custom_instruction_files: {custom_instructions_files}")
-        st.write(f"curated_dataset_files: {curated_dataset_files}")
-        st.write(f"prompt: {prompt}")
-        #st.write(f"custom_instructions: {custom_instructions}")
-        #st.write(f"curated_datasets: {curated_datasets}")
-        #st.write(f"history: {history}")
+        with debug_expander:
+            st.write(f"The current date and time is {date_and_time}.")
+            st.write(f"engine: {engine}")
+            st.write(f"model: {model}")
+            st.write(f"context_length: {context_length}")
+            st.write(f"max_tokens: {max_tokens}")
+            st.write(f"default_max_tokens: {default_max_tokens}")
+            st.write(f"temperature: {temperature}")
+            st.write(f"custom_instruction_files: {custom_instructions_files}")
+            st.write(f"curated_dataset_files: {curated_dataset_files}")
+            st.write(f"prompt: {prompt}")
+            #st.write(f"custom_instructions: {custom_instructions}")
+            #st.write(f"curated_datasets: {curated_datasets}")
+            #st.write(f"history: {history}")
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
