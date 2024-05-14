@@ -21,4 +21,7 @@ profiles:
       - "/path/to/ragbot/example-custom-instructions/ragbot-default-instructions.md"
     curated_datasets:
       - "/path/to/ragbot/"
-      
+
+  - name: "(none - dont use a profile)"
+    custom_instructions: []
+    curated_datasets: []
