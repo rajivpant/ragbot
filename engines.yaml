@@ -24,7 +24,12 @@ engines:
         max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
-    default_model: gpt-4-turbo
+      - name: gpt-4o
+        context_length: 128000
+        max_tokens: 4096
+        max_temperature: 1
+        temperature: 0.75
+    default_model: gpt-4o
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:
@@ -58,7 +63,7 @@ engines:
         max_temperature: 1
         temperature: 0.75
     default_model: gemini/gemini-1.5-pro-latest
-default: google
+default: openai
 # These are the preset creativity temperature settings for the engine and model.
 temperature_settings:
   precise: 0.25
