@@ -121,13 +121,18 @@ def chat(
     """
     added_curated_datasets = False
 
-    messages = [
-        {"role": "system", "content": ' '.join(custom_instructions)},  # Static instructions for AI behavior
-        {"role": "system", "content": ' '.join(curated_datasets)},  # Background information for AI context understanding
-        {"role": "user", "content": prompt},  # Dynamic user input for current interaction
-    ]
-    # litellm allows you to use Google Palm, OpenAI, Azure, Anthropic, Replicate, Cohere LLM models
-    # just pass model="gpt-3.5-turbo" (your model name)
+    if model.startswith("gemini/"): # Google Generative AI mddels don't seem to accept the "system" role the way I'm using it.
+        messages = [
+            {"role": "user", "content": "\n".join(custom_instructions)},
+            {"role": "user", "content": "\n".join(curated_datasets)},
+            {"role": "user", "content": prompt}  # Dynamic user input for current interaction
+        ]
+    else:
+        messages = [
+            {"role": "system", "content": "\n".join(custom_instructions) + "\n".join(curated_datasets)},
+            {"role": "user", "content": prompt}  # Dynamic user input for current interaction
+        ]
+    
     llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
     response = llm_response.get('choices', [{}])[0].get('message', {}).get('content')
     

@@ -4,21 +4,6 @@ engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     models:
-#      - name: gpt-3.5-turbo
-#        context_length: 4096
-#        max_tokens: 4096
-#        max_temperature: 1
-#        temperature: 0.75
-#      - name: gpt-3.5-turbo-16k
-#        context_length: 16384
-#        max_tokens: 4096
-#        max_temperature: 1
-#        temperature: 0.75
-#      - name: gpt-4
-#        context_length: 8192
-#        max_tokens: 4096
-#        max_temperature: 1
-#        temperature: 0.75
       - name: gpt-4-turbo
         context_length: 128000
         max_tokens: 4096
@@ -33,7 +18,7 @@ engines:
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:
-      - name: claude-3-haiku-20240307
+      - name: claude-3-opus-20240229
         context_length: 200000
         max_tokens: 4096
         max_temperature: 1
@@ -43,7 +28,7 @@ engines:
         max_tokens: 4096
         max_temperature: 1
         temperature: 0.75
-      - name: claude-3-opus-20240229
+      - name: claude-3-haiku-20240307
         context_length: 200000
         max_tokens: 4096
         max_temperature: 1
@@ -52,13 +37,13 @@ engines:
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
-      - name: gemini/gemini-1.0-pro-latest
-        context_length: 32000
+      - name: gemini/gemini-1.5-pro-latest
+        context_length: 128000
         max_tokens: 8192
         max_temperature: 1
         temperature: 0.75
-      - name: gemini/gemini-1.5-pro-latest
-        context_length: 128000
+      - name: gemini/gemini-1.5-flash-latest
+        context_length: 1000000
         max_tokens: 8192
         max_temperature: 1
         temperature: 0.75
