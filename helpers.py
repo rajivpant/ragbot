@@ -122,9 +122,9 @@ def chat(
     added_curated_datasets = False
 
     messages = [
-        {"role": "system", "content": ' '.join(custom_instructions)},
-        {"role": "user", "content": ' '.join(curated_datasets) + prompt}, 
-        
+        {"role": "system", "content": ' '.join(custom_instructions)},  # Static instructions for AI behavior
+        {"role": "system", "content": ' '.join(curated_datasets)},  # Background information for AI context understanding
+        {"role": "user", "content": prompt},  # Dynamic user input for current interaction
     ]
     # litellm allows you to use Google Palm, OpenAI, Azure, Anthropic, Replicate, Cohere LLM models
     # just pass model="gpt-3.5-turbo" (your model name)
