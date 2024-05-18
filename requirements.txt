@@ -2,7 +2,6 @@
 anthropic
 appdirs
 google-generativeai
-humanize
 langchain
 langchain-anthropic
 langchain-community
