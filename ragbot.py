@@ -10,8 +10,8 @@ import json
 import appdirs
 import openai
 import anthropic
+import litellm
 from helpers import load_files, load_config, print_saved_files, chat, load_profiles
-
 
 appname = "ragbot"
 appauthor = "Rajiv Pant"
@@ -19,21 +19,16 @@ appauthor = "Rajiv Pant"
 data_dir = appdirs.user_data_dir(appname, appauthor)
 sessions_data_dir = os.path.join(data_dir, "sessions")
 
-
-
 load_dotenv()  # Load environment variables from .env file
-
 
 # Load configuration from engines.yaml
 config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
-
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
-
 added_curated_datasets = False
 
-
+model_cost_map = litellm.model_cost 
 
 def main():
     global added_curated_datasets
@@ -223,9 +218,12 @@ def main():
 
     # Get the default max_tokens and temperature from the engines.yaml configuration
     selected_model = next((item for item in engines_config[args.engine]['models'] if item['name'] == model), None)
+
+    model_data = model_cost_map[model]
+
     if selected_model:
-        default_temperature = selected_model['temperature']
-        default_max_tokens = selected_model['max_tokens']
+        default_temperature = selected_model.get("temperature")
+        default_max_tokens = model_data.get("max_tokens")
     else:
         default_temperature = 0.75
         default_max_tokens = 1024
@@ -233,6 +231,8 @@ def main():
     # Use the default values if not provided by the user
     max_tokens = args.max_tokens or default_max_tokens
     temperature = args.temperature or default_temperature
+
+    system_role_unsupported = selected_model.get('system_role_unsupported', False)
 
     print(f"Using AI engine {args.engine} with model {model}")
     print(f"Creativity temperature setting: {temperature}")
@@ -254,7 +254,7 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
+            reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, system_role_unsupported=system_role_unsupported)
             history.append({"role": "assistant", "content": reply})
             print(f"Ragbot.AI: {reply}")
             if new_session and args.engine == "anthropic":
@@ -281,7 +281,7 @@ def main():
         if args.engine == "anthropic":
             added_curated_datasets = False  # Reset curated_datasets flag before each user prompt
 
-        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session)
+        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, system_role_unsupported=system_role_unsupported)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
