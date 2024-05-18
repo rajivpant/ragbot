@@ -4,16 +4,11 @@
 from dotenv import load_dotenv
 from datetime import datetime
 import streamlit as st
-import glob
 import os
-import re
-import yaml
-import json
 import openai
 import anthropic
 import tiktoken
-from numerize.numerize import numerize
-from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles
+from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles, human_format
 
 from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
 
@@ -154,16 +149,16 @@ def main():
             closest_max_tokens_index = 0  # Default to the first option if the index is out of range
 
         # Display token information and suggestion
-        total_tokens_numerized = numerize(total_tokens)
-        custom_instructions_tokens_numerized = numerize(custom_instructions_tokens)
-        curated_datasets_tokens_numerized = numerize(curated_datasets_tokens)
-        prompt_tokens_numerized = numerize(prompt_tokens)
-        suggested_max_tokens_numerized = numerize(suggested_max_tokens)
+        total_tokens_humanized = human_format(total_tokens)
+        custom_instructions_tokens_humanized = human_format(custom_instructions_tokens)
+        curated_datasets_tokens_humanized = human_format(curated_datasets_tokens)
+        prompt_tokens_humanized = human_format(prompt_tokens)
+        suggested_max_tokens_humanized = human_format(suggested_max_tokens)
 
-        st.markdown(f"Input tokens used: {total_tokens_numerized}"\
+        st.markdown(f"Input tokens used: {total_tokens_humanized}"\
                     , help="A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
 
-        max_tokens_option = st.selectbox("Choose max tokens for the response (less than " + str(suggested_max_tokens_numerized) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
+        max_tokens_option = st.selectbox("Choose max tokens for the response (less than " + str(suggested_max_tokens_humanized) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
 
         if max_tokens_option == "custom":
             max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
@@ -202,7 +197,7 @@ def main():
             st.write(f"max_tokens: {max_tokens}")
             st.write(f"default_max_tokens: {default_max_tokens}")
             st.write(f"temperature: {temperature}")
-            st.write(f"Input tokens used: {total_tokens_numerized} (Custom Instructions: {custom_instructions_tokens_numerized}, Curated Datasets: {curated_datasets_tokens_numerized}, Prompt: {prompt_tokens_numerized})")
+            st.write(f"Input tokens used: {total_tokens_humanized} (Custom Instructions: {custom_instructions_tokens_humanized}, Curated Datasets: {curated_datasets_tokens_humanized}, Prompt: {prompt_tokens_humanized})")
             st.write(f"custom_instruction_files: {custom_instructions_files}")
             st.write(f"curated_dataset_files: {curated_dataset_files}")
             st.write(f"prompt: {prompt}")

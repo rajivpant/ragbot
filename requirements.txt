@@ -2,13 +2,13 @@
 anthropic
 appdirs
 google-generativeai
+humanize
 langchain
 langchain-anthropic
 langchain-community
 langchain-google-genai
 langchain-openai
 litellm
-numerize
 openai
 pathlib
 python-dotenv
