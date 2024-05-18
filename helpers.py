@@ -7,25 +7,15 @@ import glob
 import yaml
 import pathlib
 import uuid
-
-import openai
-import anthropic
 import tiktoken
-
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
 from litellm import completion
 
-# Function to load configuration from YAML
 def load_config(config_file):
     """Load configuration from YAML."""
     with open(config_file, 'r') as stream:
         config = yaml.safe_load(stream)
     return config
 
-# Function to load profiles from YAML
 def load_profiles(profiles_file):
     """Load profiles from YAML."""
     with open(profiles_file, 'r') as stream:
@@ -64,8 +54,17 @@ def load_files(file_paths, file_type):
     files_content_str = "\n".join(files_content)
     return files_content_str, files_list
 
-# Function to count tokens in a list of files
+def human_format(num):
+    """Convert a number to a human-readable format."""
+    num = float('{:.3g}'.format(num))
+    magnitude = 0
+    while abs(num) >= 1000:
+        magnitude += 1
+        num /= 1000.0
+    return '{}{}'.format('{:f}'.format(num).rstrip('0').rstrip('.'), ['', 'k', 'M', 'B', 'T'][magnitude])
+
 def count_tokens(file_paths):
+    """count tokens in a list of files"""
     tokenizer = tiktoken.get_encoding('p50k_base')
     total_tokens = 0
     for file_path in file_paths:
@@ -75,15 +74,18 @@ def count_tokens(file_paths):
     return total_tokens
 
 def count_custom_instructions_tokens(custom_instruction_path):
+    """count tokens in custom instructions files"""
     _, custom_instruction_files = load_files(file_paths=custom_instruction_path, file_type="custom_instructions")
     return count_tokens(custom_instruction_files)
 
 def count_curated_datasets_tokens(curated_dataset_path):
+    """count tokens in curated datasets files"""
     _, curated_dataset_files = load_files(file_paths=curated_dataset_path, file_type="curated_datasets")
     return count_tokens(curated_dataset_files)
 
 
 def print_saved_files(directory):
+    """Print the list of saved JSON files in the sessions directory."""
     sessions_directory = os.path.join(directory, "sessions")
     print("Currently saved JSON files:")
     for file in pathlib.Path(sessions_directory).glob("*.json"):
