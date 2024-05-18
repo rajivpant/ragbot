@@ -186,6 +186,8 @@ def main():
     now = datetime.now()
     # Convert to a string in the format of "2021/January/01 01:01 AM (UTC)"
     date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
+    # Convert to a string in the format of "2021/Jan/01"
+    date = now.strftime("%Y/%b/%d")
 
     with st.sidebar:
         debug_expander = st.expander("Debug Information")
@@ -210,6 +212,7 @@ def main():
         reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
         history.append({"role": "assistant", "content": reply})
         st.header(f"Ragbot.AI's response")
+        st.write(f"Profile: {selected_profile}, AI: {engine}/{model}, Creativity: {temperature}, Date: {date}")
         st.divider()
         st.write(f"{reply}")
 
