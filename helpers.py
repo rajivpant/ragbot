@@ -103,10 +103,11 @@ def chat(
     history=None,
     engine="openai",
     interactive=False,
-    new_session=False
+    new_session=False,
+    system_role_unsupported=False
 ):
     """
-    Send a request to the OpenAI or Anthropic API with the provided prompt and curated_datasets.
+    Send a request to the LLM API with the provided prompt and curated_datasets.
 
     :param prompt: The user's input to generate a response for.
     :param curated_datasets: A list of curated_datasets to provide context for the model.
@@ -119,11 +120,12 @@ def chat(
     :param engine: The engine to use for the chat, 'openai' or 'anthropic' (default is 'openai').
     :param interactive: Whether the chat is in interactive mode (default is False).
     :param new_session: Whether this is a new session (default is False).
+    :param system_role_unsupported: Whether the model supports the "system" role (default is False).
     :return: The generated response text from the model.
     """
     added_curated_datasets = False
 
-    if model.startswith("gemini/"): # Google Generative AI mddels don't seem to accept the "system" role the way I'm using it.
+    if system_role_unsupported: # Google Generative AI mddels don't seem to accept the "system" role the way I'm using it.
         messages = [
             {"role": "user", "content": "\n".join(custom_instructions)},
             {"role": "user", "content": "\n".join(curated_datasets)},

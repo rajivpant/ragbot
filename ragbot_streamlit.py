@@ -8,23 +8,21 @@ import os
 import openai
 import anthropic
 import tiktoken
+import litellm
+
 from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles, human_format
 
-from langchain_community.llms import OpenAI, OpenAIChat, Anthropic
-
 load_dotenv() # Load environment variables from .env file
-
 
 # Load configuration from engines.yaml
 config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 temperature_settings = config.get('temperature_settings', {})
 engine_choices = list(engines_config.keys())
-
 model_choices = {engine: [model['name'] for model in engines_config[engine]['models']] for engine in engine_choices}
-
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
+model_cost_map = litellm.model_cost 
 
 @st.cache_data
 
@@ -34,9 +32,10 @@ def get_token_counts(custom_instruction_path, curated_dataset_path, engine, mode
 
     # Find selected model and get context length
     selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
-    context_length = selected_model.get('context_length', 4096)  # Default to 4096 if not found
+    model_data = model_cost_map[model]
+    max_input_tokens = model_data.get("max_input_tokens")
 
-    return custom_instructions_tokens, curated_datasets_tokens, context_length
+    return custom_instructions_tokens, curated_datasets_tokens, max_input_tokens
 
 
 def find_closest_max_tokens(suggested_max_tokens, max_tokens_mapping):
@@ -71,9 +70,12 @@ def main():
 
         # Find the selected model in the engines config and get default temperature and tokens
         selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
+
+        model_data = model_cost_map[model]
+
         if selected_model:
-            default_temperature = selected_model['temperature']
-            default_max_tokens = selected_model['max_tokens']
+            default_temperature = selected_model.get("temperature")
+            default_max_tokens = model_data.get("max_tokens")
         else:
             default_temperature = default_temperature = temperature_creative
             default_max_tokens = 1024
@@ -102,9 +104,9 @@ def main():
         # Get the index of the default max_tokens in the options list
         default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
 
+    system_role_unsupported = selected_model.get('system_role_unsupported', False)
 
     st.header("Ragbot.AI augmented brain & assistant")
-
 
     # Load profiles from profiles.yaml
     profiles = load_profiles('profiles.yaml')
@@ -132,11 +134,11 @@ def main():
         prompt_tokens = len(tokenizer.encode(prompt))
 
         # Display token counts
-        custom_instructions_tokens, curated_datasets_tokens, context_length = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
+        custom_instructions_tokens, curated_datasets_tokens, max_input_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
         total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
 
         # Calculate suggested max_tokens
-        suggested_max_tokens = context_length - total_tokens
+        suggested_max_tokens = max_input_tokens - total_tokens
 
         # Find the closest rounded-down max_tokens option that is less than or equal to the model's max_tokens
         closest_max_tokens_option = find_closest_max_tokens(min(suggested_max_tokens, default_max_tokens), max_tokens_mapping)
@@ -193,10 +195,11 @@ def main():
             st.write(f"The current date and time is {date_and_time}.")
             st.write(f"engine: {engine}")
             st.write(f"model: {model}")
-            st.write(f"context_length: {context_length}")
+            st.write(f"max_input_tokens: {max_input_tokens}")
             st.write(f"max_tokens: {max_tokens}")
             st.write(f"default_max_tokens: {default_max_tokens}")
             st.write(f"temperature: {temperature}")
+            st.write(f"system_role_unsupported: {system_role_unsupported}")
             st.write(f"Input tokens used: {total_tokens_humanized} (Custom Instructions: {custom_instructions_tokens_humanized}, Curated Datasets: {curated_datasets_tokens_humanized}, Prompt: {prompt_tokens_humanized})")
             st.write(f"custom_instruction_files: {custom_instructions_files}")
             st.write(f"curated_dataset_files: {curated_dataset_files}")
@@ -207,7 +210,7 @@ def main():
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature)
+        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature, system_role_unsupported=system_role_unsupported)
         history.append({"role": "assistant", "content": reply})
         st.header(f"Ragbot.AI's response")
         st.write(f"Profile: {selected_profile}, AI: {engine}/{model}, Creativity: {temperature}, Date: {date}")
