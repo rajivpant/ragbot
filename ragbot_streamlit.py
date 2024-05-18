@@ -9,7 +9,7 @@ import openai
 import anthropic
 import tiktoken
 import litellm
-
+import babel.numbers
 from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles, human_format
 
 load_dotenv() # Load environment variables from .env file
@@ -157,7 +157,12 @@ def main():
         prompt_tokens_humanized = human_format(prompt_tokens)
         suggested_max_tokens_humanized = human_format(suggested_max_tokens)
 
-        st.markdown(f"Input tokens used: {total_tokens_humanized}"\
+        input_cost_per_token = model_data.get("input_cost_per_token")
+        input_cost = total_tokens * input_cost_per_token
+
+        input_cost_formatted = babel.numbers.format_currency(input_cost, 'USD', locale="en_US")
+
+        st.markdown(f"Input tokens used: {total_tokens_humanized} ({input_cost_formatted})"\
                     , help="A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
 
         max_tokens_option = st.selectbox("Choose max tokens for the response (less than " + str(suggested_max_tokens_humanized) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
