@@ -1,6 +1,7 @@
 # Third-party modules required for Ragbot.AI
 anthropic
 appdirs
+babel
 google-generativeai
 langchain
 langchain-anthropic
