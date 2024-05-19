@@ -104,7 +104,7 @@ def chat(
     engine="openai",
     interactive=False,
     new_session=False,
-    system_role_unsupported=False
+    supports_system_role=True
 ):
     """
     Send a request to the LLM API with the provided prompt and curated_datasets.
@@ -120,20 +120,21 @@ def chat(
     :param engine: The engine to use for the chat, 'openai' or 'anthropic' (default is 'openai').
     :param interactive: Whether the chat is in interactive mode (default is False).
     :param new_session: Whether this is a new session (default is False).
-    :param system_role_unsupported: Whether the model supports the "system" role (default is False).
+    :param supports_system_role: Whether the model supports the "system" role (default is True).
     :return: The generated response text from the model.
     """
     added_curated_datasets = False
 
-    if system_role_unsupported: # Google Generative AI mddels don't seem to accept the "system" role the way I'm using it.
+    # Google Generative AI mddels don't seem to accept the "system" role for the prompt.
+    if supports_system_role:
         messages = [
-            {"role": "user", "content": "\n".join(custom_instructions)},
-            {"role": "user", "content": "\n".join(curated_datasets)},
+            {"role": "system", "content": "\n".join(custom_instructions) + "\n".join(curated_datasets)},
             {"role": "user", "content": prompt}  # Dynamic user input for current interaction
         ]
     else:
         messages = [
-            {"role": "system", "content": "\n".join(custom_instructions) + "\n".join(curated_datasets)},
+            {"role": "user", "content": "\n".join(custom_instructions)},
+            {"role": "user", "content": "\n".join(curated_datasets)},
             {"role": "user", "content": prompt}  # Dynamic user input for current interaction
         ]
     

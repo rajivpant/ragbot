@@ -232,7 +232,7 @@ def main():
     max_tokens = args.max_tokens or default_max_tokens
     temperature = args.temperature or default_temperature
 
-    system_role_unsupported = selected_model.get('system_role_unsupported', False)
+    supports_system_role = selected_model.get('supports_system_role', True)
 
     print(f"Using AI engine {args.engine} with model {model}")
     print(f"Creativity temperature setting: {temperature}")
@@ -254,7 +254,7 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, system_role_unsupported=system_role_unsupported)
+            reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, supports_system_role=supports_system_role)
             history.append({"role": "assistant", "content": reply})
             print(f"Ragbot.AI: {reply}")
             if new_session and args.engine == "anthropic":
@@ -281,7 +281,7 @@ def main():
         if args.engine == "anthropic":
             added_curated_datasets = False  # Reset curated_datasets flag before each user prompt
 
-        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, system_role_unsupported=system_role_unsupported)
+        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, supports_system_role=supports_system_role)
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:
