@@ -104,7 +104,7 @@ def main():
         # Get the index of the default max_tokens in the options list
         default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
 
-    system_role_unsupported = selected_model.get('system_role_unsupported', False)
+    supports_system_role = selected_model.get('supports_system_role', True)
 
     st.header("Ragbot.AI augmented brain & assistant")
 
@@ -200,11 +200,11 @@ def main():
             st.write(f"The current date and time is {date_and_time}.")
             st.write(f"engine: {engine}")
             st.write(f"model: {model}")
-            st.write(f"max_input_tokens: {max_input_tokens}")
-            st.write(f"max_tokens: {max_tokens}")
-            st.write(f"default_max_tokens: {default_max_tokens}")
+            st.write(f"max_input_tokens: {human_format(max_input_tokens)}")
+            st.write(f"max_tokens: {human_format(max_tokens)}")
+            st.write(f"default_max_tokens: {human_format(default_max_tokens)}")
             st.write(f"temperature: {temperature}")
-            st.write(f"system_role_unsupported: {system_role_unsupported}")
+            st.write(f"supports_system_role: {supports_system_role}")
             st.write(f"Input tokens used: {total_tokens_humanized} (Custom Instructions: {custom_instructions_tokens_humanized}, Curated Datasets: {curated_datasets_tokens_humanized}, Prompt: {prompt_tokens_humanized})")
             st.write(f"custom_instruction_files: {custom_instructions_files}")
             st.write(f"curated_dataset_files: {curated_dataset_files}")
@@ -215,7 +215,7 @@ def main():
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature, system_role_unsupported=system_role_unsupported)
+        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature, supports_system_role=supports_system_role)
         history.append({"role": "assistant", "content": reply})
         st.header(f"Ragbot.AI's response")
         st.write(f"Profile: {selected_profile}, AI: {engine}/{model}, Creativity: {temperature}, Date: {date}")
