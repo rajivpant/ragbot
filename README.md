@@ -16,6 +16,10 @@ Code Contributors & Collaborators
 - [Jim Mortko](https://github.com/jskills)
 - [Vik Pant](https://www.linkedin.com/in/vikpant/)
 
+How to Contribute
+
+Your code contributions are welcome. Please fork the repository and submit a pull request with your improvements.
+
 Blog Post Introducing Ragbot.AI
 --------------------------
 
