@@ -11,6 +11,8 @@ langchain-openai
 litellm
 openai
 pathlib
+pytest
+pytest-mock
 python-dotenv
 pyyaml
 streamlit
