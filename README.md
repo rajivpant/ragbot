@@ -286,3 +286,5 @@ dennis, Daring Denmaster
 alexandria, All-Star Alexi
 alexredmon@ar-macbook ~ >
 ```
+
+[![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/rajivpant/ragbot)
