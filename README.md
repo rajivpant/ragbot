@@ -20,6 +20,8 @@ How to Contribute
 
 Your code contributions are welcome. Please fork the repository and submit a pull request with your improvements.
 
+[![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/rajivpant/ragbot)
+
 Blog Post Introducing Ragbot.AI
 --------------------------
 
@@ -286,5 +288,3 @@ dennis, Daring Denmaster
 alexandria, All-Star Alexi
 alexredmon@ar-macbook ~ >
 ```
-
-[![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/rajivpant/ragbot)
