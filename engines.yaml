@@ -37,7 +37,7 @@ engines:
         temperature: 0.75
     default_model: claude-3-5-sonnet-20240620
   - name: google
-    api_key_name: GOOGLE_API_KEY
+    api_key_name: GEMINI_API_KEY
     models:
       - name: gemini/gemini-1.5-pro-latest
         supports_system_role: false
