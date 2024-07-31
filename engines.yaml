@@ -48,6 +48,16 @@ engines:
         max_temperature: 1
         temperature: 0.75
     default_model: gemini/gemini-1.5-pro-latest
+  - name: bedrock
+    models:
+      - name: meta.llama3-1-405b-instruct-v1:0
+        supports_system_role: true
+      - name: meta.llama3-1-70b-instruct-v1:0
+        supports_system_role: true
+      - name: meta.llama3-1-8b-instruct-v1:0
+        supports_system_role: true
+    default_model: meta.llama3-1-405b-instruct-v1:0
+
 default: anthropic
 # These are the preset creativity temperature settings for the engine and model.
 temperature_settings:

@@ -102,7 +102,8 @@ def main():
         default_max_tokens_list.append("custom")
 
         # Get the index of the default max_tokens in the options list
-        default_max_tokens_index = default_max_tokens_list.index(str(default_max_tokens))
+        default_max_tokens_option = find_closest_max_tokens(default_max_tokens, {option: int(option) for option in default_max_tokens_list if option != 'custom'})
+        default_max_tokens_index = default_max_tokens_list.index(default_max_tokens_option)
 
     supports_system_role = selected_model.get('supports_system_role', True)
 

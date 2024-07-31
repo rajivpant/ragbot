@@ -2,6 +2,7 @@
 anthropic
 appdirs
 babel
+boto3
 google-generativeai
 langchain
 langchain-anthropic
