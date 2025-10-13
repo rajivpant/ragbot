@@ -66,14 +66,26 @@ def test_load_profiles(setup_files):
     assert len(profiles) == 1
 
 def test_process_file(setup_files):
-    *_, test_custom_instruction_file = setup_files
-    content, path = process_file(test_custom_instruction_file, 'custom_instructions')
-    assert "<document:" in content
-    assert "</document:" in content
+    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
+    content, path = process_file(test_custom_instruction_file, 'custom_instructions', 1)
+    # Verify new standard document block format
+    assert '<document index="1">' in content
+    assert '<source>' in content
+    assert '<document_type>custom_instructions</document_type>' in content
+    assert '<document_content>' in content
+    assert '</document_content>' in content
+    assert '</document>' in content
+    assert test_custom_instruction_file in content
 
 def test_load_files(setup_files):
-    *_, test_custom_instruction_file = setup_files
+    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     content, files = load_files([test_custom_instruction_file], 'custom_instructions')
+    # Verify documents container and document structure
+    assert '<documents>' in content
+    assert '</documents>' in content
+    assert '<document index="1">' in content
+    assert '<source>' in content
+    assert '<document_type>custom_instructions</document_type>' in content
     assert 'This is a test custom instruction.' in content
 
 def test_human_format():
@@ -81,16 +93,16 @@ def test_human_format():
     assert formatted == '1.5k'
 
 def test_count_tokens(setup_files):
-    *_, test_custom_instruction_file = setup_files
+    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     tokens = count_tokens([test_custom_instruction_file])
     assert tokens > 0
 
 def test_count_custom_instructions_tokens(setup_files):
-    *_, test_custom_instruction_file = setup_files
+    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     tokens = count_custom_instructions_tokens([test_custom_instruction_file])
     assert tokens > 0
 
 def test_count_curated_datasets_tokens(setup_files):
-    *_, test_curated_dataset_file = setup_files
+    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     tokens = count_curated_datasets_tokens([test_curated_dataset_file])
     assert tokens > 0
