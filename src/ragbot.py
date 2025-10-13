@@ -208,35 +208,52 @@ def main():
     # Get the engine API key from environment variable
     api_key_name = engines_config[args.engine].get('api_key_name')
     if api_key_name:
-        engines_config[args.engine]['api_key'] = os.getenv(api_key_name)
+        api_key = os.getenv(api_key_name)
+        engines_config[args.engine]['api_key'] = api_key
 
-    if args.engine == 'openai':
-        openai.api_key = engines_config[args.engine]['api_key']
-    elif args.engine == 'anthropic':
-        anthropic.api_key = engines_config[args.engine]['api_key']
+        # Set API keys for specific providers
+        if args.engine == 'openai':
+            openai.api_key = api_key
+        elif args.engine == 'anthropic':
+            anthropic.api_key = api_key
+        elif args.engine == 'google':
+            # LiteLLM looks for GEMINI_API_KEY environment variable
+            os.environ['GEMINI_API_KEY'] = api_key
 
 
     # Get the default max_tokens and temperature from the engines.yaml configuration
     selected_model = next((item for item in engines_config[args.engine]['models'] if item['name'] == model), None)
 
-    model_data = model_cost_map[model]
+    if model in model_cost_map:
+        model_data = model_cost_map[model]
+    else:
+        model_data = {}
 
     if selected_model:
-        default_temperature = selected_model.get("temperature")
-        default_max_tokens = model_data.get("max_tokens")
+        default_temperature = selected_model.get("temperature", 0.75)
+        # Prefer max_output_tokens from config, fall back to model_cost_map, then to default_max_tokens, then to 4096
+        max_output_tokens = selected_model.get("max_output_tokens") or model_data.get("max_output_tokens") or selected_model.get("default_max_tokens") or 4096
+        default_max_tokens = selected_model.get("default_max_tokens", min(max_output_tokens, 4096))
     else:
         default_temperature = 0.75
-        default_max_tokens = 1024
+        max_output_tokens = 4096
+        default_max_tokens = 4096
 
     # Use the default values if not provided by the user
     max_tokens = args.max_tokens or default_max_tokens
     temperature = args.temperature or default_temperature
 
+    # Validate max_tokens doesn't exceed model's maximum output limit
+    if max_tokens > max_output_tokens:
+        print(f"Warning: Requested max_tokens ({max_tokens}) exceeds model's maximum output limit ({max_output_tokens})")
+        print(f"Setting max_tokens to {max_output_tokens}")
+        max_tokens = max_output_tokens
+
     supports_system_role = selected_model.get('supports_system_role', True)
 
     print(f"Using AI engine {args.engine} with model {model}")
     print(f"Creativity temperature setting: {temperature}")
-    print(f"Max tokens setting: {max_tokens}")
+    print(f"Max tokens setting: {max_tokens} (model max output: {max_output_tokens})")
 
     if args.interactive:
         print("Entering interactive mode.")

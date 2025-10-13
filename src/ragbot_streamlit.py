@@ -32,8 +32,17 @@ def get_token_counts(custom_instruction_path, curated_dataset_path, engine, mode
 
     # Find selected model and get context length
     selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
-    model_data = model_cost_map[model]
-    max_input_tokens = model_data.get("max_input_tokens")
+
+    if model in model_cost_map:
+        model_data = model_cost_map[model]
+    else:
+        model_data = {}
+
+    # Prefer max_input_tokens from config, fall back to model_cost_map, then to 128000
+    if selected_model:
+        max_input_tokens = selected_model.get("max_input_tokens") or model_data.get("max_input_tokens") or 128000
+    else:
+        max_input_tokens = model_data.get("max_input_tokens") or 128000
 
     return custom_instructions_tokens, curated_datasets_tokens, max_input_tokens
 
@@ -71,14 +80,18 @@ def main():
         # Find the selected model in the engines config and get default temperature and tokens
         selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
 
-        model_data = model_cost_map[model]
+        if model in model_cost_map:
+            model_data = model_cost_map[model]
+        else:
+            model_data = {}
 
         if selected_model:
             default_temperature = selected_model.get("temperature")
-            default_max_tokens = model_data.get("max_tokens")
+            # Prefer max_output_tokens from config, fall back to model_cost_map, then to 4096
+            default_max_tokens = selected_model.get("max_output_tokens") or model_data.get("max_output_tokens") or 4096
         else:
-            default_temperature = default_temperature = temperature_creative
-            default_max_tokens = 1024
+            default_temperature = temperature_settings.get('creative', 0.75)
+            default_max_tokens = 4096
 
         temperature_precise = temperature_settings.get('precise', 0.20)
         temperature_balanced = temperature_settings.get('balanced', 0.50)
@@ -138,8 +151,15 @@ def main():
         custom_instructions_tokens, curated_datasets_tokens, max_input_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
         total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
 
-        # Calculate suggested max_tokens
-        suggested_max_tokens = max_input_tokens - total_tokens
+        # Calculate suggested max_tokens with 15% safety margin to account for tokenization differences
+        # between tiktoken estimates and actual API tokenization
+        safety_margin = 0.85  # Use 85% of available tokens
+        available_tokens = max_input_tokens - total_tokens
+        suggested_max_tokens = int(available_tokens * safety_margin)
+
+        # Cap at the model's actual max_output_tokens limit
+        model_max_output = default_max_tokens
+        suggested_max_tokens = min(suggested_max_tokens, model_max_output)
 
         # Find the closest rounded-down max_tokens option that is less than or equal to the model's max_tokens
         closest_max_tokens_option = find_closest_max_tokens(min(suggested_max_tokens, default_max_tokens), max_tokens_mapping)
