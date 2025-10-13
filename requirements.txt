@@ -1,16 +1,17 @@
 # Third-party modules required for Ragbot.AI
-anthropic
+# Updated: October 2025 for compatibility
+anthropic>=0.31.0
 appdirs
 babel
 boto3
-google-generativeai
-langchain
-langchain-anthropic
-langchain-community
-langchain-google-genai
-langchain-openai
-litellm
-openai
+google-generativeai>=0.7.0
+langchain>=0.2.0
+langchain-anthropic>=0.1.0
+langchain-community>=0.2.0
+langchain-google-genai>=1.0.0
+langchain-openai>=0.3.0
+litellm>=1.78.0
+openai>=2.0.0
 pathlib
 pytest
 pytest-mock
