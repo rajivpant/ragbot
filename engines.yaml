@@ -87,38 +87,39 @@ engines:
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
-      # Gemini 1.5 Pro - Most capable model (using direct API with gemini/ prefix)
-      - name: gemini/gemini-1.5-pro
+      # Gemini 2.5 Pro - Most capable model (Oct 2025)
+      - name: gemini/gemini-2.5-pro
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 2097152
         max_output_tokens: 8192
         default_max_tokens: 8192
-      # Gemini 1.5 Flash - Fast and efficient
-      - name: gemini/gemini-1.5-flash
+      # Gemini 2.5 Flash - Fast and efficient (Oct 2025)
+      - name: gemini/gemini-2.5-flash
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 1048576
         max_output_tokens: 8192
         default_max_tokens: 8192
-      # Specific versioned models
-      - name: gemini/gemini-1.5-pro-002
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 2097152
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      - name: gemini/gemini-1.5-flash-002
+      # Gemini 2.0 Flash - Previous generation
+      - name: gemini/gemini-2.0-flash
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 1048576
         max_output_tokens: 8192
         default_max_tokens: 8192
-    default_model: gemini/gemini-1.5-pro
+      # Gemini Flash Latest - Always points to newest Flash model
+      - name: gemini/gemini-flash-latest
+        supports_system_role: false
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 1048576
+        max_output_tokens: 8192
+        default_max_tokens: 8192
+    default_model: gemini/gemini-2.5-flash
 
 default: anthropic
 # These are the preset creativity temperature settings for the engine and model.

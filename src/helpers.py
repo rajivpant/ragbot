@@ -125,19 +125,29 @@ def chat(
     """
     added_curated_datasets = False
 
-    # Google Generative AI mddels don't seem to accept the "system" role for the prompt.
+    # Google Generative AI models don't seem to accept the "system" role for the prompt.
     if supports_system_role:
-        messages = [
-            {"role": "system", "content": "\n".join(custom_instructions) + "\n".join(curated_datasets)},
-            {"role": "user", "content": prompt}  # Dynamic user input for current interaction
-        ]
+        # Combine custom instructions and curated datasets
+        system_content = "\n".join(custom_instructions) + "\n".join(curated_datasets)
+
+        # Only add system message if there's actual content (Anthropic requires non-empty system messages)
+        if system_content.strip():
+            messages = [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": prompt}
+            ]
+        else:
+            messages = [
+                {"role": "user", "content": prompt}
+            ]
     else:
-        messages = [
-            {"role": "user", "content": "\n".join(custom_instructions)},
-            {"role": "user", "content": "\n".join(curated_datasets)},
-            {"role": "user", "content": prompt}  # Dynamic user input for current interaction
-        ]
-    
+        messages = []
+        if custom_instructions:
+            messages.append({"role": "user", "content": "\n".join(custom_instructions)})
+        if curated_datasets:
+            messages.append({"role": "user", "content": "\n".join(curated_datasets)})
+        messages.append({"role": "user", "content": prompt})
+
     llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
     response = llm_response.get('choices', [{}])[0].get('message', {}).get('content')
     
