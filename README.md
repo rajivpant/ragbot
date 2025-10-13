@@ -3,7 +3,7 @@ Ragbot.AI
 
 🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
-🚀 Ragbot.AI processes user prompts along with custom instructions and curated datasets, enabling context-aware responses. Powered by LLMs including OpenAI's GPT and Anthropic's Claude, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
+🚀 Ragbot.AI processes user prompts along with custom instructions and curated datasets, enabling context-aware responses. Powered by the latest LLMs including OpenAI's GPT-4o and o-series models, Anthropic's Claude 4.5 and Claude Opus 4.1, and Google's Gemini 2.5 series, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
 
 🧠 Custom instructions and curated datasets help Ragbot.AI better understand context, resulting in personalized, more accurate, and relevant responses, surpassing the capabilities of out of the box LLMs.
 
@@ -50,6 +50,36 @@ You can also customize me for educational purposes by creating a folder with cur
 In addition to the use cases mentioned above, I can be tailored to support you on specific projects. By creating a folder with curated dataset files containing project-related information, such as objectives, team members, deadlines, and relevant resources, I can assist you throughout the project lifecycle, offering valuable insights and support tailored to each unique project.
 
 My ability to create distinct profiles for different needs using customized curated dataset files sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
+
+Supported AI Models
+-------------------
+
+Ragbot.AI supports the latest models from three leading AI providers (as of October 2025):
+
+**OpenAI Models:**
+
+- **o3 Series**: o3-mini, o3-pro, o3-deep-research - Most advanced reasoning models
+- **o1 Series**: o1, o1-pro, o1-mini, o1-preview - Advanced reasoning capabilities
+- **GPT-4o Series**: gpt-4o (default), gpt-4o-mini - Latest multimodal flagship models
+- **GPT-4o Audio**: gpt-4o-audio-preview, gpt-4o-mini-audio-preview - Multimodal with audio support
+- **GPT-4 Turbo**: Previous generation model
+
+**Anthropic Models:**
+
+- **Claude 4.5 Sonnet** (default): claude-sonnet-4-5 - Latest and most capable
+- **Claude 4.1 Opus**: claude-opus-4-1 - Most powerful reasoning
+- **Claude 4 Series**: claude-4-opus, claude-4-sonnet - Extended context versions
+- **Claude 3.7 Sonnet**: Hybrid reasoning capabilities
+- **Claude 3.5 Series**: claude-3-5-sonnet, claude-3-5-haiku - High performance
+- **Claude 3 Series**: claude-3-opus, claude-3-haiku - Previous generation
+
+**Google Gemini Models:**
+
+- **Gemini 2.5 Series**: gemini-2.5-pro, gemini-2.5-flash (default), gemini-2.5-flash-lite
+- **Gemini 2.0 Series**: gemini-2.0-flash, gemini-2.0-flash-lite, gemini-2.0-pro-exp
+- **Experimental**: gemini-2.0-flash-thinking-exp, gemini-exp-1206
+
+All models are configured in [engines.yaml](engines.yaml) with their respective capabilities, token limits, and default settings.
 
 Installation, Configuration, and Personalization
 ------------------------------------------------
@@ -141,7 +171,7 @@ curated datasets being used:
  - ../ragbot-private/curated-datasets/personal/contact-info.md
  - ../ragbot-private/curated-datasets/personal/personal-family.md
  - ../ragbot-private/curated-datasets/hearst/hearst.md
-Using AI engine openai with model gpt-4
+Using AI engine openai with model gpt-4o
 [redacted in this example]
 ```
 
@@ -155,7 +185,7 @@ curated datasets being used:
  - curated-datasets/public/employment-history.md
  - curated-datasets/public/about.md
  - curated-datasets/public/biography.md
-Using AI engine openai with model gpt-4
+Using AI engine openai with model gpt-4o
 [truncated in this example]
 ```
 
@@ -183,7 +213,7 @@ In the first example, Ragbot.AI generates a short note in Rajiv's voice using th
 rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d ragbot.py -p "if no curated dataset files are being used, then I want the code to show that."
 curated datasets being used:
  - ragbot.py
-Using AI engine openai with model gpt-4
+Using AI engine openai with model gpt-4o
 To modify the code to show a message when no curated dataset files are being used, you can add an else statement after checking for the curated dataset files. Update the code in the `main()` function as follows:
 
 \```python
@@ -216,7 +246,7 @@ curated datasets being used:
  - ../ragbot-private/curated-datasets/personal/contact-info.md
  - ../ragbot-private/curated-datasets/personal/personal-family.md
  - ../ragbot-private/curated-datasets/hearst/hearst.md
-Using AI engine openai with model gpt-4
+Using AI engine openai with model gpt-4o
 These files appear to be related to the curated-datasets of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
 
 Public files:
