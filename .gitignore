@@ -1,9 +1,13 @@
 # Files and folders that contain each users' own data and should not be uploaded to GitHub
 .env
 profiles.yaml
-curated-datasets
-custom-instructions
+/curated-datasets
+/custom-instructions
 prompts
+
+# BUT allow examples subdirectories (they contain templates, not user data)
+!examples/curated-datasets
+!examples/custom-instructions
 
 # Docker user-specific configuration (contains private paths)
 docker-compose.override.yml

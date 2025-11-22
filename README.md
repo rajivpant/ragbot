@@ -51,6 +51,73 @@ In addition to the use cases mentioned above, I can be tailored to support you o
 
 My ability to create distinct profiles for different needs using customized curated dataset files sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
 
+Quick Start
+-----------
+
+Get Ragbot running in 5 minutes:
+
+### Option 1: Quick Start with Example Data (Fastest)
+
+```bash
+# 1. Clone this repository
+git clone https://github.com/rajivpant/ragbot.git
+cd ragbot
+
+# 2. Set up your API keys
+cp .env.docker .env
+# Edit .env and add at least one API key (OpenAI, Anthropic, or Gemini)
+
+# 3. Copy starter templates
+cp -r examples/curated-datasets/starter-template/ curated-datasets/my-data/
+cp examples/custom-instructions/starter-template/default-instructions.md custom-instructions/
+
+# 4. Customize with your information
+# Edit the files in curated-datasets/my-data/ with your personal details
+
+# 5. Start Ragbot with Docker
+docker-compose up -d
+
+# 6. Access the web interface
+open http://localhost:8501
+```
+
+### Option 2: Using Your Own Data Repository (Recommended for Production)
+
+If you want to keep your data in a separate directory or private repository:
+
+```bash
+# 1. Clone Ragbot
+git clone https://github.com/rajivpant/ragbot.git
+cd ragbot
+
+# 2. Create your data directory
+mkdir ~/ragbot-data
+# Or clone your private data repo: git clone <your-private-repo> ~/ragbot-data
+
+# 3. Set up Docker override
+cp docker-compose.override.example.yml docker-compose.override.yml
+# Edit docker-compose.override.yml to point to your data directory
+
+# 4. Organize your data
+cp -r examples/curated-datasets/starter-template/* ~/ragbot-data/curated-datasets/
+cp examples/custom-instructions/starter-template/default-instructions.md ~/ragbot-data/custom-instructions/
+
+# 5. Configure API keys
+cp .env.docker .env
+# Edit .env with your API keys
+
+# 6. Start Ragbot
+docker-compose up -d
+```
+
+### What's Next?
+
+- 📖 **New to Ragbot?** Check out [examples/README.md](examples/README.md) for templates and use cases
+- 🎯 **Want to understand the philosophy?** Read [docs/DATA_ORGANIZATION.md](docs/DATA_ORGANIZATION.md)
+- 🐳 **Docker deployment guide:** See [README-DOCKER.md](README-DOCKER.md)
+- ⚙️ **Detailed setup:** Follow the [installation guide](INSTALL.md) and [configuration guide](CONFIGURE.md)
+- 🔧 **Advanced prompts:** Explore the [prompt library](examples/prompt-library/)
+
 Supported AI Models
 -------------------
 
