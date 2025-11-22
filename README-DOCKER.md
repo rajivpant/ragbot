@@ -123,9 +123,43 @@ PINECONE_API_KEY=...
 PINECONE_INDEX_NAME=...
 ```
 
-### Custom Datasets and Instructions
+### Using Your Own Data
 
-Place your files in these directories (they'll be mounted as volumes):
+Ragbot supports multiple methods for accessing your custom datasets and instructions:
+
+#### Method 1: docker-compose.override.yml (Recommended for Separate Data Repos)
+
+If you keep your data in a separate directory (like a private `ragbot-data/` git repository):
+
+**Step 1:** Copy the example file:
+```bash
+cp docker-compose.override.example.yml docker-compose.override.yml
+```
+
+**Step 2:** Edit `docker-compose.override.yml` with your actual paths:
+```yaml
+version: '3.8'
+
+services:
+  ragbot-web:
+    volumes:
+      # Mount your private ragbot-data directory
+      - /path/to/your/ragbot-data/curated-datasets:/app/curated-datasets:ro
+      - /path/to/your/ragbot-data/custom-instructions:/app/custom-instructions:ro
+      - /path/to/your/ragbot-data/profiles.yaml:/app/profiles.yaml:ro
+```
+
+**Step 3:** Restart Docker:
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+**Note:** `docker-compose.override.yml` is gitignored, so your private paths won't be committed.
+
+#### Method 2: Local Directories (Quick Start)
+
+Place your files directly in the ragbot directory:
 
 ```
 ragbot/
@@ -134,7 +168,52 @@ ragbot/
 └── profiles.yaml           # User profiles (optional)
 ```
 
-These directories are automatically mounted into the container.
+These directories are automatically mounted into the container at `/app/curated-datasets` and `/app/custom-instructions`.
+
+#### Method 3: Symlinks (Convenient for Local Development)
+
+Create symlinks from your ragbot directory to your data repository:
+
+```bash
+cd /path/to/ragbot
+ln -s /path/to/your/ragbot-data/curated-datasets ./curated-datasets
+ln -s /path/to/your/ragbot-data/custom-instructions ./custom-instructions
+ln -s /path/to/your/ragbot-data/profiles.yaml ./profiles.yaml
+```
+
+#### Method 4: Environment Variable (Advanced)
+
+Set `RAGBOT_DATA_DIR` in your `.env` file:
+
+```bash
+RAGBOT_DATA_DIR=/path/to/your/ragbot-data
+```
+
+Then update `docker-compose.yml` volumes to use this variable:
+```yaml
+volumes:
+  - ${RAGBOT_DATA_DIR:-./curated-datasets}/curated-datasets:/app/curated-datasets:ro
+```
+
+### Updating profiles.yaml for Docker
+
+If you use profiles with absolute paths, update them to container paths:
+
+**Before (local paths):**
+```yaml
+profiles:
+  - name: "My Profile"
+    curated_datasets:
+      - "/Users/myname/ragbot-data/curated-datasets/my-data/"
+```
+
+**After (container paths):**
+```yaml
+profiles:
+  - name: "My Profile"
+    curated_datasets:
+      - "/app/curated-datasets/my-data/"
+```
 
 ### Engines Configuration
 

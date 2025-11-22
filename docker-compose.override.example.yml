@@ -1,0 +1,59 @@
+# Docker Compose Override File Example
+# This file shows how to customize the Docker setup for your personal use
+#
+# HOW TO USE:
+# 1. Copy this file to docker-compose.override.yml:
+#    cp docker-compose.override.example.yml docker-compose.override.yml
+#
+# 2. Edit docker-compose.override.yml with your actual paths
+#
+# 3. The override file is gitignored, so your private paths stay private
+#
+# NOTE: Docker Compose automatically loads docker-compose.override.yml
+# if it exists, merging it with docker-compose.yml
+
+version: '3.8'
+
+services:
+  ragbot-web:
+    volumes:
+      # ========================================================================
+      # OPTION 1: Mount external ragbot-data directory
+      # ========================================================================
+      # If you keep your data in a separate directory (e.g., a private git repo),
+      # uncomment and adjust these paths:
+
+      # - /path/to/your/ragbot-data/curated-datasets:/app/curated-datasets:ro
+      # - /path/to/your/ragbot-data/custom-instructions:/app/custom-instructions:ro
+
+      # ========================================================================
+      # OPTION 2: Mount individual data directories
+      # ========================================================================
+      # If you have data scattered in different locations:
+
+      # - /path/to/datasets:/app/curated-datasets:ro
+      # - /path/to/instructions:/app/custom-instructions:ro
+
+      # ========================================================================
+      # OPTION 3: Mount a custom profiles.yaml
+      # ========================================================================
+      # If you have a personal profiles.yaml with your preferred settings:
+
+      # - /path/to/your/profiles.yaml:/app/profiles.yaml:ro
+
+      # ========================================================================
+      # DEVELOPMENT: Mount source code for live editing
+      # ========================================================================
+      # Uncomment to enable hot-reload during development:
+
+      # - ./src:/app/src:rw
+      # - ./engines.yaml:/app/engines.yaml:rw
+
+    # Optional: Override environment variables
+    # environment:
+    #   - CUSTOM_ENV_VAR=value
+
+  # You can also override settings for other services like ragbot-cli
+  # ragbot-cli:
+  #   volumes:
+  #     - /path/to/your/ragbot-data/curated-datasets:/app/curated-datasets:ro

@@ -4,6 +4,10 @@ profiles.yaml
 curated-datasets
 custom-instructions
 prompts
+
+# Docker user-specific configuration (contains private paths)
+docker-compose.override.yml
+
 # System files used for caching and related uses
 .streamlit
 __pycache__
