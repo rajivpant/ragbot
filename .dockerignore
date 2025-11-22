@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+venv/
+ENV/
+env/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment and secrets
+.env
+.env.local
+profiles.yaml
+
+# Documentation (will be copied separately if needed)
+*.md
+!README-DOCKER.md
+
+# Data directories (will be mounted as volumes)
+curated-datasets/
+custom-instructions/
+ragbot-data/
+
+# Session data (will use Docker volumes)
+sessions/
+
+# Misc
+.dockerignore
+Dockerfile
+docker-compose*.yml
+LICENSE

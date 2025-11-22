@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # Web interface service (Streamlit)
+  ragbot-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ragbot-web
+    ports:
+      - "8501:8501"
+    environment:
+      # AI Provider API Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+
+      # AWS Configuration (optional)
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION_NAME=${AWS_REGION_NAME:-us-east-1}
+
+      # Pinecone Configuration (optional)
+      - PINECONE_API_KEY=${PINECONE_API_KEY:-}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-}
+    volumes:
+      # Persistent session storage
+      - ragbot-sessions:/root/.local/share/ragbot/sessions
+
+      # Mount user data directories (read-only recommended)
+      - ./curated-datasets:/app/curated-datasets:ro
+      - ./custom-instructions:/app/custom-instructions:ro
+
+      # Optional: mount profiles.yaml if you have custom profiles
+      - ./profiles.yaml:/app/profiles.yaml:ro
+
+      # Optional: mount .env file (alternative to environment variables)
+      # - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - ragbot-network
+
+  # CLI interface service (optional, for scripted usage)
+  # Uncomment and use with: docker-compose run ragbot-cli --help
+  # ragbot-cli:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: ragbot-cli
+  #   environment:
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+  #     - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+  #     - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+  #     - AWS_REGION_NAME=${AWS_REGION_NAME:-us-east-1}
+  #     - PINECONE_API_KEY=${PINECONE_API_KEY:-}
+  #     - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-}
+  #   volumes:
+  #     - ragbot-sessions:/root/.local/share/ragbot/sessions
+  #     - ./curated-datasets:/app/curated-datasets:ro
+  #     - ./custom-instructions:/app/custom-instructions:ro
+  #     - ./profiles.yaml:/app/profiles.yaml:ro
+  #   entrypoint: ["python3", "src/ragbot.py"]
+  #   command: ["--help"]
+  #   profiles: ["cli"]
+  #   networks:
+  #     - ragbot-network
+
+volumes:
+  # Named volume for session persistence
+  ragbot-sessions:
+    driver: local
+
+networks:
+  ragbot-network:
+    driver: bridge
