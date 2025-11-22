@@ -3,11 +3,13 @@
 profiles.yaml
 /curated-datasets
 /custom-instructions
-prompts
+/prompts
 
 # BUT allow examples subdirectories (they contain templates, not user data)
 !examples/curated-datasets
 !examples/custom-instructions
+!examples/library/prompts
+!examples/templates/
 
 # Docker user-specific configuration (contains private paths)
 docker-compose.override.yml

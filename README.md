@@ -18,7 +18,7 @@ Code Contributors & Collaborators
 
 How to Contribute
 
-Your code contributions are welcome. Please fork the repository and submit a pull request with your improvements.
+Your code contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for important safety guidelines (especially about not committing personal data), then fork the repository and submit a pull request with your improvements.
 
 [![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/rajivpant/ragbot)
 
@@ -68,8 +68,8 @@ cp .env.docker .env
 # Edit .env and add at least one API key (OpenAI, Anthropic, or Gemini)
 
 # 3. Copy starter templates
-cp -r examples/curated-datasets/starter-template/ curated-datasets/my-data/
-cp examples/custom-instructions/starter-template/default-instructions.md custom-instructions/
+cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
+cp examples/templates/custom-instructions/starter/default-instructions.md custom-instructions/
 
 # 4. Customize with your information
 # Edit the files in curated-datasets/my-data/ with your personal details
@@ -99,8 +99,8 @@ cp docker-compose.override.example.yml docker-compose.override.yml
 # Edit docker-compose.override.yml to point to your data directory
 
 # 4. Organize your data
-cp -r examples/curated-datasets/starter-template/* ~/ragbot-data/curated-datasets/
-cp examples/custom-instructions/starter-template/default-instructions.md ~/ragbot-data/custom-instructions/
+cp -r examples/templates/curated-datasets/starter/* ~/ragbot-data/curated-datasets/
+cp examples/templates/custom-instructions/starter/default-instructions.md ~/ragbot-data/custom-instructions/
 
 # 5. Configure API keys
 cp .env.docker .env
@@ -113,10 +113,12 @@ docker-compose up -d
 ### What's Next?
 
 - 📖 **New to Ragbot?** Check out [examples/README.md](examples/README.md) for templates and use cases
-- 🎯 **Want to understand the philosophy?** Read [docs/DATA_ORGANIZATION.md](docs/DATA_ORGANIZATION.md)
-- 🐳 **Docker deployment guide:** See [README-DOCKER.md](README-DOCKER.md)
+- 🎯 **Starter templates:** Copy from [examples/templates/](examples/templates/) to get started
+- 📚 **Advanced techniques:** Explore the [library](examples/library/) for proven prompts and frameworks
+- 🎓 **Understand the philosophy:** Read [docs/DATA_ORGANIZATION.md](docs/DATA_ORGANIZATION.md)
+- 🐳 **Docker deployment:** See [README-DOCKER.md](README-DOCKER.md) for deployment guide
+- 🤝 **Contributing safely:** Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing
 - ⚙️ **Detailed setup:** Follow the [installation guide](INSTALL.md) and [configuration guide](CONFIGURE.md)
-- 🔧 **Advanced prompts:** Explore the [prompt library](examples/prompt-library/)
 
 Supported AI Models
 -------------------
