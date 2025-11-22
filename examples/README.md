@@ -1,6 +1,43 @@
-# Ragbot Examples and Templates
+# Ragbot Examples: Templates and Library
 
 Welcome! This directory contains everything you need to get started with Ragbot quickly and effectively.
+
+## 📁 What's in This Directory?
+
+This directory is organized into two main sections:
+
+### 🎯 [Templates](templates/) - Copy and Customize
+
+**Purpose:** Starter files to get you running in 5 minutes
+
+**Usage:** Copy these OUT of ragbot/ to your location, then fill in with your information
+
+**Location:** `examples/templates/`
+
+Templates include:
+
+- Starter templates for curated datasets (about-me, professional, preferences)
+- Starter templates for custom instructions (AI behavior configuration)
+- Variations for specific use cases (technical advisor, creative writer)
+
+[→ Start here if you're new](templates/)
+
+### 📚 [Library](library/) - Reference and Adapt
+
+**Purpose:** Proven prompts, frameworks, and techniques
+
+**Usage:** Reference as-is, copy if useful, or adapt to your needs
+
+**Location:** `examples/library/`
+
+Library includes:
+
+- Prompt engineering techniques (Tree of Thought, Chain of Thought, etc.)
+- AI configuration presets (code generation, creative writing, research)
+- Communication frameworks (SCR, BLUF, STAR method)
+- Content templates (blog enhancement, social media)
+
+[→ Explore the library](library/)
 
 ## 🚀 Quick Start (5 Minutes)
 
@@ -8,10 +45,10 @@ The fastest way to get Ragbot running:
 
 ```bash
 # 1. Copy the starter template
-cp -r examples/curated-datasets/starter-template/ curated-datasets/my-data/
+cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
 
 # 2. Copy custom instructions
-cp examples/custom-instructions/starter-template/default-instructions.md custom-instructions/
+cp examples/templates/custom-instructions/starter/default-instructions.md custom-instructions/
 
 # 3. Edit the files with your information
 # Open and customize: curated-datasets/my-data/about-me.md, professional.md, preferences.md
@@ -22,51 +59,19 @@ docker-compose up
 
 That's it! You now have a personalized AI assistant that knows about you.
 
-## 📁 What's in This Directory?
+## 🔀 Templates vs Library: What's the Difference?
 
-### Starter Templates
+| Aspect | Templates | Library |
+|--------|-----------|---------|
+| **Purpose** | Get started quickly | Enhance and refine |
+| **Usage** | MUST copy and fill in | CAN reference or adapt |
+| **Content** | Placeholder data | Complete techniques |
+| **When to use** | First-time setup | Ongoing improvement |
 
-**Perfect for:** First-time users who want to get running immediately
+**Simple rule:**
 
-Location: `curated-datasets/starter-template/` and `custom-instructions/starter-template/`
-
-These are minimal, ready-to-use templates. Just copy, fill in your information, and go!
-
-- **about-me.md** - Your personal background and interests
-- **professional.md** - Work history, skills, and expertise
-- **preferences.md** - How you like to communicate and work
-- **default-instructions.md** - How Ragbot should behave
-
-[→ Start here if you're new](curated-datasets/starter-template/)
-
-### Custom Instructions Variations
-
-**Perfect for:** Configuring Ragbot for different roles and tasks
-
-Location: `custom-instructions/variations/`
-
-Pre-configured instruction sets for common use cases:
-
-- **technical-advisor.md** - Senior engineering advisor for code and architecture
-- **creative-writer.md** - Writing coach and content creation assistant
-- **coach.md** - Personal coach for goals and accountability (coming soon)
-
-[→ Browse custom instruction variations](custom-instructions/variations/)
-
-### Prompt Library
-
-**Perfect for:** Advanced users wanting sophisticated prompting techniques
-
-Location: `prompt-library/`
-
-A curated collection of proven prompts and frameworks:
-
-- **Prompt Engineering** - Tree of Thought, Chain of Thought, and more
-- **AI Configuration** - System-level instructions for specific tasks
-- **Communication Frameworks** - Structured thinking and communication
-- **Content Templates** - Blog posts, social media, and content creation
-
-[→ Explore the prompt library](prompt-library/)
+- Templates are your **starting point** (copy and customize)
+- Library is your **toolkit** (reference or adapt as needed)
 
 ## 🎯 Use Case Examples
 
@@ -76,12 +81,13 @@ A curated collection of proven prompts and frameworks:
 
 **Setup:**
 ```bash
-cp -r examples/curated-datasets/starter-template/ curated-datasets/personal/
+cp -r examples/templates/curated-datasets/starter/ curated-datasets/personal/
 # Edit files with family info, schedule, preferences
 # Add custom instructions for task management
 ```
 
 **Good for:**
+
 - Managing family schedules
 - Meal planning and recipes
 - Travel planning
@@ -95,10 +101,11 @@ cp -r examples/curated-datasets/starter-template/ curated-datasets/personal/
 ```bash
 mkdir curated-datasets/work-project/
 # Add: project-overview.md, team-members.md, technical-specs.md
-cp examples/custom-instructions/variations/technical-advisor.md custom-instructions/
+cp examples/templates/custom-instructions/variations/technical-advisor.md custom-instructions/
 ```
 
 **Good for:**
+
 - Project planning and tracking
 - Technical problem-solving
 - Code reviews
@@ -110,12 +117,13 @@ cp examples/custom-instructions/variations/technical-advisor.md custom-instructi
 
 **Setup:**
 ```bash
-cp -r examples/curated-datasets/starter-template/ curated-datasets/content-creator/
-cp examples/custom-instructions/variations/creative-writer.md custom-instructions/
+cp -r examples/templates/curated-datasets/starter/ curated-datasets/content-creator/
+cp examples/templates/custom-instructions/variations/creative-writer.md custom-instructions/
 # Add your writing samples to curated-datasets/content-creator/
 ```
 
 **Good for:**
+
 - Blog writing
 - Social media posts
 - Marketing content
@@ -133,6 +141,7 @@ mkdir curated-datasets/learning/
 ```
 
 **Good for:**
+
 - Studying new topics
 - Research projects
 - Organizing knowledge
@@ -202,19 +211,24 @@ custom-instructions/
 
 ### Learning More
 
-- **Documentation** - See [docs/DATA_ORGANIZATION.md](../docs/DATA_ORGANIZATION.md) for the philosophy
-- **Prompt Library** - Explore [prompt-library/README.md](prompt-library/README.md) for advanced techniques
-- **Docker Guide** - Read [README-DOCKER.md](../README-DOCKER.md) for deployment options
+- **Templates** - See [templates/README.md](templates/README.md) for starter templates
+- **Library** - Explore [library/README.md](library/README.md) for advanced techniques
+- **Documentation** - Read [docs/DATA_ORGANIZATION.md](../docs/DATA_ORGANIZATION.md) for the philosophy
+- **Docker Guide** - See [README-DOCKER.md](../README-DOCKER.md) for deployment options
+- **Contributing** - Check [CONTRIBUTING.md](../CONTRIBUTING.md) for how to contribute safely
 
 ## 🤝 Contributing
 
 Have a great example or template to share? Contributions are welcome!
 
 **What we're looking for:**
+
 - Useful templates that others can adapt
 - Generic prompts (no personal information)
 - Clear documentation and usage examples
 - Proven approaches that work well
+
+**IMPORTANT:** See [CONTRIBUTING.md](../CONTRIBUTING.md) for safety guidelines to prevent accidentally committing personal data.
 
 ## 💡 Tips and Tricks
 
@@ -224,6 +238,7 @@ Have a great example or template to share? Contributions are welcome!
 2. **Iterate** - Refine your custom instructions over time
 3. **Organize** - Keep related information together
 4. **Update** - Keep your data current and relevant
+5. **Use the Library** - Explore library/ for proven techniques to enhance your prompts
 
 ### Common Patterns
 
