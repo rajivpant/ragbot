@@ -1,4 +1,3 @@
----
 ## 🚀 Ragbot → RaGenie Migration Notice
 
 **Ragbot is being superseded by RaGenie** - a next-generation AI augmentation platform with production-ready architecture.
