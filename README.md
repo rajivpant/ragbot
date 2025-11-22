@@ -1,3 +1,56 @@
+---
+## 🚀 Ragbot → RaGenie Migration Notice
+
+**Ragbot is being superseded by RaGenie** - a next-generation AI augmentation platform with production-ready architecture.
+
+### Why RaGenie?
+
+**RaGenie** ([www.ragenie.com](https://www.ragenie.com) | [www.ragenie.ai](https://www.ragenie.ai)) is a complete rewrite that transforms Ragbot from a Streamlit-based application into a modern, scalable microservices platform:
+
+| Feature | Ragbot (v1) | RaGenie (v2) |
+|---------|-------------|--------------|
+| Architecture | Monolithic Streamlit | Microservices (FastAPI + React) |
+| Authentication | None | JWT OAuth2 with role-based access |
+| Storage | File system | PostgreSQL + MinIO + Qdrant (vectors) |
+| RAG | Manual prompt concatenation | Automatic embeddings with semantic search |
+| Scalability | Single container | Horizontal scaling with load balancing |
+| Monitoring | None | Prometheus + Grafana dashboards |
+| Caching | None | Redis with smart invalidation |
+| API | None | RESTful APIs with documentation |
+
+### Key Benefits
+
+- **Automatic Synchronization:** Edit markdown files and see changes indexed within 45 seconds
+- **Advanced RAG:** Vector embeddings for semantic search across all your knowledge
+- **Production Ready:** Built-in monitoring, health checks, and backup strategies
+- **Secure by Default:** Authentication, encryption, and access control
+- **Developer Friendly:** Interactive API docs, database migrations, comprehensive testing
+
+### Seamless Migration
+
+Your existing workflow doesn't change:
+- ✅ ragbot-data repository remains your source of truth
+- ✅ Edit markdown files as you always have
+- ✅ Same directory structure (curated-datasets/, custom-instructions/, etc.)
+- ✅ Git workflow unchanged
+- ✅ RaGenie mounts ragbot-data read-only (never modifies your files)
+
+**Migration Resources:**
+- **RaGenie Repository:** [github.com/rajivpant/ragenie](https://github.com/rajivpant/ragenie)
+- **Integration Guide:** [RAGENIE_INTEGRATION.md](https://github.com/rajivpant/ragbot-data/blob/main/RAGENIE_INTEGRATION.md)
+- **Quick Start:** [RaGenie QUICKSTART.md](https://github.com/rajivpant/ragenie/blob/main/QUICKSTART.md)
+
+### Support for Ragbot v1
+
+Ragbot v1 will continue to receive:
+- ✅ Bug fixes and security updates
+- ✅ Compatibility updates for new LLM models
+- ❌ No new features (developed in RaGenie instead)
+
+**For all new projects, please use [RaGenie](https://www.ragenie.com).**
+
+---
+
 Ragbot.AI
 =========
 
