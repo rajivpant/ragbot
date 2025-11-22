@@ -22,6 +22,27 @@ engine_choices = list(engines_config.keys())
 model_choices = {engine: [model['name'] for model in engines_config[engine]['models']] for engine in engine_choices}
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
+# Build hierarchical model structure by category
+def get_categorized_models(engine):
+    """Organize models by category (small, medium, large, reasoning)"""
+    models = engines_config[engine]['models']
+    categorized = {'small': [], 'medium': [], 'large': [], 'reasoning': []}
+    for model in models:
+        category = model.get('category', 'medium')  # Default to medium if not specified
+        categorized[category].append(model['name'])
+    return categorized
+
+# Create friendly category labels
+category_labels = {
+    'small': 'Small (Fast & Cost-effective)',
+    'medium': 'Medium (Balanced)',
+    'large': 'Large (Most Capable)',
+    'reasoning': 'Reasoning (Advanced Thinking)'
+}
+
+# Map categories back to keys
+category_keys = {v: k for k, v in category_labels.items()}
+
 model_cost_map = litellm.model_cost 
 
 @st.cache_data
@@ -75,7 +96,49 @@ def main():
     with st.sidebar:
         st.header("Configuration")
         engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
-        model = st.selectbox("Choose a model", options=model_choices[engine], index=model_choices[engine].index(default_models[engine]))
+
+        # Get categorized models for selected engine
+        categorized_models = get_categorized_models(engine)
+
+        # Determine which category contains the default model
+        default_model = default_models[engine]
+        default_category = 'medium'  # fallback
+        for cat, models_in_cat in categorized_models.items():
+            if default_model in models_in_cat:
+                default_category = cat
+                break
+
+        # Get available categories (only show categories that have models)
+        available_categories = [category_labels[cat] for cat in ['small', 'medium', 'large', 'reasoning']
+                               if categorized_models[cat]]
+
+        # Model size category selection
+        default_category_label = category_labels[default_category]
+        default_category_index = available_categories.index(default_category_label) if default_category_label in available_categories else 0
+
+        model_category_label = st.selectbox(
+            "Choose model size",
+            options=available_categories,
+            index=default_category_index
+        )
+
+        # Get the category key from the label
+        model_category = category_keys[model_category_label]
+
+        # Show models in selected category
+        models_in_category = categorized_models[model_category]
+
+        # Find default model index in the category
+        if default_model in models_in_category:
+            default_model_index = models_in_category.index(default_model)
+        else:
+            default_model_index = 0
+
+        model = st.selectbox(
+            "Choose a model",
+            options=models_in_category,
+            index=default_model_index
+        )
 
         # Find the selected model in the engines config and get default temperature and tokens
         selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)

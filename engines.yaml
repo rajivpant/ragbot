@@ -8,73 +8,52 @@ engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     models:
-      # o3 Series - Most advanced reasoning models (2025)
+      # o3 Series - Advanced reasoning models (2025)
+      - name: o3
+        category: reasoning
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 1
+        max_input_tokens: 200000
+        max_output_tokens: 100000
+        default_max_tokens: 8192
       - name: o3-mini
+        category: reasoning
         supports_system_role: true
         max_temperature: 1
         temperature: 1
         max_input_tokens: 200000
         max_output_tokens: 100000
         default_max_tokens: 8192
-      - name: o3-pro
+      # o4 Series - Reasoning with multimodal (2025)
+      - name: o4-mini
+        category: reasoning
         supports_system_role: true
         max_temperature: 1
         temperature: 1
         max_input_tokens: 200000
         max_output_tokens: 100000
         default_max_tokens: 8192
-      - name: o3-deep-research
+      # GPT-4.1 Series - Latest flagship models (2025)
+      - name: gpt-4.1
+        category: large
         supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 200000
-        max_output_tokens: 100000
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 1000000
+        max_output_tokens: 16384
         default_max_tokens: 8192
-      # o1 Series - Advanced reasoning models (2024)
-      - name: o1
+      - name: gpt-4.1-mini
+        category: medium
         supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 200000
-        max_output_tokens: 100000
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 1000000
+        max_output_tokens: 16384
         default_max_tokens: 8192
-      - name: o1-pro
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 200000
-        max_output_tokens: 100000
-        default_max_tokens: 8192
-      - name: o1-mini
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 128000
-        max_output_tokens: 65536
-        default_max_tokens: 8192
-      - name: o1-preview
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 128000
-        max_output_tokens: 32768
-        default_max_tokens: 8192
-      # GPT-4o - Latest multimodal flagship model
+      # GPT-4o - Multimodal flagship model
       - name: gpt-4o
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      - name: gpt-4o-2024-11-20
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      - name: gpt-4o-2024-08-06
+        category: medium
         supports_system_role: true
         max_temperature: 2
         temperature: 0.75
@@ -83,173 +62,60 @@ engines:
         default_max_tokens: 4096
       # GPT-4o Mini - Fast and cost-effective
       - name: gpt-4o-mini
+        category: small
         supports_system_role: true
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 128000
         max_output_tokens: 16384
         default_max_tokens: 4096
-      # GPT-4o Audio - Multimodal with audio support
-      - name: gpt-4o-audio-preview
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      - name: gpt-4o-mini-audio-preview
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      # GPT-4 Turbo - Previous generation
-      - name: gpt-4-turbo
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 4096
-        default_max_tokens: 4096
-    default_model: gpt-4o
+    default_model: gpt-4.1
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:
-      # Claude 4.5 Sonnet - Latest and most capable (Sep 2025)
+      # Claude Sonnet 4.5 - Latest and most capable (Sep 2025)
       - name: claude-sonnet-4-5-20250929
+        category: medium
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
         max_input_tokens: 200000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      - name: claude-sonnet-4-5
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 64000
-        default_max_tokens: 8192
-      # Claude 4 Opus 4.1 - Most powerful reasoning (Aug 2025)
+      # Claude Opus 4.1 - Most powerful reasoning (Aug 2025)
       - name: claude-opus-4-1-20250805
+        category: large
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
         max_input_tokens: 200000
-        max_output_tokens: 32000
-        default_max_tokens: 8192
-      - name: claude-opus-4-1
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 32000
-        default_max_tokens: 8192
-      # Claude 4 Sonnet - Extended context version (May 2025)
-      - name: claude-sonnet-4-20250514
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 1000000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      - name: claude-4-sonnet-20250514
+      # Claude Haiku 4.5 - Fast and cost-effective (Oct 2025)
+      - name: claude-haiku-4-5
+        category: small
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
-        max_input_tokens: 1000000
+        max_input_tokens: 200000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      # Claude 4 Opus - Complex tasks (May 2025)
-      - name: claude-opus-4-20250514
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 32000
-        default_max_tokens: 8192
-      - name: claude-4-opus-20250514
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 32000
-        default_max_tokens: 8192
-      # Claude 3.7 Sonnet - Hybrid reasoning (Feb 2025)
-      - name: claude-3-7-sonnet-20250219
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 128000
-        default_max_tokens: 8192
-      - name: claude-3-7-sonnet-latest
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 128000
-        default_max_tokens: 8192
-      # Claude 3.5 Sonnet - High performance (Oct 2024)
-      - name: claude-3-5-sonnet-20241022
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      - name: claude-3-5-sonnet-latest
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      # Claude 3.5 Haiku - Fast and efficient
+      # Claude 3.5 Haiku - Previous generation (Oct 2024)
       - name: claude-3-5-haiku-20241022
+        category: small
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
         max_input_tokens: 200000
         max_output_tokens: 8192
         default_max_tokens: 8192
-      - name: claude-3-5-haiku-latest
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      # Claude 3 Opus - Previous flagship
-      - name: claude-3-opus-20240229
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 4096
-        default_max_tokens: 4096
-      - name: claude-3-opus-latest
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 4096
-        default_max_tokens: 4096
-      # Claude 3 Haiku - Fastest and most compact
-      - name: claude-3-haiku-20240307
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 4096
-        default_max_tokens: 4096
     default_model: claude-sonnet-4-5-20250929
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
       # Gemini 2.5 Pro - Most capable reasoning model
       - name: gemini/gemini-2.5-pro
+        category: large
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -257,6 +123,7 @@ engines:
         max_output_tokens: 65536
         default_max_tokens: 8192
       - name: gemini/gemini-pro-latest
+        category: large
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -265,6 +132,7 @@ engines:
         default_max_tokens: 8192
       # Gemini 2.5 Flash - Balanced speed and capability
       - name: gemini/gemini-2.5-flash
+        category: medium
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -272,6 +140,7 @@ engines:
         max_output_tokens: 65536
         default_max_tokens: 8192
       - name: gemini/gemini-flash-latest
+        category: medium
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -280,6 +149,7 @@ engines:
         default_max_tokens: 8192
       # Gemini 2.5 Flash Lite - Ultra-fast responses
       - name: gemini/gemini-2.5-flash-lite
+        category: small
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -287,6 +157,7 @@ engines:
         max_output_tokens: 65536
         default_max_tokens: 8192
       - name: gemini/gemini-flash-lite-latest
+        category: small
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -295,6 +166,7 @@ engines:
         default_max_tokens: 8192
       # Gemini 2.0 Flash - Previous generation flagship
       - name: gemini/gemini-2.0-flash
+        category: medium
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -302,6 +174,7 @@ engines:
         max_output_tokens: 8192
         default_max_tokens: 8192
       - name: gemini/gemini-2.0-flash-001
+        category: medium
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -310,6 +183,7 @@ engines:
         default_max_tokens: 8192
       # Gemini 2.0 Flash Lite - Fast and lightweight
       - name: gemini/gemini-2.0-flash-lite
+        category: small
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -318,6 +192,7 @@ engines:
         default_max_tokens: 8192
       # Gemini 2.0 Pro Experimental - Advanced capabilities
       - name: gemini/gemini-2.0-pro-exp
+        category: large
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -326,6 +201,7 @@ engines:
         default_max_tokens: 8192
       # Gemini 2.0 Flash Thinking - Reasoning-focused
       - name: gemini/gemini-2.0-flash-thinking-exp
+        category: medium
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
@@ -334,6 +210,7 @@ engines:
         default_max_tokens: 8192
       # Gemini Experimental Models
       - name: gemini/gemini-exp-1206
+        category: large
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75

@@ -34,6 +34,12 @@ services:
       # Optional: mount profiles.yaml if you have custom profiles
       - ./profiles.yaml:/app/profiles.yaml:ro
 
+      # Mount engines.yaml to use latest model configurations
+      - ./engines.yaml:/app/engines.yaml:ro
+
+      # Mount source code for development (optional - comment out for production)
+      - ./src:/app/src:ro
+
       # Optional: mount .env file (alternative to environment variables)
       # - ./.env:/app/.env:ro
     restart: unless-stopped
