@@ -63,7 +63,7 @@ Developed by [Rajiv Pant](https://github.com/rajivpant)
 
 ## Development Methodology
 
-Ragbot is developed using **Synthesis Engineering**—a systematic approach that combines human architectural expertise with AI-assisted implementation. This methodology ensures that while AI accelerates development velocity, engineers maintain architectural authority, enforce quality standards, and deeply understand every component of the system.
+Ragbot is developed using **Synthesis Engineering** (also known as **Synthesis Coding**)—a systematic approach that combines human architectural expertise with AI-assisted implementation. This methodology ensures that while AI accelerates development velocity, engineers maintain architectural authority, enforce quality standards, and deeply understand every component of the system.
 
 Key principles applied in Ragbot's development:
 - Human-defined architecture with AI-accelerated implementation
