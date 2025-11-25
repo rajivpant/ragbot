@@ -6,9 +6,9 @@ User-facing guides for common tasks and workflows.
 
 Located in `writing/`:
 
-- **`Guide_to_Identifying_AI-Generated_Content_v2.md`**
-  - Comprehensive guide for identifying AI-generated text
-  - Covers detection techniques, patterns, and best practices
+- **`Guide_to_Identifying_and_Improving_AI-Assisted_Content.md`**
+  - Comprehensive guide for identifying and improving AI-assisted text
+  - Covers detection techniques, patterns, and improvement strategies
   - Useful for content review, editing, and quality assurance
 
 ## Usage
@@ -24,7 +24,7 @@ You can reference them in:
 Example custom instruction:
 ```
 When helping me review content, use the detection techniques described in
-/data/resources/guides/writing/Guide_to_Identifying_AI-Generated_Content_v2.md
+/data/resources/guides/writing/Guide_to_Identifying_and_Improving_AI-Assisted_Content.md
 ```
 
 ## Future Guides

@@ -29,7 +29,7 @@ These resources are available at `/data/resources/` in all RaGenie service conta
 Example: A user can reference these resources in their custom instructions:
 ```
 "When helping me identify AI-generated content, refer to the guide in
-/data/resources/guides/writing/Guide_to_Identifying_AI-Generated_Content_v2.md"
+/data/resources/guides/writing/Guide_to_Identifying_and_Improving_AI-Assisted_Content.md"
 ```
 
 ## Usage Standalone
