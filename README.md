@@ -61,6 +61,21 @@ Ragbot.AI
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
+## Development Methodology
+
+Ragbot is developed using **Synthesis Engineering**—a systematic approach that combines human architectural expertise with AI-assisted implementation. This methodology ensures that while AI accelerates development velocity, engineers maintain architectural authority, enforce quality standards, and deeply understand every component of the system.
+
+Key principles applied in Ragbot's development:
+- Human-defined architecture with AI-accelerated implementation
+- Systematic quality assurance regardless of code origin
+- Context preservation across development sessions
+- Iterative refinement based on real-world usage
+
+Learn more about this approach:
+- [Synthesis Engineering: The Professional Practice](https://rajiv.com/blog/2025/11/09/synthesis-engineering-the-professional-practice-emerging-in-ai-assisted-development/)
+- [The Organizational Framework](https://rajiv.com/blog/2025/11/09/the-synthesis-engineering-framework-how-organizations-build-production-software-with-ai/)
+- [Technical Implementation with Claude Code](https://rajiv.com/blog/2025/11/09/synthesis-engineering-with-claude-code-technical-implementation-and-workflows/)
+
 Code Contributors & Collaborators
 - [Alexandria Redmon](https://github.com/alexdredmon)
 - [Ishaan Jaffer](https://www.linkedin.com/in/reffajnaahsi/)
