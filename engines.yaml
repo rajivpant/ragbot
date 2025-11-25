@@ -82,8 +82,8 @@ engines:
         max_input_tokens: 200000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      # Claude Opus 4.1 - Most powerful reasoning (Aug 2025)
-      - name: claude-opus-4-1-20250805
+      # Claude Opus 4.5 - Most powerful reasoning (Nov 2025)
+      - name: claude-opus-4-5-20251101
         category: large
         supports_system_role: true
         max_temperature: 1
