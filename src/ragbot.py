@@ -96,7 +96,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        help="The model to use for the chat. Defaults to engine's default model.",
+        help="The model to use for the chat. Defaults to engine's default model. Use 'flagship' to select the engine's most powerful model.",
     )
     parser.add_argument(
         "-t",
@@ -204,6 +204,17 @@ def main():
     model = args.model
     if model is None:
         model = default_models[args.engine]
+    elif model == "flagship":
+        # Find the flagship model for this engine
+        flagship_model = next(
+            (m for m in engines_config[args.engine]['models'] if m.get('is_flagship')),
+            None
+        )
+        if flagship_model:
+            model = flagship_model['name']
+        else:
+            print(f"Warning: No flagship model defined for engine '{args.engine}'. Using default.")
+            model = default_models[args.engine]
 
     # Get the engine API key from environment variable
     api_key_name = engines_config[args.engine].get('api_key_name')

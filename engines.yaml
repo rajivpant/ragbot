@@ -11,6 +11,7 @@ engines:
       # o3 Series - Advanced reasoning models (2025)
       - name: o3
         category: reasoning
+        is_flagship: true
         supports_system_role: true
         max_temperature: 1
         temperature: 1
@@ -85,6 +86,7 @@ engines:
       # Claude Opus 4.5 - Most powerful reasoning (Nov 2025)
       - name: claude-opus-4-5-20251101
         category: large
+        is_flagship: true
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
@@ -116,6 +118,7 @@ engines:
       # Gemini 2.5 Pro - Most capable reasoning model
       - name: gemini/gemini-2.5-pro
         category: large
+        is_flagship: true
         supports_system_role: false
         max_temperature: 2
         temperature: 0.75
