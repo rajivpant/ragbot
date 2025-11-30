@@ -315,9 +315,11 @@ def chat(
     added_curated_datasets = False
 
     # Google Generative AI models don't seem to accept the "system" role for the prompt.
+    # Note: custom_instructions and curated_datasets are already strings (from load_files),
+    # not lists, so we concatenate them directly rather than joining.
     if supports_system_role:
         # Combine custom instructions and curated datasets
-        system_content = "\n".join(custom_instructions) + "\n".join(curated_datasets)
+        system_content = custom_instructions + "\n" + curated_datasets
 
         # Only add system message if there's actual content (Anthropic requires non-empty system messages)
         if system_content.strip():
@@ -332,9 +334,9 @@ def chat(
     else:
         messages = []
         if custom_instructions:
-            messages.append({"role": "user", "content": "\n".join(custom_instructions)})
+            messages.append({"role": "user", "content": custom_instructions})
         if curated_datasets:
-            messages.append({"role": "user", "content": "\n".join(curated_datasets)})
+            messages.append({"role": "user", "content": curated_datasets})
         messages.append({"role": "user", "content": prompt})
 
     llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
