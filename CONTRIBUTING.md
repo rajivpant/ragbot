@@ -12,8 +12,8 @@ Thank you for your interest in contributing to Ragbot! This guide will help you 
 ❌ **Work/client data** - Company information, client names, project details
 ❌ **Customized templates** - Templates filled with YOUR information
 ❌ **API keys, passwords, secrets** - Any authentication credentials
-❌ **Files from curated-datasets/** - These are gitignored for a reason!
-❌ **Files from custom-instructions/** - These contain your preferences
+❌ **Files from datasets/** - These are gitignored for a reason!
+❌ **Files from instructions/** - These contain your preferences
 ❌ **Anything specific to you** - Dates, locations, personal history
 
 ### What TO Contribute
@@ -36,7 +36,7 @@ Thank you for your interest in contributing to Ragbot! This guide will help you 
 ~/ragbot-data/         # Private location - your personal data
 
 # ❌ BAD: Don't do this
-~/ragbot/curated-datasets/my-stuff/  # Risky even though gitignored!
+~/ragbot/datasets/my-stuff/  # Risky even though gitignored!
 ```
 
 ### Step 2: Choose Your Contribution Type
@@ -130,7 +130,7 @@ Contributing a prompt or technique you've developed:
 
    ## How to Use
    1. Step-by-step instructions
-   2. Where to place this (curated-datasets? custom-instructions?)
+   2. Where to place this (datasets? instructions?)
    3. How to customize for your needs
 
    ## Example
@@ -227,7 +227,7 @@ Helps sales teams write personalized outreach emails...
 
 ```bash
 # BAD: Your filled-in template
-~/ragbot-data/curated-datasets/my-info/about-me.md
+~/ragbot-data/datasets/my-info/about-me.md
 # This has YOUR info! Never contribute this!
 
 # GOOD: A new anonymized template
@@ -239,7 +239,7 @@ Helps sales teams write personalized outreach emails...
 
 Ragbot has multiple layers of protection:
 
-1. **`.gitignore`** - Blocks `curated-datasets/`, `custom-instructions/`, etc.
+1. **`.gitignore`** - Blocks `datasets/`, `instructions/`, etc.
 2. **Separate repo pattern** - Recommended workflow keeps data external
 3. **Docker override** - Your data paths in `docker-compose.override.yml` (gitignored)
 4. **This guide** - Clear instructions on what NOT to commit

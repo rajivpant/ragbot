@@ -16,7 +16,7 @@ This directory is organized into two main sections:
 
 Templates include:
 
-- Starter templates for curated datasets (about-me, professional, preferences)
+- Starter templates for datasets (about-me, professional, preferences)
 - Starter templates for custom instructions (AI behavior configuration)
 - Variations for specific use cases (technical advisor, creative writer)
 
@@ -45,13 +45,13 @@ The fastest way to get Ragbot running:
 
 ```bash
 # 1. Copy the starter template
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
+cp -r examples/templates/datasets/starter/ datasets/my-data/
 
 # 2. Copy custom instructions
-cp examples/templates/custom-instructions/starter/default-instructions.md custom-instructions/
+cp examples/templates/instructions/starter/default-instructions.md instructions/
 
 # 3. Edit the files with your information
-# Open and customize: curated-datasets/my-data/about-me.md, professional.md, preferences.md
+# Open and customize: datasets/my-data/about-me.md, professional.md, preferences.md
 
 # 4. Start Ragbot
 docker-compose up
@@ -81,7 +81,7 @@ That's it! You now have a personalized AI assistant that knows about you.
 
 **Setup:**
 ```bash
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/personal/
+cp -r examples/templates/datasets/starter/ datasets/personal/
 # Edit files with family info, schedule, preferences
 # Add custom instructions for task management
 ```
@@ -99,9 +99,9 @@ cp -r examples/templates/curated-datasets/starter/ curated-datasets/personal/
 
 **Setup:**
 ```bash
-mkdir curated-datasets/work-project/
+mkdir datasets/work-project/
 # Add: project-overview.md, team-members.md, technical-specs.md
-cp examples/templates/custom-instructions/variations/technical-advisor.md custom-instructions/
+cp examples/templates/instructions/variations/technical-advisor.md instructions/
 ```
 
 **Good for:**
@@ -117,9 +117,9 @@ cp examples/templates/custom-instructions/variations/technical-advisor.md custom
 
 **Setup:**
 ```bash
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/content-creator/
-cp examples/templates/custom-instructions/variations/creative-writer.md custom-instructions/
-# Add your writing samples to curated-datasets/content-creator/
+cp -r examples/templates/datasets/starter/ datasets/content-creator/
+cp examples/templates/instructions/variations/creative-writer.md instructions/
+# Add your writing samples to datasets/content-creator/
 ```
 
 **Good for:**
@@ -135,7 +135,7 @@ cp examples/templates/custom-instructions/variations/creative-writer.md custom-i
 
 **Setup:**
 ```bash
-mkdir curated-datasets/learning/
+mkdir datasets/learning/
 # Add: course-notes.md, research-papers/, topics.md
 # Configure for clear explanations and teaching
 ```
@@ -152,7 +152,7 @@ mkdir curated-datasets/learning/
 ### Recommended Structure
 
 ```
-curated-datasets/
+datasets/
 ├── personal/           # Personal information, family, interests
 ├── professional/       # Work history, skills, projects
 ├── projects/           # Specific project contexts
@@ -160,7 +160,7 @@ curated-datasets/
 │   └── project-b/
 └── learning/           # Study materials, research
 
-custom-instructions/
+instructions/
 ├── default.md          # Your baseline behavior configuration
 ├── project-specific.md # Project-specific instructions
 └── domain-specific.md  # e.g., code-focused, writing-focused
@@ -185,17 +185,17 @@ custom-instructions/
 ### What Gets Shared?
 
 **Stays Local:**
-- Everything in `curated-datasets/` and `custom-instructions/` stays on your machine
+- Everything in `datasets/` and `instructions/` stays on your machine
 - These directories are in `.gitignore` by default
 - Ragbot reads these files but doesn't transmit them anywhere except to the AI API
 
 **Sent to AI API:**
-- Your curated datasets are included in prompts sent to the AI service (OpenAI, Anthropic, etc.)
+- Your datasets are included in prompts sent to the AI service (OpenAI, Anthropic, etc.)
 - Make sure you're comfortable with this information being processed by the AI provider
 
 ### Best Practices
 
-1. **Separate Sensitive Data** - Keep truly sensitive information (passwords, SSNs, financial details) OUT of curated datasets
+1. **Separate Sensitive Data** - Keep truly sensitive information (passwords, SSNs, financial details) OUT of datasets
 2. **Use Private Repo** - Consider keeping your data in a separate private git repository
 3. **Review Before Adding** - Ask yourself: "Am I comfortable with an AI knowing this?"
 4. **Regular Audits** - Periodically review what's in your datasets
@@ -234,7 +234,7 @@ Have a great example or template to share? Contributions are welcome!
 
 ### Getting Better Results
 
-1. **Be Specific** - More context in your curated datasets = better responses
+1. **Be Specific** - More context in your datasets = better responses
 2. **Iterate** - Refine your custom instructions over time
 3. **Organize** - Keep related information together
 4. **Update** - Keep your data current and relevant
@@ -249,7 +249,7 @@ Create different data folders for different contexts, switch between them using 
 Combine multiple custom instruction files for different aspects (base behavior + domain-specific)
 
 **Pattern 3: Template Library**
-Build your own collection of prompts and templates in curated-datasets/templates/
+Build your own collection of prompts and templates in datasets/templates/
 
 ## ❓ FAQ
 

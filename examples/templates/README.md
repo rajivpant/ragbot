@@ -14,10 +14,10 @@ These templates live in the public Ragbot repository as examples. Your customiza
 
 ```bash
 # ✅ Step 1: Copy templates OUT of ragbot/
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
+cp -r examples/templates/datasets/starter/ datasets/my-data/
 
 # ✅ Step 2: Edit in YOUR location with YOUR information
-nano curated-datasets/my-data/about-me.md
+nano datasets/my-data/about-me.md
 
 # ✅ Step 3: Use with Ragbot (via Docker or direct)
 docker-compose up
@@ -27,10 +27,10 @@ docker-compose up
 
 ```bash
 # ❌ Don't edit templates in place
-nano examples/templates/curated-datasets/starter/about-me.md  # WRONG!
+nano examples/templates/datasets/starter/about-me.md  # WRONG!
 
 # ❌ Don't put your personal data in ragbot/
-nano curated-datasets/my-personal-stuff/...  # Risky even though gitignored!
+nano datasets/my-personal-stuff/...  # Risky even though gitignored!
 ```
 
 ## Why This Matters
@@ -44,9 +44,9 @@ See [docs/DATA_ORGANIZATION.md](../../docs/DATA_ORGANIZATION.md) for the philoso
 
 ## What's Included
 
-### 📋 Curated Datasets Starter
+### 📋 Datasets Starter
 
-**Location:** `curated-datasets/starter/`
+**Location:** `datasets/starter/`
 
 **Purpose:** Give Ragbot context about you
 
@@ -59,13 +59,13 @@ See [docs/DATA_ORGANIZATION.md](../../docs/DATA_ORGANIZATION.md) for the philoso
 
 **How to use:**
 ```bash
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
-# Edit files in curated-datasets/my-data/ with your info
+cp -r examples/templates/datasets/starter/ datasets/my-data/
+# Edit files in datasets/my-data/ with your info
 ```
 
-### ⚙️ Custom Instructions Starter
+### ⚙️ Instructions Starter
 
-**Location:** `custom-instructions/starter/`
+**Location:** `instructions/starter/`
 
 **Purpose:** Configure how Ragbot behaves and responds
 
@@ -76,13 +76,13 @@ cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
 
 **How to use:**
 ```bash
-cp examples/templates/custom-instructions/starter/default-instructions.md custom-instructions/
-# Edit custom-instructions/default-instructions.md with your preferences
+cp examples/templates/instructions/starter/default-instructions.md instructions/
+# Edit instructions/default-instructions.md with your preferences
 ```
 
-### 🎭 Custom Instructions Variations
+### 🎭 Instructions Variations
 
-**Location:** `custom-instructions/variations/`
+**Location:** `instructions/variations/`
 
 **Purpose:** Pre-configured instruction sets for specific roles
 
@@ -95,10 +95,10 @@ cp examples/templates/custom-instructions/starter/default-instructions.md custom
 **How to use:**
 ```bash
 # Use a variation as-is
-cp examples/templates/custom-instructions/variations/technical-advisor.md custom-instructions/
+cp examples/templates/instructions/variations/technical-advisor.md instructions/
 
 # Or combine with your own modifications
-cat examples/templates/custom-instructions/variations/creative-writer.md >> custom-instructions/my-instructions.md
+cat examples/templates/instructions/variations/creative-writer.md >> instructions/my-instructions.md
 ```
 
 ## Recommended Setup Patterns
@@ -109,8 +109,8 @@ Keep data directly in ragbot directory:
 
 ```
 ragbot/
-├── curated-datasets/my-data/     # Your personal info (gitignored)
-└── custom-instructions/          # Your AI config (gitignored)
+├── datasets/my-data/     # Your personal info (gitignored)
+└── instructions/          # Your AI config (gitignored)
 ```
 
 **Pros:** Simple, fast to set up
@@ -123,16 +123,16 @@ Keep data outside ragbot directory:
 ```
 ~/ragbot/                         # Public application
 ~/ragbot-data/                    # Your private data
-├── curated-datasets/
-├── custom-instructions/
+├── datasets/
+├── instructions/
 └── prompt-library/
 ```
 
 Connect via `docker-compose.override.yml`:
 ```yaml
 volumes:
-  - ~/ragbot-data/curated-datasets:/app/curated-datasets:ro
-  - ~/ragbot-data/custom-instructions:/app/custom-instructions:ro
+  - ~/ragbot-data/datasets:/app/datasets:ro
+  - ~/ragbot-data/instructions:/app/instructions:ro
 ```
 
 **Pros:** Clear separation, easy to backup, can use separate git repo
@@ -146,13 +146,13 @@ See [README-DOCKER.md](../../README-DOCKER.md) for Docker setup details.
 
 ```bash
 # Copy starter template
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/personal/
+cp -r examples/templates/datasets/starter/ datasets/personal/
 
 # Add family info, schedule, preferences
-nano curated-datasets/personal/about-me.md
+nano datasets/personal/about-me.md
 
 # Configure for helpful assistant
-cp examples/templates/custom-instructions/starter/default-instructions.md custom-instructions/
+cp examples/templates/instructions/starter/default-instructions.md instructions/
 ```
 
 **Good for:** Family coordination, personal productivity, life planning
@@ -161,17 +161,17 @@ cp examples/templates/custom-instructions/starter/default-instructions.md custom
 
 ```bash
 # Create project-specific data
-mkdir curated-datasets/work-project/
+mkdir datasets/work-project/
 
 # Add project context
-cat > curated-datasets/work-project/project-overview.md <<EOF
+cat > datasets/work-project/project-overview.md <<EOF
 # Project: [Name]
 ## Team: [Members]
 ## Goals: [Objectives]
 EOF
 
 # Use technical advisor instructions
-cp examples/templates/custom-instructions/variations/technical-advisor.md custom-instructions/
+cp examples/templates/instructions/variations/technical-advisor.md instructions/
 ```
 
 **Good for:** Project tracking, technical problem-solving, documentation
@@ -180,13 +180,13 @@ cp examples/templates/custom-instructions/variations/technical-advisor.md custom
 
 ```bash
 # Copy starter for bio/background
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/creator/
+cp -r examples/templates/datasets/starter/ datasets/creator/
 
 # Add writing samples
-mkdir curated-datasets/creator/writing-samples/
+mkdir datasets/creator/writing-samples/
 
 # Use creative writer instructions
-cp examples/templates/custom-instructions/variations/creative-writer.md custom-instructions/
+cp examples/templates/instructions/variations/creative-writer.md instructions/
 ```
 
 **Good for:** Blog writing, social media, marketing content
@@ -232,7 +232,7 @@ Occupation: [Your Job Title]
 
 ### What Stays Local
 
-Everything you put in your curated-datasets and custom-instructions stays on your machine:
+Everything you put in your datasets and instructions stays on your machine:
 - ✅ Not committed to git (these directories are .gitignored)
 - ✅ Not uploaded anywhere (except to AI API when you use Ragbot)
 - ✅ Under your control
@@ -240,12 +240,12 @@ Everything you put in your curated-datasets and custom-instructions stays on you
 ### What Gets Sent to AI
 
 When you use Ragbot:
-- Your curated datasets are included in prompts sent to the AI service (OpenAI, Anthropic, etc.)
+- Your datasets are included in prompts sent to the AI service (OpenAI, Anthropic, etc.)
 - Make sure you're comfortable with this information being processed by the AI provider
 
 ### Best Practices
 
-1. **Keep truly sensitive data out** - Passwords, SSNs, financial details should NOT be in curated datasets
+1. **Keep truly sensitive data out** - Passwords, SSNs, financial details should NOT be in datasets
 2. **Use separate data repo** - Consider keeping your data in `~/ragbot-data/` as a private git repo
 3. **Review regularly** - Periodically audit what's in your datasets
 4. **Don't commit personal data** - The ragbot directory is public, your data should never be here
@@ -262,14 +262,14 @@ git checkout main -- examples/templates/
 
 **Q: My personal data showed up in git status**
 
-This shouldn't happen (curated-datasets/ and custom-instructions/ are gitignored). If it does:
+This shouldn't happen (datasets/ and instructions/ are gitignored). If it does:
 ```bash
 # Remove from staging
-git reset HEAD curated-datasets/ custom-instructions/
+git reset HEAD datasets/ instructions/
 
 # Make sure .gitignore is correct
-cat .gitignore | grep curated-datasets
-# Should show: /curated-datasets
+cat .gitignore | grep datasets
+# Should show: /datasets
 ```
 
 **Q: Where should I keep my data for production use?**
