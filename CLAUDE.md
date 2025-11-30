@@ -83,6 +83,26 @@ When writing documentation or examples:
 - Different workspaces may come from different git repos
 - User workspaces are private; some workspaces may be shared team repos
 
+## Git Operations
+
+**IMPORTANT**: Before any git commands for this repo, ensure you are in the correct directory:
+
+```bash
+cd ~/projects/my-projects/ragbot
+```
+
+Each repo in the ecosystem has its own git history. Don't run git commands from the wrong directory.
+
+## Versioning
+
+- Version is tracked in `VERSION` file (semantic versioning: MAJOR.MINOR.PATCH)
+- **Maintain version numbers**: When making releases, increment the version appropriately:
+  - PATCH (0.0.X): Bug fixes, minor changes
+  - MINOR (0.X.0): New features, backwards compatible
+  - MAJOR (X.0.0): Breaking changes
+- Create git tags for releases: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+- Push tags: `git push origin vX.Y.Z`
+
 ## Development Notes
 
 - Python CLI with Streamlit UI
