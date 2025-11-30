@@ -306,12 +306,12 @@ def main():
             st.write(f"temperature: {temperature}")
             st.write(f"supports_system_role: {supports_system_role}")
             st.write(f"Input tokens used: {total_tokens_humanized} (Custom Instructions: {custom_instructions_tokens_humanized}, Curated Datasets: {curated_datasets_tokens_humanized}, Prompt: {prompt_tokens_humanized})")
-            st.write(f"custom_instruction_files: {custom_instructions_files}")
-            st.write(f"curated_dataset_files: {curated_dataset_files}")
-            st.write(f"prompt: {prompt}")
-            #st.write(f"custom_instructions: {custom_instructions}")
-            #st.write(f"curated_datasets: {curated_datasets}")
-            #st.write(f"history: {history}")
+            st.write(f"custom_instruction_files ({len(custom_instructions_files)}): {custom_instructions_files}")
+            st.write(f"curated_dataset_files ({len(curated_dataset_files)}): {curated_dataset_files}")
+            st.write(f"custom_instructions length: {len(custom_instructions)} chars")
+            st.write(f"curated_datasets length: {len(curated_datasets)} chars")
+            st.write(f"prompt length: {len(prompt)} chars")
+            st.write(f"history length: {len(history)} messages")
 
     if st.button("Get response"):
         history.append({"role": "user", "content": prompt})
