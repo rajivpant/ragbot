@@ -16,44 +16,14 @@ version: '3.8'
 
 services:
   ragbot-web:
+    # ========================================================================
+    # Mount external ragbot-data workspaces directory
+    # ========================================================================
+    # If you keep your data in a separate directory (e.g., a private git repo),
+    # adjust this path to point to your ragbot-data/workspaces folder:
     volumes:
-      # ========================================================================
-      # OPTION 1: Mount external ragbot-data directory
-      # ========================================================================
-      # If you keep your data in a separate directory (e.g., a private git repo),
-      # uncomment and adjust these paths:
-
-      # - /path/to/your/ragbot-data/datasets:/app/datasets:ro
-      # - /path/to/your/ragbot-data/instructions:/app/instructions:ro
-
-      # ========================================================================
-      # OPTION 2: Mount individual data directories
-      # ========================================================================
-      # If you have data scattered in different locations:
-
-      # - /path/to/datasets:/app/datasets:ro
-      # - /path/to/instructions:/app/instructions:ro
-
-      # ========================================================================
-      # OPTION 3: Mount a custom profiles.yaml
-      # ========================================================================
-      # If you have a personal profiles.yaml with your preferred settings:
-
-      # - /path/to/your/profiles.yaml:/app/profiles.yaml:ro
-
-      # ========================================================================
-      # DEVELOPMENT: Mount source code for live editing
-      # ========================================================================
-      # Uncomment to enable hot-reload during development:
-
-      # - ./src:/app/src:rw
-      # - ./engines.yaml:/app/engines.yaml:rw
+      - /path/to/your/ragbot-data/workspaces:/app/workspaces:ro
 
     # Optional: Override environment variables
     # environment:
     #   - CUSTOM_ENV_VAR=value
-
-  # You can also override settings for other services like ragbot-cli
-  # ragbot-cli:
-  #   volumes:
-  #     - /path/to/your/ragbot-data/datasets:/app/datasets:ro

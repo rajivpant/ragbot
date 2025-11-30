@@ -21,6 +21,167 @@ def load_profiles(profiles_file):
         profiles = yaml.safe_load(stream)
     return profiles['profiles']
 
+
+def discover_workspaces(data_root):
+    """
+    Discover all workspaces by scanning the workspaces directory for workspace.yaml files.
+
+    Args:
+        data_root: Root directory containing the workspaces folder
+
+    Returns:
+        List of workspace dictionaries with 'name', 'path', and 'config' keys
+    """
+    workspaces_dir = os.path.join(data_root, 'workspaces')
+    discovered = []
+
+    if not os.path.isdir(workspaces_dir):
+        return discovered
+
+    for workspace_name in os.listdir(workspaces_dir):
+        workspace_path = os.path.join(workspaces_dir, workspace_name)
+        workspace_yaml = os.path.join(workspace_path, 'workspace.yaml')
+
+        if os.path.isdir(workspace_path) and os.path.isfile(workspace_yaml):
+            with open(workspace_yaml, 'r') as f:
+                config = yaml.safe_load(f)
+
+            discovered.append({
+                'name': config.get('name', workspace_name),
+                'path': workspace_path,
+                'dir_name': workspace_name,
+                'config': config
+            })
+
+    # Sort by name for consistent ordering
+    discovered.sort(key=lambda x: x['name'])
+    return discovered
+
+
+def resolve_workspace_paths(workspace, data_root, all_workspaces=None, resolved_chain=None):
+    """
+    Resolve a workspace's content paths including inherited workspaces.
+
+    Each workspace can have:
+    - instructions/ folder: identity and instruction files
+    - runbooks/ folder: how-to guides and procedures
+    - datasets/ folder: reference data and context
+
+    Workspaces inherit content from parent workspaces via 'inherits_from'.
+
+    Args:
+        workspace: Workspace dictionary from discover_workspaces()
+        data_root: Root directory containing the workspaces folder
+        all_workspaces: List of all discovered workspaces (for inheritance resolution)
+        resolved_chain: Set of workspace names already resolved (to prevent circular inheritance)
+
+    Returns:
+        Dictionary with 'instructions' and 'datasets' as lists of absolute paths
+    """
+    if resolved_chain is None:
+        resolved_chain = set()
+
+    config = workspace['config']
+    workspace_name = workspace['dir_name']
+    workspace_path = workspace['path']
+
+    # Prevent circular inheritance
+    if workspace_name in resolved_chain:
+        return {'instructions': [], 'datasets': []}
+    resolved_chain.add(workspace_name)
+
+    instructions = []
+    datasets = []
+
+    # First, resolve inherited workspaces (parent content comes first)
+    inherits_from = config.get('inherits_from', [])
+    if all_workspaces and inherits_from:
+        for parent_name in inherits_from:
+            parent_workspace = next(
+                (w for w in all_workspaces if w['dir_name'] == parent_name),
+                None
+            )
+            if parent_workspace:
+                parent_paths = resolve_workspace_paths(
+                    parent_workspace, data_root, all_workspaces, resolved_chain.copy()
+                )
+                instructions.extend(parent_paths['instructions'])
+                datasets.extend(parent_paths['datasets'])
+
+    # Add this workspace's own content folders
+    # Instructions folder (identity, instructions)
+    instructions_dir = os.path.join(workspace_path, 'instructions')
+    if os.path.isdir(instructions_dir):
+        instructions.append(instructions_dir)
+
+    # Runbooks folder (how-to guides) - goes to instructions
+    runbooks_dir = os.path.join(workspace_path, 'runbooks')
+    if os.path.isdir(runbooks_dir):
+        instructions.append(runbooks_dir)
+
+    # Datasets folder (reference data, context)
+    datasets_dir = os.path.join(workspace_path, 'datasets')
+    if os.path.isdir(datasets_dir):
+        datasets.append(datasets_dir)
+
+    # Include any files directly in the workspace (excluding workspace.yaml)
+    for item in os.listdir(workspace_path):
+        item_path = os.path.join(workspace_path, item)
+        if item != 'workspace.yaml' and os.path.isfile(item_path):
+            datasets.append(item_path)
+
+    return {'instructions': instructions, 'datasets': datasets}
+
+
+def workspace_to_profile(workspace, data_root, all_workspaces=None):
+    """
+    Convert a workspace to the profile format expected by existing Ragbot code.
+
+    Args:
+        workspace: Workspace dictionary from discover_workspaces()
+        data_root: Root directory containing workspaces, instructions, datasets folders
+        all_workspaces: List of all discovered workspaces (for inheritance resolution)
+
+    Returns:
+        Dictionary in profile format: {'name': ..., 'instructions': [...], 'datasets': [...]}
+    """
+    resolved = resolve_workspace_paths(workspace, data_root, all_workspaces)
+
+    return {
+        'name': workspace['name'],
+        'instructions': resolved['instructions'],
+        'datasets': resolved['datasets']
+    }
+
+
+def load_workspaces_as_profiles(data_root):
+    """
+    Discover workspaces and convert them to profiles format for compatibility.
+
+    This is the main entry point for workspace-based profile loading.
+
+    Args:
+        data_root: Root directory containing workspaces folder
+
+    Returns:
+        List of profiles in the format: [{'name': ..., 'instructions': [...], 'datasets': [...]}, ...]
+    """
+    workspaces = discover_workspaces(data_root)
+    profiles = []
+
+    for workspace in workspaces:
+        profile = workspace_to_profile(workspace, data_root, workspaces)
+        profiles.append(profile)
+
+    # Add a "none" option
+    profiles.append({
+        'name': '(none - no workspace)',
+        'instructions': [],
+        'datasets': []
+    })
+
+    return profiles
+
 def process_file(filepath, file_type, index):
     """
     Helper function to read and format the content of a file using standard document block format.
@@ -67,7 +228,7 @@ def load_files(file_paths, file_type):
             files_list.append(filename)  # save file name
             document_index += 1
         elif os.path.isdir(path):
-            for filepath in glob.glob(os.path.join(path, "*")):
+            for filepath in glob.glob(os.path.join(path, "**/*"), recursive=True):
                 if os.path.isfile(filepath):
                     content, filename = process_file(filepath, file_type, document_index)
                     files_content.append(content)

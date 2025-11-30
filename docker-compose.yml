@@ -23,16 +23,17 @@ services:
       # Pinecone Configuration (optional)
       - PINECONE_API_KEY=${PINECONE_API_KEY:-}
       - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-}
+
+      # Ragbot Data Root - set to /app since data directories are mounted there
+      - RAGBOT_DATA_ROOT=/app
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions
 
-      # Mount user data directories (read-only recommended)
-      - ./datasets:/app/datasets:ro
-      - ./instructions:/app/instructions:ro
-
-      # Optional: mount profiles.yaml if you have custom profiles
-      - ./profiles.yaml:/app/profiles.yaml:ro
+      # Mount workspaces directory from your ragbot-data folder (read-only recommended)
+      # Each workspace contains its own instructions/, runbooks/, and datasets/ folders
+      # Use docker-compose.override.yml to customize these paths for your setup
+      - ./workspaces:/app/workspaces:ro
 
       # Mount engines.yaml to use latest model configurations
       - ./engines.yaml:/app/engines.yaml:ro

@@ -11,7 +11,7 @@ import appdirs
 import openai
 import anthropic
 import litellm
-from helpers import load_files, load_config, print_saved_files, chat, load_profiles
+from helpers import load_files, load_config, print_saved_files, chat, load_profiles, load_workspaces_as_profiles
 
 appname = "ragbot"
 appauthor = "Rajiv Pant"
@@ -135,17 +135,37 @@ def main():
     curated_datasets = []
     curated_dataset_files = []  # to store file names of curated_datasets
 
-    # Load profiles
-    profiles = load_profiles('profiles.yaml')
+    # Load workspaces from ragbot-data directory
+    # Priority: 1) RAGBOT_DATA_ROOT env var, 2) Docker /app, 3) local workspaces/, 4) sibling ragbot-data/
+    data_root = os.getenv('RAGBOT_DATA_ROOT')
+
+    if data_root is None:
+        # Check common locations in order of priority
+        if os.path.isdir('/app/workspaces'):
+            # Docker deployment
+            data_root = '/app'
+        elif os.path.isdir('workspaces'):
+            # Local workspaces directory (current working directory)
+            data_root = '.'
+        elif os.path.isdir('../ragbot-data/workspaces'):
+            # Sibling ragbot-data directory (common development setup)
+            data_root = '../ragbot-data'
+        else:
+            # Fallback - will result in empty workspaces list
+            data_root = '.'
+
+    profiles = load_workspaces_as_profiles(data_root)
 
     if args.profile:
-        # Get custom instruction and curated dataset paths from selected profile
+        # Get instruction and dataset paths from selected workspace
         selected_profile_data = next((profile for profile in profiles if profile['name'] == args.profile), None)
         if not selected_profile_data:
-            print(f"Error: Profile '{args.profile}' not found in profiles.yaml")
+            available_workspaces = [p['name'] for p in profiles]
+            print(f"Error: Workspace '{args.profile}' not found.")
+            print(f"Available workspaces: {', '.join(available_workspaces)}")
             sys.exit(1)
-        custom_instruction_paths = selected_profile_data.get('custom_instructions', [])
-        curated_dataset_paths = selected_profile_data.get('curated_datasets', [])
+        custom_instruction_paths = selected_profile_data.get('instructions', [])
+        curated_dataset_paths = selected_profile_data.get('datasets', [])
     else:
         custom_instruction_paths = []
         curated_dataset_paths = []
