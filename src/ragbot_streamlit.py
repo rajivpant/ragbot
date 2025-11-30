@@ -210,19 +210,30 @@ def main():
         st.divider()
 
         # Temperature - simplified
-        st.subheader("Creativity")
-        temperature_presets = {
-            "Precise": temperature_settings.get('precise', 0.20),
-            "Balanced": temperature_settings.get('balanced', 0.50),
-            "Creative": temperature_settings.get('creative', 0.75)
-        }
-        temp_choice = st.select_slider(
-            "Temperature",
-            options=list(temperature_presets.keys()),
-            value="Creative",
-            label_visibility="collapsed"
-        )
-        temperature = temperature_presets[temp_choice]
+        # Check if model supports variable temperature
+        max_temp = selected_model.get('max_temperature', 2) if selected_model else 2
+        model_fixed_temp = selected_model.get('temperature', 0.75) if selected_model else 0.75
+
+        if max_temp <= 1:
+            # Model only supports fixed temperature (reasoning models)
+            st.subheader("Creativity")
+            st.caption("This model uses fixed temperature")
+            temp_choice = "Fixed"
+            temperature = model_fixed_temp
+        else:
+            st.subheader("Creativity")
+            temperature_presets = {
+                "Precise": temperature_settings.get('precise', 0.20),
+                "Balanced": temperature_settings.get('balanced', 0.50),
+                "Creative": temperature_settings.get('creative', 0.75)
+            }
+            temp_choice = st.select_slider(
+                "Temperature",
+                options=list(temperature_presets.keys()),
+                value="Creative",
+                label_visibility="collapsed"
+            )
+            temperature = temperature_presets[temp_choice]
 
         st.divider()
 
