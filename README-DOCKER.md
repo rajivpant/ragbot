@@ -96,7 +96,7 @@ docker-compose run --rm ragbot-cli -i
 
 **With custom dataset:**
 ```bash
-docker-compose run --rm ragbot-cli -p "Analyze this data" -d /app/curated-datasets
+docker-compose run --rm ragbot-cli -p "Analyze this data" -d /app/datasets
 ```
 
 **Note:** To enable the CLI service, uncomment the `ragbot-cli` section in `docker-compose.yml`.
@@ -144,8 +144,8 @@ services:
   ragbot-web:
     volumes:
       # Mount your private ragbot-data directory
-      - /path/to/your/ragbot-data/curated-datasets:/app/curated-datasets:ro
-      - /path/to/your/ragbot-data/custom-instructions:/app/custom-instructions:ro
+      - /path/to/your/ragbot-data/datasets:/app/datasets:ro
+      - /path/to/your/ragbot-data/instructions:/app/instructions:ro
       - /path/to/your/ragbot-data/profiles.yaml:/app/profiles.yaml:ro
 ```
 
@@ -163,12 +163,12 @@ Place your files directly in the ragbot directory:
 
 ```
 ragbot/
-├── curated-datasets/        # Your knowledge base files
-├── custom-instructions/     # Custom instruction files
+├── datasets/        # Your knowledge base files
+├── instructions/     # Custom instruction files
 └── profiles.yaml           # User profiles (optional)
 ```
 
-These directories are automatically mounted into the container at `/app/curated-datasets` and `/app/custom-instructions`.
+These directories are automatically mounted into the container at `/app/datasets` and `/app/instructions`.
 
 #### Method 3: Symlinks (Convenient for Local Development)
 
@@ -176,8 +176,8 @@ Create symlinks from your ragbot directory to your data repository:
 
 ```bash
 cd /path/to/ragbot
-ln -s /path/to/your/ragbot-data/curated-datasets ./curated-datasets
-ln -s /path/to/your/ragbot-data/custom-instructions ./custom-instructions
+ln -s /path/to/your/ragbot-data/datasets ./datasets
+ln -s /path/to/your/ragbot-data/instructions ./instructions
 ln -s /path/to/your/ragbot-data/profiles.yaml ./profiles.yaml
 ```
 
@@ -192,7 +192,7 @@ RAGBOT_DATA_DIR=/path/to/your/ragbot-data
 Then update `docker-compose.yml` volumes to use this variable:
 ```yaml
 volumes:
-  - ${RAGBOT_DATA_DIR:-./curated-datasets}/curated-datasets:/app/curated-datasets:ro
+  - ${RAGBOT_DATA_DIR:-./datasets}/datasets:/app/datasets:ro
 ```
 
 ### Updating profiles.yaml for Docker
@@ -204,7 +204,7 @@ If you use profiles with absolute paths, update them to container paths:
 profiles:
   - name: "My Profile"
     curated_datasets:
-      - "/Users/myname/ragbot-data/curated-datasets/my-data/"
+      - "/Users/myname/ragbot-data/datasets/my-data/"
 ```
 
 **After (container paths):**
@@ -212,7 +212,7 @@ profiles:
 profiles:
   - name: "My Profile"
     curated_datasets:
-      - "/app/curated-datasets/my-data/"
+      - "/app/datasets/my-data/"
 ```
 
 ### Engines Configuration
@@ -400,7 +400,7 @@ docker-compose exec ragbot-web ls -la /root/.local/share/ragbot/sessions/
 
 **On Linux, you may need to set permissions:**
 ```bash
-sudo chown -R 1000:1000 curated-datasets custom-instructions
+sudo chown -R 1000:1000 datasets instructions
 ```
 
 Or uncomment the non-root user section in the Dockerfile.

@@ -28,8 +28,8 @@ services:
       - ragbot-sessions:/root/.local/share/ragbot/sessions
 
       # Mount user data directories (read-only recommended)
-      - ./curated-datasets:/app/curated-datasets:ro
-      - ./custom-instructions:/app/custom-instructions:ro
+      - ./datasets:/app/datasets:ro
+      - ./instructions:/app/instructions:ro
 
       # Optional: mount profiles.yaml if you have custom profiles
       - ./profiles.yaml:/app/profiles.yaml:ro
@@ -70,8 +70,8 @@ services:
   #     - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME:-}
   #   volumes:
   #     - ragbot-sessions:/root/.local/share/ragbot/sessions
-  #     - ./curated-datasets:/app/curated-datasets:ro
-  #     - ./custom-instructions:/app/custom-instructions:ro
+  #     - ./datasets:/app/datasets:ro
+  #     - ./instructions:/app/instructions:ro
   #     - ./profiles.yaml:/app/profiles.yaml:ro
   #   entrypoint: ["python3", "src/ragbot.py"]
   #   command: ["--help"]

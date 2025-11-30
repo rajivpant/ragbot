@@ -30,7 +30,7 @@
 Your existing workflow doesn't change:
 - ✅ ragbot-data repository remains your source of truth
 - ✅ Edit markdown files as you always have
-- ✅ Same directory structure (curated-datasets/, custom-instructions/, etc.)
+- ✅ Same directory structure (datasets/, instructions/, runbooks/, workspaces/)
 - ✅ Git workflow unchanged
 - ✅ RaGenie mounts ragbot-data read-only (never modifies your files)
 
@@ -55,9 +55,9 @@ Ragbot.AI
 
 🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
-🚀 Ragbot.AI processes user prompts along with custom instructions and curated datasets, enabling context-aware responses. Powered by the latest LLMs including OpenAI's GPT-4o and o-series models, Anthropic's Claude Sonnet 4.5 and Claude Opus 4.5, and Google's Gemini 2.5 series, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
+🚀 Ragbot.AI processes user prompts along with instructions, datasets, and runbooks, enabling context-aware responses. Powered by the latest LLMs including OpenAI's GPT-4o and o-series models, Anthropic's Claude Sonnet 4.5 and Claude Opus 4.5, and Google's Gemini 2.5 series, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
 
-🧠 Custom instructions and curated datasets help Ragbot.AI better understand context, resulting in personalized, more accurate, and relevant responses, surpassing the capabilities of out of the box LLMs.
+🧠 Instructions and datasets help Ragbot.AI better understand context, resulting in personalized, more accurate, and relevant responses, surpassing the capabilities of out of the box LLMs.
 
 Developed by [Rajiv Pant](https://github.com/rajivpant)
 
@@ -98,25 +98,25 @@ Excerpt from the blog post:
 
 ### Ragbot.AI: Offering Personalized Assistance Beyond ChatGPT Plus, Bing Chat, and Google Bard Currently Offer
 
-As an AI assistant, I provide a unique level of personalization and adaptability that sets me apart from current implementations of ChatGPT Plus, Bing Chat, and Google Bard. By using folders containing customized curated dataset files, I can cater to multiple use cases, such as personal life, work, education, and specific projects. This customization enables me to understand and support you in a way that is tailored to your unique needs.
+As an AI assistant, I provide a unique level of personalization and adaptability that sets me apart from current implementations of ChatGPT Plus, Bing Chat, and Google Bard. By using folders containing customized dataset files, I can cater to multiple use cases, such as personal life, work, education, and specific projects. This customization enables me to understand and support you in a way that is tailored to your unique needs.
 
 #### Serving as Your Personal Life Assistant
 
-You can create a folder with curated dataset files that include personal information, family details, travel and food preferences, and more. By using this information, I can function as your personal life assistant, offering AI-powered recommendations and support tailored to your specific context.
+You can create a folder with dataset files that include personal information, family details, travel and food preferences, and more. By using this information, I can function as your personal life assistant, offering AI-powered recommendations and support tailored to your specific context.
 
 #### Assisting You in Your Professional Life
 
-Similarly, you can develop another folder containing curated dataset files related to your work life. These files might include details about your job, industry, colleagues, projects, and other work-related information. With this context, I can help you with various tasks, such as drafting emails, scheduling meetings, conducting research, and more, enhancing your efficiency and organization.
+Similarly, you can develop another folder containing dataset files related to your work life. These files might include details about your job, industry, colleagues, projects, and other work-related information. With this context, I can help you with various tasks, such as drafting emails, scheduling meetings, conducting research, and more, enhancing your efficiency and organization.
 
 #### Supporting Your Educational Goals
 
-You can also customize me for educational purposes by creating a folder with curated dataset files containing information about your academic background, subjects of interest, courses, and other educational details. In this role, I can provide personalized educational support, from helping with homework to explaining complex concepts or recommending learning resources.
+You can also customize me for educational purposes by creating a folder with dataset files containing information about your academic background, subjects of interest, courses, and other educational details. In this role, I can provide personalized educational support, from helping with homework to explaining complex concepts or recommending learning resources.
 
 #### Providing Project-Specific Help
 
-In addition to the use cases mentioned above, I can be tailored to support you on specific projects. By creating a folder with curated dataset files containing project-related information, such as objectives, team members, deadlines, and relevant resources, I can assist you throughout the project lifecycle, offering valuable insights and support tailored to each unique project.
+In addition to the use cases mentioned above, I can be tailored to support you on specific projects. By creating a workspace folder with dataset files containing project-related information, such as objectives, team members, deadlines, and relevant resources, I can assist you throughout the project lifecycle, offering valuable insights and support tailored to each unique project.
 
-My ability to create distinct profiles for different needs using customized curated dataset files sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
+My ability to create distinct profiles for different needs using customized dataset files and workspaces sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
 
 Quick Start
 -----------
@@ -135,11 +135,11 @@ cp .env.docker .env
 # Edit .env and add at least one API key (OpenAI, Anthropic, or Gemini)
 
 # 3. Copy starter templates
-cp -r examples/templates/curated-datasets/starter/ curated-datasets/my-data/
-cp examples/templates/custom-instructions/starter/default-instructions.md custom-instructions/
+cp -r examples/templates/datasets/starter/ datasets/my-data/
+cp examples/templates/instructions/starter/default-instructions.md instructions/
 
 # 4. Customize with your information
-# Edit the files in curated-datasets/my-data/ with your personal details
+# Edit the files in datasets/my-data/ with your personal details
 
 # 5. Start Ragbot with Docker
 docker-compose up -d
@@ -166,8 +166,8 @@ cp docker-compose.override.example.yml docker-compose.override.yml
 # Edit docker-compose.override.yml to point to your data directory
 
 # 4. Organize your data
-cp -r examples/templates/curated-datasets/starter/* ~/ragbot-data/curated-datasets/
-cp examples/templates/custom-instructions/starter/default-instructions.md ~/ragbot-data/custom-instructions/
+cp -r examples/templates/datasets/starter/* ~/ragbot-data/datasets/
+cp examples/templates/instructions/starter/default-instructions.md ~/ragbot-data/instructions/
 
 # 5. Configure API keys
 cp .env.docker .env
@@ -230,7 +230,7 @@ Using the Web version
 
 ## Generate Prompt Template
 
-`generate_prompt_template.py` is a Python script that generates a prompt template for AI assistants by concatenating custom instructions and curated datasets. It helps users create personalized and context-aware prompts to enhance the effectiveness of their AI-powered tools.
+`generate_prompt_template.py` is a Python script that generates a prompt template for AI assistants by concatenating instructions and datasets. It helps users create personalized and context-aware prompts to enhance the effectiveness of their AI-powered tools.
 
 For detailed information on how to use `generate_prompt_template.py` and its benefits, please refer to the [Generate Prompt Template Guide](generate_prompt_template_README.md).
 
@@ -269,10 +269,10 @@ options:
                         Ignore all prompt custom instructions even if they are
                         specified.
   -d [CURATED_DATASET ...], --curated_dataset [CURATED_DATASET ...]
-                        Path to the prompt context curated dataset file or
+                        Path to the prompt context dataset file or
                         folder. Can accept multiple values.
   -nd, --nocurated_dataset
-                        Ignore all prompt context curated dataset even if they
+                        Ignore all prompt context dataset even if they
                         are specified.
   -e {openai,anthropic,google}, --engine {openai,anthropic,google}
                         The engine to use for the chat.
@@ -289,24 +289,24 @@ options:
 rajivpant@rp-2023-mac-mini ragbot % 
 ```
 
-### Using curated dataset files
+### Using dataset files
 
-To use Ragbot.AI, you can provide curated dataset files and/or folders containing multiple curated dataset files. You can view examples of curated dataset files at <https://github.com/rajivpant/ragbot/tree/main/example-curated-datasets>
+To use Ragbot.AI, you can provide dataset files and/or folders containing multiple dataset files. You can view examples of dataset files at <https://github.com/rajivpant/ragbot/tree/main/examples/templates/datasets>
 
 Example 1:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d custom-instructions/ curated-datasets/public/ ../ragbot-private/curated-datasets/personal/ ../ragbot-private/curated-datasets/hearst -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
-curated datasets being used:
- - custom-instructions/
- - curated-datasets/public/travel-food.md
- - curated-datasets/public/employment-history.md
- - curated-datasets/public/about.md
- - curated-datasets/public/biography.md
- - ../ragbot-private/curated-datasets/personal/accounts.md
- - ../ragbot-private/curated-datasets/personal/contact-info.md
- - ../ragbot-private/curated-datasets/personal/personal-family.md
- - ../ragbot-private/curated-datasets/hearst/hearst.md
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d instructions/ datasets/public/ ../ragbot-data/datasets/personal/ ../ragbot-data/workspaces/hearst/ -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
+datasets being used:
+ - instructions/
+ - datasets/public/travel-food.md
+ - datasets/public/employment-history.md
+ - datasets/public/about.md
+ - datasets/public/biography.md
+ - ../ragbot-data/datasets/personal/accounts.md
+ - ../ragbot-data/datasets/personal/contact-info.md
+ - ../ragbot-data/datasets/personal/personal-family.md
+ - ../ragbot-data/workspaces/hearst/hearst.md
 Using AI engine openai with model gpt-4o
 [redacted in this example]
 ```
@@ -314,13 +314,13 @@ Using AI engine openai with model gpt-4o
 Example 2:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d custom-instructions/ curated-datasets/public/ -p "Write a short resume of Rajiv" 
-curated datasets being used:
- - custom-instructions/
- - curated-datasets/public/travel-food.md
- - curated-datasets/public/employment-history.md
- - curated-datasets/public/about.md
- - curated-datasets/public/biography.md
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d instructions/ datasets/public/ -p "Write a short resume of Rajiv" 
+datasets being used:
+ - instructions/
+ - datasets/public/travel-food.md
+ - datasets/public/employment-history.md
+ - datasets/public/about.md
+ - datasets/public/biography.md
 Using AI engine openai with model gpt-4o
 [truncated in this example]
 ```
@@ -328,7 +328,7 @@ Using AI engine openai with model gpt-4o
 Example 3:
 
 ```console
-./ragbot.py -p "Tell me a story about a brave knight and a wise wizard." -d curated datasets/story_characters
+./ragbot.py -p "Tell me a story about a brave knight and a wise wizard." -d datasets/story_characters
 ```
 
 ### Interactive mode
@@ -338,66 +338,66 @@ To use Ragbot.AI in interactive mode, use the `-i` or `--interactive` flag witho
 Example:
 
 ```console
-./ragbot.py -i -d curated-datasets/story_characters
+./ragbot.py -i -d datasets/story_characters
 ```
 
-In the first example, Ragbot.AI generates a short note in Rajiv's voice using the curated dataset files in the `../ragbot-private/curated-datasets` folder. In the second example, Ragbot.AI provides information on good practices for software development using the `curated-datasets/software_development.txt` curated dataset file. In the third example, Ragbot.AI tells a story about a brave knight and a wise wizard using the curated dataset files in the `curated-datasets/story_characters` folder.
+In the first example, Ragbot.AI generates a short note in Rajiv's voice using the dataset files in the `../ragbot-data/datasets` folder. In the second example, Ragbot.AI provides information on good practices for software development using the `datasets/software_development.txt` dataset file. In the third example, Ragbot.AI tells a story about a brave knight and a wise wizard using the dataset files in the `datasets/story_characters` folder.
 
 ### Using Ragbot.AI to suggest changes to its own code!
 
 ```console
-rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d ragbot.py -p "if no curated dataset files are being used, then I want the code to show that."
-curated datasets being used:
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d ragbot.py -p "if no dataset files are being used, then I want the code to show that."
+datasets being used:
  - ragbot.py
 Using AI engine openai with model gpt-4o
-To modify the code to show a message when no curated dataset files are being used, you can add an else statement after checking for the curated dataset files. Update the code in the `main()` function as follows:
+To modify the code to show a message when no dataset files are being used, you can add an else statement after checking for the dataset files. Update the code in the `main()` function as follows:
 
 \```python
 if curated_dataset_files:
-    print("curated datasets being used:")
+    print("datasets being used:")
     for file in curated_dataset_files:
         print(f" - {file}")
 else:
-    print("No curated dataset files are being used.")
+    print("No dataset files are being used.")
 \```
 
-This will print "No curated dataset files are being used." when there are no curated dataset files detected.
+This will print "No dataset files are being used." when there are no dataset files detected.
 rajivpant@RP-2021-MacBook-Pro ragbot % 
 
 ```
 
 ### Examples of using with Linux/Unix pipes via the command line
 
-Asking it to guess what some of the curated dataset files I use are for
+Asking it to guess what some of the dataset files I use are for
 
 ```console
-rajivpant@RP-2021-MacBook-Pro ragbot % find curated-datasets ../ragbot-private/curated-datasets -print | ./ragbot.py -d custom-instructions/ curated-datasets/public/ ../ragbot-private/curated-datasets/personal/ ../ragbot-private/curated-datasets/hearst/ -p "What do you guess these files are for?" 
-curated datasets being used:
- - custom-instructions/
- - curated-datasets/public/travel-food.md
- - curated-datasets/public/employment-history.md
- - curated-datasets/public/about.md
- - curated-datasets/public/biography.md
- - ../ragbot-private/curated-datasets/personal/accounts.md
- - ../ragbot-private/curated-datasets/personal/contact-info.md
- - ../ragbot-private/curated-datasets/personal/personal-family.md
- - ../ragbot-private/curated-datasets/hearst/hearst.md
+rajivpant@RP-2021-MacBook-Pro ragbot % find datasets ../ragbot-data/datasets -print | ./ragbot.py -d instructions/ datasets/public/ ../ragbot-data/datasets/personal/ ../ragbot-data/workspaces/hearst/ -p "What do you guess these files are for?" 
+datasets being used:
+ - instructions/
+ - datasets/public/travel-food.md
+ - datasets/public/employment-history.md
+ - datasets/public/about.md
+ - datasets/public/biography.md
+ - ../ragbot-data/datasets/personal/accounts.md
+ - ../ragbot-data/datasets/personal/contact-info.md
+ - ../ragbot-data/datasets/personal/personal-family.md
+ - ../ragbot-data/workspaces/hearst/hearst.md
 Using AI engine openai with model gpt-4o
-These files appear to be related to the curated-datasets of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
+These files appear to be related to the datasets of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
 
 Public files:
-- curated-datasets/public/travel-food.md: Rajiv's travel and food preferences
-- curated-datasets/public/employment-history.md: Rajiv's employment history
-- curated-datasets/public/about.md: General information about Rajiv
-- curated-datasets/public/biography.md: Biography of Rajiv
+- datasets/public/travel-food.md: Rajiv's travel and food preferences
+- datasets/public/employment-history.md: Rajiv's employment history
+- datasets/public/about.md: General information about Rajiv
+- datasets/public/biography.md: Biography of Rajiv
 
 Private files (stored in a separate private folder):
-- curated-datasets/personal/accounts.md: Semi-private personal account information, such as frequent flyer numbers or loyalty programs. Does not contain any confidential or sensitive information.
-- curated-datasets/personal/contact-info.md: Personal contact information, such as phone numbers and email addresses. Does not contain any confidential or sensitive information.
-- curated-datasets/personal/personal-family.md: Personal and family information, such as family members and relationships. Does not contain any confidential or sensitive information.
+- datasets/personal/accounts.md: Semi-private personal account information, such as frequent flyer numbers or loyalty programs. Does not contain any confidential or sensitive information.
+- datasets/personal/contact-info.md: Personal contact information, such as phone numbers and email addresses. Does not contain any confidential or sensitive information.
+- datasets/personal/personal-family.md: Personal and family information, such as family members and relationships. Does not contain any confidential or sensitive information.
 
-Hearst-specific files:
-- curated-datasets/hearst/hearst.md: Non-confidential, publicly available information related to the Hearst corporation, including Rajiv's role there
+Workspace-specific files:
+- workspaces/hearst/hearst.md: Non-confidential, publicly available information related to the Hearst corporation, including Rajiv's role there
 
 Overall, these files seem to contain various information about a person, their preferences, and professional background, likely used to tailor the AI system's responses and assistance.
 rajivpant@RP-2021-MacBook-Pro ragbot % 
@@ -421,7 +421,7 @@ Using the Anthropic engine with the Claude Instant model
 
 ```console
 rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -e anthropic -m "claude-instant-v1" -p "Tell me 5 fun things to do in NYC."
-No curated dataset files are being used.
+No dataset files are being used.
 Using AI engine anthropic with model claude-instant-v1
  Here are 5 fun things to do in NYC:
 

@@ -86,7 +86,7 @@ Multi-step agentic processes:
 Use library resources directly without copying:
 
 ```bash
-# In your custom-instructions file, reference library techniques
+# In your instructions file, reference library techniques
 See /app/examples/library/prompts/engineering/tree-of-thought.md for approach
 ```
 
@@ -99,7 +99,7 @@ Incorporate library content directly into your prompts:
 ```bash
 # Copy specific technique into your curated datasets
 cp examples/library/prompts/communication/scr-framework.md \
-   curated-datasets/my-data/frameworks/
+   datasets/my-data/frameworks/
 ```
 
 **Good for:** Techniques you use regularly
@@ -178,7 +178,7 @@ Library resources work great together:
 **Example: Writing a Technical Blog Post**
 
 ```bash
-curated-datasets/my-blog-project/
+datasets/my-blog-project/
 ├── topic-research.md          # Your research on the topic
 ├── target-audience.md         # Who you're writing for
 └── instructions.md            # References multiple library resources:
@@ -197,7 +197,7 @@ natural, engaging tone."
 **Example: Solving a Complex Engineering Problem**
 
 ```bash
-curated-datasets/project-x/
+datasets/project-x/
 ├── problem-description.md     # What you're trying to solve
 ├── constraints.md             # Technical constraints
 └── approach.md                # References:
@@ -220,8 +220,8 @@ As you develop techniques that work well, you can:
 ```bash
 # Create your own library alongside ragbot's
 ragbot-data/
-├── curated-datasets/
-├── custom-instructions/
+├── datasets/
+├── instructions/
 └── library/                   # Your private techniques
     ├── my-prompts/
     ├── my-workflows/

@@ -26,7 +26,7 @@ Ragbot follows strict separation between public code and private data:
    Code & anonymous examples              Personal data stays here
 ```
 
-**Golden Rule:** Code and generic examples go in `ragbot/`. Your personal data stays in `ragbot-data/` (or `curated-datasets/`).
+**Golden Rule:** Code and generic examples go in `ragbot/`. Your personal data stays in `ragbot-data/` (or `datasets/`).
 
 ## Three Types of Contributions
 
@@ -164,8 +164,8 @@ Contributing a new starter template (e.g., a new use case template).
    This template configures Ragbot as a personal fitness coach.
 
    ## How to Use
-   1. Copy this template to your curated-datasets:
-      `cp -r fitness-coach/ ~/ragbot-data/curated-datasets/`
+   1. Copy this template to your datasets:
+      `cp -r fitness-coach/ ~/ragbot-data/datasets/`
    2. Fill in your personal fitness information
    3. Use with custom instructions for coaching mode
 
@@ -189,9 +189,9 @@ Contributing a new starter template (e.g., a new use case template).
    git checkout -b add-fitness-coach-template
 
    # Copy template to appropriate location
-   cp -r /tmp/fitness-coach-template examples/templates/curated-datasets/fitness-coach/
+   cp -r /tmp/fitness-coach-template examples/templates/datasets/fitness-coach/
 
-   git add examples/templates/curated-datasets/fitness-coach/
+   git add examples/templates/datasets/fitness-coach/
    git commit -m "Add Fitness Coach template
 
    This template helps users configure Ragbot as a personal fitness coach.

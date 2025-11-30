@@ -4,6 +4,45 @@
 
 Ragbot follows a fundamental principle in software engineering: **separation of concerns**. Your personal data should never be mixed with application code. This isn't just a best practice—it's essential for privacy, security, and flexibility.
 
+## The WHO/HOW/WHAT/WHERE Framework
+
+Ragbot organizes AI knowledge into four conceptual categories:
+
+| Folder | Purpose | Question Answered |
+|--------|---------|-------------------|
+| `instructions/` | Identity and persona | **WHO** is the agent? |
+| `runbooks/` | Task procedures | **HOW** does the agent do things? |
+| `datasets/` | Reference knowledge | **WHAT** does the agent know? |
+| `workspaces/` | Context overlays | **WHERE** is the agent working? |
+
+### instructions/ — WHO
+
+System-level behavioral guidance that defines the agent's identity:
+- Communication style and tone
+- Core principles and values
+- Response preferences
+
+### runbooks/ — HOW
+
+Task-specific procedures for autonomous AI execution:
+- Content creation guidelines
+- Automation workflows
+- Prompting techniques
+
+### datasets/ — WHAT
+
+Reference knowledge organized by category:
+- Personal information
+- Professional background
+- Domain expertise
+
+### workspaces/ — WHERE
+
+Context overlays for different organizational contexts:
+- Companies you work with
+- Products you're building
+- Client engagements
+
 ## The Philosophy
 
 ### Think of Ragbot Like Your Operating System
@@ -14,7 +53,7 @@ Just as your operating system (macOS, Linux, Windows) separates:
 - **Configuration** (settings) from **secrets** (passwords)
 
 Ragbot separates:
-- **Application code** (`ragbot/`) from **your data** (`ragbot-data/` or `curated-datasets/`)
+- **Application code** (`ragbot/`) from **your data** (`ragbot-data/`)
 - **The AI engine** from **your context and knowledge**
 - **Generic examples** from **personal information**
 
@@ -22,51 +61,13 @@ Ragbot separates:
 
 **The Library Analogy:**
 - Ragbot is the librarian (constant, helpful, knowledgeable about systems)
-- Your curated datasets are the books on the shelves (your unique knowledge)
-- Custom instructions are how you want the librarian to help you (your preferences)
+- Your datasets are the books on the shelves (your unique knowledge)
+- Instructions are how you want the librarian to help you (your preferences)
 
 **The Assistant Analogy:**
 - Ragbot is your assistant (the person with skills and tools)
 - Your data is the briefing materials (context about your life/work)
-- Custom instructions are the working relationship (how you collaborate)
-
-## Historical Context: How We Got Here
-
-### The Problem with Traditional AI Assistants
-
-Early AI assistants (and most current ones) work like this:
-
-```
-You → Type everything into a chat → AI (with no context) → Generic response
-```
-
-**Problems:**
-1. AI doesn't know anything about you
-2. You repeat context in every conversation
-3. Responses are generic, not personalized
-4. All data is locked in proprietary platforms
-5. No way to organize or version your context
-
-### The Dotfiles Movement
-
-In the Unix/Linux world, developers have long managed personal configurations using "dotfiles":
-
-- Configuration files (`.bashrc`, `.vimrc`) separate from applications
-- Users maintain their own dotfiles repository
-- Applications read these files to personalize behavior
-- Privacy: sensitive configs never committed to public repos
-- Flexibility: same configs work across multiple machines
-
-**Ragbot applies this proven pattern to AI assistants.**
-
-### Infrastructure as Code Principles
-
-DevOps teams learned to separate:
-- **Infrastructure code** (Terraform, CloudFormation) - public, reusable
-- **Environment configs** (dev, staging, production) - environment-specific
-- **Secrets** (API keys, passwords) - never in version control
-
-**Ragbot follows these same security principles.**
+- Instructions are the working relationship (how you collaborate)
 
 ## How Ragbot Implements Separation
 
@@ -76,14 +77,15 @@ DevOps teams learned to separate:
 ragbot/ (public GitHub)
 ├── src/                    # Application code
 ├── docker-compose.yml      # Base configuration
-├── examples/               # Generic templates and prompts
-├── curated-datasets/       # Empty (gitignored)
-└── custom-instructions/    # Empty (gitignored)
+├── examples/               # Generic templates
+├── datasets/               # Empty (gitignored)
+└── instructions/           # Empty (gitignored)
 
 ragbot-data/ (private - yours or private GitHub)
-├── curated-datasets/       # YOUR knowledge and context
-├── custom-instructions/    # YOUR preferences
-└── prompt-library/         # YOUR prompts and templates
+├── instructions/           # WHO - your identity/persona
+├── runbooks/               # HOW - your procedures
+├── datasets/               # WHAT - your knowledge
+└── workspaces/             # WHERE - your contexts
 ```
 
 ### How They Connect
@@ -92,15 +94,64 @@ ragbot-data/ (private - yours or private GitHub)
 ```yaml
 # docker-compose.override.yml (gitignored, on your machine only)
 volumes:
-  - /path/to/your/ragbot-data/curated-datasets:/app/curated-datasets:ro
-  - /path/to/your/ragbot-data/custom-instructions:/app/custom-instructions:ro
+  - /path/to/your/ragbot-data/datasets:/app/datasets:ro
+  - /path/to/your/ragbot-data/instructions:/app/instructions:ro
 ```
 
 **Via Symlinks** (simple alternative):
 ```bash
-ln -s /path/to/your/ragbot-data/curated-datasets ./curated-datasets
-ln -s /path/to/your/ragbot-data/custom-instructions ./custom-instructions
+ln -s /path/to/your/ragbot-data/datasets ./datasets
+ln -s /path/to/your/ragbot-data/instructions ./instructions
 ```
+
+## Workspaces: Context Overlays
+
+Workspaces allow you to organize knowledge by context (companies, products, clients) with inheritance relationships.
+
+### Workspace Structure
+
+```
+workspaces/
+├── acme-corp/
+│   ├── workspace.yaml      # Configuration and inheritance
+│   ├── datasets/           # Company-specific knowledge
+│   ├── runbooks/           # Company-specific procedures
+│   └── instructions.md     # Company-specific identity tweaks
+├── side-project/
+│   ├── workspace.yaml
+│   └── datasets/
+└── client-engagement/
+    ├── workspace.yaml
+    └── datasets/
+```
+
+### workspace.yaml Schema
+
+```yaml
+name: Acme Corp
+description: Enterprise client engagement
+status: active              # active | completed | archived
+type: company               # company | engagement | product | personal
+
+# Inherit from other workspaces
+inherits_from:
+  - parent-workspace
+
+# Include content from root folders
+include_from_root:
+  - runbooks/voice-and-style/
+  - datasets/professional-public/
+```
+
+### Why Workspaces?
+
+**Flexible relationships:** A client engagement can inherit from a parent company without being nested inside it.
+
+**Easy reconfiguration:** When relationships change, edit YAML instead of moving folders.
+
+**Future multi-user support:** Each user could have their own root identity with shared workspaces.
+
+**Selective sync:** Sync only relevant workspaces to different machines.
 
 ## Benefits of This Approach
 
@@ -115,12 +166,6 @@ ln -s /path/to/your/ragbot-data/custom-instructions ./custom-instructions
 - The application code (open source)
 - Generic examples and templates
 - Prompting techniques and frameworks
-
-**Security wins:**
-- No risk of accidentally committing secrets to public GitHub
-- Control who has access to what (separate repo permissions)
-- Easy to encrypt sensitive data separately
-- Audit trail for data changes (git history)
 
 ### 2. Flexibility
 
@@ -155,23 +200,23 @@ docker-compose.override.yml → ~/client-a-ragbot-data/
 **You can share:**
 - The application (public ragbot repo)
 - Generic prompts (examples directory)
-- Anonymized templates (curated datasets without personal info)
+- Anonymized templates (datasets without personal info)
 
 **You keep private:**
 - Personal data
 - Client information
-- Your custom instructions
-- Your personal prompt library
+- Your instructions
+- Your personal runbooks
 
 ## Comparison with Other Approaches
 
-### Approach 1: Everything in One Repo ❌
+### Approach 1: Everything in One Repo
 
 ```
 ragbot/
 ├── src/
 ├── my-personal-data/    # DANGER: Easy to accidentally commit
-├── my-custom-instructions/
+├── my-instructions/
 └── client-secrets/      # DANGER: Might leak
 ```
 
@@ -181,7 +226,7 @@ ragbot/
 - One .gitignore mistake = privacy breach
 - Difficult to manage multiple contexts
 
-### Approach 2: Application Only (Generic AI) ❌
+### Approach 2: Application Only (Generic AI)
 
 ```
 ragbot/
@@ -194,13 +239,14 @@ ragbot/
 - Generic, not personalized responses
 - No way to organize knowledge
 
-### Approach 3: Separate Repos (Ragbot's Approach) ✅
+### Approach 3: Separate Repos (Ragbot's Approach)
 
 ```
 ragbot/ (public)           ragbot-data/ (private)
-├── src/                   ├── curated-datasets/
-├── examples/              ├── custom-instructions/
-└── docs/                  └── prompt-library/
+├── src/                   ├── instructions/
+├── examples/              ├── runbooks/
+└── docs/                  ├── datasets/
+                           └── workspaces/
 ```
 
 **Benefits:**
@@ -209,41 +255,16 @@ ragbot/ (public)           ragbot-data/ (private)
 - Flexible and portable
 - Easy to share application, not data
 
-## Real-World Example: The Creator's Setup
-
-Rajiv (Ragbot's creator) uses this exact pattern:
-
-**Public Repository (github.com/rajivpant/ragbot):**
-- Application code
-- Docker configuration
-- Examples and templates
-- Documentation
-- Generic prompts (shared with community)
-
-**Private Repository (private GitHub):**
-- Personal information and biography
-- Family and contact details
-- Client project data
-- Custom AI instructions (his "secret sauce")
-- Personal prompt library
-- Professional documents
-
-**How it works:**
-1. Ragbot code is public and open source
-2. Private data in separate git repository
-3. `docker-compose.override.yml` (gitignored) connects them
-4. Updates to Ragbot don't affect his data
-5. Can share generic prompts by moving to examples/
-6. Zero risk of leaking personal/client information
-
 ## Best Practices
 
-### DO ✅
+### DO
 
 1. **Use .gitignore aggressively**
    ```gitignore
-   curated-datasets/
-   custom-instructions/
+   datasets/
+   instructions/
+   runbooks/
+   workspaces/
    profiles.yaml
    docker-compose.override.yml
    .env
@@ -260,14 +281,17 @@ Rajiv (Ragbot's creator) uses this exact pattern:
    git remote add origin git@github.com:yourname/ragbot-data-private.git
    ```
 
-4. **Use descriptive organization**
+4. **Use the WHO/HOW/WHAT/WHERE structure**
    ```
-   curated-datasets/
-   ├── personal/
-   ├── professional/
-   └── projects/
-       ├── project-a/
-       └── project-b/
+   ragbot-data/
+   ├── instructions/       # WHO
+   ├── runbooks/           # HOW
+   ├── datasets/           # WHAT
+   │   ├── personal/
+   │   └── professional/
+   └── workspaces/         # WHERE
+       ├── work-project/
+       └── side-project/
    ```
 
 5. **Regular backups**
@@ -275,7 +299,7 @@ Rajiv (Ragbot's creator) uses this exact pattern:
    - Git provides version history
    - Consider encrypted backups for extra sensitive data
 
-### DON'T ❌
+### DON'T
 
 1. **Don't commit secrets**
    - No API keys in code
@@ -303,11 +327,11 @@ git clone https://github.com/rajivpant/ragbot.git
 cd ragbot
 
 # 2. Copy examples
-cp -r examples/curated-datasets/starter-template/ curated-datasets/my-data/
-cp examples/custom-instructions/starter-template/default-instructions.md custom-instructions/
+cp -r examples/templates/datasets/starter/ datasets/my-data/
+cp examples/templates/instructions/starter/default-instructions.md instructions/
 
 # 3. Edit with your info
-# Edit files in curated-datasets/my-data/
+# Edit files in datasets/my-data/
 
 # 4. Run
 docker-compose up
@@ -320,11 +344,11 @@ mkdir ~/ragbot-data
 cd ~/ragbot-data
 git init
 
-# 2. Organize your data
-mkdir curated-datasets custom-instructions
+# 2. Organize your data using WHO/HOW/WHAT/WHERE
+mkdir instructions runbooks datasets workspaces
 
 # 3. Add content
-cp ~/ragbot/examples/curated-datasets/starter-template/* curated-datasets/
+cp ~/ragbot/examples/templates/datasets/starter/* datasets/
 
 # 4. Configure Ragbot to use it
 cd ~/ragbot
@@ -373,24 +397,24 @@ As the Ragbot community grows, this separation enables:
 **Private (in your ragbot-data/):**
 - Personal information
 - Client work
-- Proprietary prompts
+- Proprietary runbooks
 - Sensitive configurations
 
 ### Contributing Back
 
-Have a great prompt or template? Share it!
+Have a great runbook or template? Share it!
 
 ```bash
 # 1. Copy from your private repo (anonymize first!)
-cp ~/ragbot-data/prompt-library/my-great-technique.md ~/ragbot/examples/prompt-library/
+cp ~/ragbot-data/runbooks/my-great-technique.md ~/ragbot/examples/templates/runbooks/
 
 # 2. Remove personal references
-# Edit: Replace "Rajiv" with "[Your Name]", etc.
+# Edit: Replace personal names with "[Your Name]", etc.
 
 # 3. Submit to public repo
 cd ~/ragbot
-git add examples/prompt-library/my-great-technique.md
-git commit -m "Add prompt technique: [description]"
+git add examples/templates/runbooks/my-great-technique.md
+git commit -m "Add runbook: [description]"
 # Create pull request
 ```
 
@@ -403,11 +427,11 @@ Ragbot's separation of code and data follows proven patterns from:
 - Security best practices
 
 **The result:**
-- ✅ Privacy by design
-- ✅ Flexibility for multiple contexts
-- ✅ Easy to update and maintain
-- ✅ Share knowledge without sharing data
-- ✅ Professional-grade organization
+- Privacy by design
+- Flexibility for multiple contexts
+- Easy to update and maintain
+- Share knowledge without sharing data
+- Professional-grade organization
 
 **Bottom line:** Your data is yours. The application is shared. This separation keeps both better.
 

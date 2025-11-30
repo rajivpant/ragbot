@@ -44,8 +44,8 @@ RUN chmod +x ragbot ragbot_web
 
 # Create directories for data persistence
 RUN mkdir -p /root/.local/share/ragbot/sessions && \
-    mkdir -p /app/curated-datasets && \
-    mkdir -p /app/custom-instructions
+    mkdir -p /app/datasets && \
+    mkdir -p /app/instructions
 
 # Create a non-root user (optional but recommended for security)
 # Uncomment the following lines if you want to run as non-root:

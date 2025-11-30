@@ -65,7 +65,7 @@ To personalize RagBot.AI and make it reflect your own user preferences, you can 
 
 #### Where to Store Your Ragbot.AI Data
 
-Ragbot.AI uses a dedicated folder to store your custom instructions, curated datasets, and any saved prompts or conversations. This data may contain personal or sensitive information, so choosing a secure location is crucial.
+Ragbot.AI uses a dedicated folder to store your custom instructions, datasets, and any saved prompts or conversations. This data may contain personal or sensitive information, so choosing a secure location is crucial.
 
 Here's how to determine the default data storage location for your operating system:
 
@@ -80,40 +80,40 @@ Here's how to determine the default data storage location for your operating sys
 
 #### Organizing Your Ragbot.AI Data
 
-Within the `ragbot-data` folder, it's recommended to create subfolders to organize your custom instructions and curated datasets:
+Within the `ragbot-data` folder, it's recommended to create subfolders to organize your custom instructions and datasets:
 
--   `custom-instructions`: This subfolder will hold your custom instruction files in Markdown format (`.md`). These files provide Ragbot.AI with guidelines and preferences for its responses.
--   `curated-datasets`: This subfolder will contain your curated dataset files, also in Markdown format. These files offer contextual information and knowledge to Ragbot.AI, allowing it to generate more relevant and informed responses.
+-   `instructions`: This subfolder will hold your custom instruction files in Markdown format (`.md`). These files provide Ragbot.AI with guidelines and preferences for its responses.
+-   `datasets`: This subfolder will contain your dataset files, also in Markdown format. These files offer contextual information and knowledge to Ragbot.AI, allowing it to generate more relevant and informed responses.
 
 Remember: Always prioritize the security and privacy of your Ragbot.AI data by choosing a storage location that aligns with your needs and security preferences.
 
 
 1.  Set up your personalized custom instuctions for rbot.
 
-Create a `custom-instructions` folder containing files with your custom instructions that RagBot.AI should follow. The files int this folder contains the initial system instructions that set the context for the conversation. You can make a copy of the Rajiv's examples and modify those files to include any specific information or instructions you want to provide to RagBot.AI before starting the conversation.
+Create a `instructions` folder containing files with your custom instructions that RagBot.AI should follow. The files int this folder contains the initial system instructions that set the context for the conversation. You can make a copy of the Rajiv's examples and modify those files to include any specific information or instructions you want to provide to RagBot.AI before starting the conversation.
 
-To make a copy of Rajiv's own example custom instructions to modify for your own use, make a copy of the example folder for your own custom-instructions and then edit the files using a text or markdown editor.
+To make a copy of Rajiv's own example custom instructions to modify for your own use, make a copy of the example folder for your own instructions and then edit the files using a text or markdown editor.
 
 ```bash
-cp -rp example-custom-instructions custom-instructions
+cp -rp examples/templates/instructions/starter instructions
 ```
 
 
-2.  Set up your curated datasets for RagBot.AI.
+2.  Set up your datasets for RagBot.AI.
 
-Make a copy of Rajiv's sample files in the `example-curated-datasets/` folder to your own `curated-datasets/` folder. This folder contains files that provide additional context and information to RagBot.AI. You can replace these sample files with your own information that reflect your personal preferences, such as your job details, family information, travel and food preferences, or any other information you want RagBot.AI to be aware of.
+Make a copy of Rajiv's sample files in the `examples/templates/datasets/starter/` folder to your own `datasets/` folder. This folder contains files that provide additional context and information to RagBot.AI. You can replace these sample files with your own information that reflect your personal preferences, such as your job details, family information, travel and food preferences, or any other information you want RagBot.AI to be aware of.
 
 You can create new informational files or modify the existing ones to match your own needs. Each  file should contain relevant information related to a specific topic or aspect of your life. For example, you can create a `job-at-company-name.md` file to provide details about your work or a `hobbies.md` file to share information about your hobbies and interests.
 
 Make sure to follow the Markdown format when creating or modifying these files, as RagBot.AI relies on Markdown syntax to parse and process the information.
 
 ```bash
-cp -rp example-curated-datasets curated-datasets
+cp -rp examples/templates/datasets/starter datasets
 ```
 
-By personalizing the files in the `custom-instructions/` and the `curated-datasets/` folders with your own information, you can customize RagBot.AI to better understand your preferences and provide more accurate and relevant responses.
+By personalizing the files in the `instructions/` and the `datasets/` folders with your own information, you can customize RagBot.AI to better understand your preferences and provide more accurate and relevant responses.
 
-Remember to update the paths to your `custom-insturctions` and `curated-datasets` folders and files in the `.env` configuration file to ensure that RagBot.AI uses the correct files during conversations.
+Remember to update the paths to your `instructions` and `datasets` folders and files in the `.env` configuration file to ensure that RagBot.AI uses the correct files during conversations.
 
 Feel free to experiment and iterate on your personalized files to refine the context and information provided to RagBot.AI, making it an even more personalized AI assistant.
 

@@ -10,7 +10,7 @@ Curated datasets are files containing information that Ragbot will use as contex
 
 1. **Copy this template to your data directory:**
    ```bash
-   cp -r examples/curated-datasets/starter-template/ curated-datasets/my-data/
+   cp -r examples/datasets/starter-template/ datasets/my-data/
    ```
 
 2. **Edit the files with your information:**
@@ -36,11 +36,11 @@ Good candidates for curated datasets:
 
 ## Privacy note
 
-These files are stored locally and never uploaded anywhere unless you explicitly commit them to a git repository. By default, `curated-datasets/` is in `.gitignore` to prevent accidental commits.
+These files are stored locally and never uploaded anywhere unless you explicitly commit them to a git repository. By default, `datasets/` is in `.gitignore` to prevent accidental commits.
 
 ## Next steps
 
 Once you're comfortable with the basics, explore:
 - [Use case examples](../use-cases/) - See how others organize their data
 - [Prompt library](../../prompt-library/) - Advanced prompting techniques
-- [Custom instructions](../../custom-instructions/) - Configure how Ragbot responds
+- [Custom instructions](../../instructions/) - Configure how Ragbot responds
