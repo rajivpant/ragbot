@@ -26,13 +26,10 @@ config = load_config('engines.yaml')
 engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
-added_curated_datasets = False
 
 model_cost_map = litellm.model_cost 
 
 def main():
-    global added_curated_datasets
-
     parser = argparse.ArgumentParser(
         description="Ragbot.AI is an augmented brain and asistant. Learn more at https://ragbot.ai"
     )
@@ -73,7 +70,7 @@ def main():
         help="Path to the prompt custom instructions file or folder. Can accept multiple values."
     )
     parser.add_argument(
-        "-nc", "--nocusom_instructions",
+        "-nc", "--nocustom_instructions",
         action="store_true",
         help="Ignore all prompt custom instructions even if they are specified."
     )
@@ -250,10 +247,13 @@ def main():
         # Prefer max_output_tokens from config, fall back to model_cost_map, then to default_max_tokens, then to 4096
         max_output_tokens = selected_model.get("max_output_tokens") or model_data.get("max_output_tokens") or selected_model.get("default_max_tokens") or 4096
         default_max_tokens = selected_model.get("default_max_tokens", min(max_output_tokens, 4096))
+        # Get max_input_tokens for history compaction
+        max_input_tokens = selected_model.get("max_input_tokens") or model_data.get("max_input_tokens") or 128000
     else:
         default_temperature = 0.75
         max_output_tokens = 4096
         default_max_tokens = 4096
+        max_input_tokens = 128000
 
     # Use the default values if not provided by the user
     max_tokens = args.max_tokens or default_max_tokens
@@ -272,8 +272,7 @@ def main():
     print(f"Max tokens setting: {max_tokens} (model max output: {max_output_tokens})")
 
     if args.interactive:
-        print("Entering interactive mode.")
-        added_curated_datasets = False
+        print("Entering interactive mode. Conversation history is maintained between turns.")
         while True:
             prompt = input("\nEnter prompt below. /quit to exit or /save file_name.json to save conversation.\n> ")
             if prompt.lower() == "/quit":
@@ -287,12 +286,22 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, supports_system_role=supports_system_role)
+            print("Ragbot.AI: ", end='', flush=True)  # Print prefix before streaming starts
+            reply = chat(
+                prompt=prompt,
+                custom_instructions=custom_instructions,
+                curated_datasets=curated_datasets,
+                history=history,
+                engine=args.engine,
+                model=model,
+                max_tokens=max_tokens,
+                max_input_tokens=max_input_tokens,
+                temperature=temperature,
+                interactive=args.interactive,
+                new_session=new_session,
+                supports_system_role=supports_system_role
+            )
             history.append({"role": "assistant", "content": reply})
-            print(f"Ragbot.AI: {reply}")
-            if new_session and args.engine == "anthropic":
-                    added_curated_datasets = False  # Reset curated_datasets flag after each user prompt
-            
 
     else:
         prompt = None
@@ -311,10 +320,20 @@ def main():
             sys.exit(1)
 
         history.append({"role": "user", "content": prompt})
-        if args.engine == "anthropic":
-            added_curated_datasets = False  # Reset curated_datasets flag before each user prompt
-
-        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=args.engine, model=model, max_tokens=max_tokens, temperature=temperature, interactive=args.interactive, new_session=new_session, supports_system_role=supports_system_role)
+        reply = chat(
+            prompt=prompt,
+            custom_instructions=custom_instructions,
+            curated_datasets=curated_datasets,
+            history=history,
+            engine=args.engine,
+            model=model,
+            max_tokens=max_tokens,
+            max_input_tokens=max_input_tokens,
+            temperature=temperature,
+            interactive=args.interactive,
+            new_session=new_session,
+            supports_system_role=supports_system_role
+        )
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)
         if is_structured:

@@ -7,10 +7,9 @@ import streamlit as st
 import os
 import openai
 import anthropic
-import tiktoken
 import litellm
 import babel.numbers
-from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles, load_workspaces_as_profiles, human_format
+from helpers import load_files, load_config, chat, count_tokens_from_text, load_profiles, load_workspaces_as_profiles, human_format
 
 load_dotenv() # Load environment variables from .env file
 
@@ -46,12 +45,8 @@ category_keys = {v: k for k, v in category_labels.items()}
 model_cost_map = litellm.model_cost 
 
 @st.cache_data
-
-def get_token_counts(custom_instruction_path, curated_dataset_path, engine, model):
-    custom_instructions_tokens = count_custom_instructions_tokens(custom_instruction_path)
-    curated_datasets_tokens = count_curated_datasets_tokens(curated_dataset_path)
-
-    # Find selected model and get context length
+def get_model_limits(engine, model):
+    """Get model token limits from config or litellm."""
     selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
 
     if model in model_cost_map:
@@ -65,7 +60,17 @@ def get_token_counts(custom_instruction_path, curated_dataset_path, engine, mode
     else:
         max_input_tokens = model_data.get("max_input_tokens") or 128000
 
-    return custom_instructions_tokens, curated_datasets_tokens, max_input_tokens
+    return max_input_tokens, model_data
+
+
+@st.cache_data
+def load_and_count_files(file_paths_tuple, file_type):
+    """Load files and count tokens in a single pass. Returns (content, files_list, token_count)."""
+    # Convert tuple back to list (tuples are hashable for caching)
+    file_paths = list(file_paths_tuple)
+    content, files_list = load_files(file_paths=file_paths, file_type=file_type)
+    token_count = count_tokens_from_text(content)
+    return content, files_list, token_count
 
 
 def find_closest_max_tokens(suggested_max_tokens, max_tokens_mapping):
@@ -223,13 +228,20 @@ def main():
 
     prompt = st.text_area("Enter your prompt here")
 
-    with st.sidebar:
-        # Calculate prompt tokens
-        tokenizer = tiktoken.get_encoding("cl100k_base")  # Choose appropriate encoding
-        prompt_tokens = len(tokenizer.encode(prompt))
+    # Load files once and count tokens from the loaded content (not re-reading files)
+    custom_instructions, custom_instructions_files, custom_instructions_tokens = load_and_count_files(
+        tuple(custom_instruction_path.split()), "custom_instructions"
+    )
+    curated_datasets, curated_dataset_files, curated_datasets_tokens = load_and_count_files(
+        tuple(curated_dataset_path.split()), "curated_datasets"
+    )
 
-        # Display token counts
-        custom_instructions_tokens, curated_datasets_tokens, max_input_tokens = get_token_counts(custom_instruction_path.split(), curated_dataset_path.split(), engine, model)
+    with st.sidebar:
+        # Calculate prompt tokens using the shared tokenizer
+        prompt_tokens = count_tokens_from_text(prompt)
+
+        # Get model limits
+        max_input_tokens, model_data = get_model_limits(engine, model)
         total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
 
         # Calculate suggested max_tokens with 15% safety margin to account for tokenization differences
@@ -271,14 +283,15 @@ def main():
 
         if max_tokens_option == "custom":
             max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
-        else: 
+        else:
             max_tokens = max_tokens_mapping[max_tokens_option]
 
+    # Note: custom_instructions, curated_datasets, and their file lists are already loaded above
+    # via load_and_count_files() to avoid double file loading
 
-    custom_instructions, custom_instructions_files = load_files(file_paths=custom_instruction_path.split(), file_type="custom_instructions")
-    curated_datasets, curated_dataset_files = load_files(file_paths=curated_dataset_path.split(), file_type="curated_datasets")
-
-    history = []  # Conversation history not yet implemented in Streamlit UI
+    # Initialize conversation history in session state
+    if 'history' not in st.session_state:
+        st.session_state.history = []
 
     # Use dotenv to get the API keys
     if engine == 'openai':
@@ -294,6 +307,21 @@ def main():
     date = now.strftime("%Y/%b/%d")
 
     with st.sidebar:
+        # Conversation history controls
+        st.subheader("Conversation")
+        history_count = len(st.session_state.history)
+        st.write(f"Messages in history: {history_count}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Clear History", disabled=history_count == 0):
+                st.session_state.history = []
+                st.rerun()
+        with col2:
+            # Calculate history tokens
+            history_tokens = sum(count_tokens_from_text(msg['content']) for msg in st.session_state.history)
+            st.write(f"History tokens: {human_format(history_tokens)}")
+
         debug_expander = st.expander("Debug Information")
 
         with debug_expander:
@@ -311,16 +339,43 @@ def main():
             st.write(f"custom_instructions length: {len(custom_instructions)} chars")
             st.write(f"curated_datasets length: {len(curated_datasets)} chars")
             st.write(f"prompt length: {len(prompt)} chars")
-            st.write(f"history length: {len(history)} messages")
+            st.write(f"history length: {len(st.session_state.history)} messages")
 
-    if st.button("Get response"):
-        history.append({"role": "user", "content": prompt})
-        reply = chat(prompt=prompt, custom_instructions=custom_instructions, curated_datasets=curated_datasets, history=history, engine=engine, model=model, max_tokens=max_tokens, temperature=temperature, supports_system_role=supports_system_role)
-        history.append({"role": "assistant", "content": reply})
-        st.header(f"Ragbot.AI's response")
-        st.write(f"Profile: {selected_profile}, AI: {engine}/{model}, Creativity: {temperature}, Date: {date}")
-        st.divider()
-        st.write(f"{reply}")
+    # Display conversation history
+    if st.session_state.history:
+        st.subheader("Conversation History")
+        for msg in st.session_state.history:
+            role_label = "You" if msg['role'] == 'user' else "Ragbot.AI"
+            with st.chat_message(msg['role']):
+                st.write(f"**{role_label}:** {msg['content']}")
+
+    # Get response button
+    if st.button("Send", disabled=not prompt.strip()):
+        if prompt.strip():
+            st.session_state.history.append({"role": "user", "content": prompt})
+
+            with st.spinner("Thinking..."):
+                reply = chat(
+                    prompt=prompt,
+                    custom_instructions=custom_instructions,
+                    curated_datasets=curated_datasets,
+                    history=st.session_state.history,
+                    engine=engine,
+                    model=model,
+                    max_tokens=max_tokens,
+                    max_input_tokens=max_input_tokens,
+                    temperature=temperature,
+                    supports_system_role=supports_system_role,
+                    interactive=False  # Non-streaming for Streamlit
+                )
+
+            st.session_state.history.append({"role": "assistant", "content": reply})
+
+            # Rerun to show updated history
+            st.rerun()
+
+    # Show current configuration
+    st.caption(f"Profile: {selected_profile} | AI: {engine}/{model} | Creativity: {temperature} | Date: {date}")
 
 if __name__ == "__main__":
     main()
