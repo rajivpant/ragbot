@@ -33,16 +33,23 @@ def get_categorized_models(engine):
 
 # Create friendly category labels
 category_labels = {
-    'small': 'Small (Fast & Cost-effective)',
-    'medium': 'Medium (Balanced)',
-    'large': 'Large (Most Capable)',
-    'reasoning': 'Reasoning (Advanced Thinking)'
+    'small': 'Fast',
+    'medium': 'Balanced',
+    'large': 'Powerful',
+    'reasoning': 'Reasoning'
 }
 
 # Map categories back to keys
 category_keys = {v: k for k, v in category_labels.items()}
 
-model_cost_map = litellm.model_cost 
+model_cost_map = litellm.model_cost
+
+
+def get_model_display_name(model_name):
+    """Extract a shorter display name from the full model name."""
+    # Common patterns to simplify
+    name = model_name.split('/')[-1]  # Remove provider prefix like "anthropic/"
+    return name 
 
 @st.cache_data
 def get_model_limits(engine, model):
@@ -94,141 +101,203 @@ def find_closest_max_tokens(suggested_max_tokens, max_tokens_mapping):
 
 
 def main():
+    st.set_page_config(
+        page_title="Ragbot.AI",
+        page_icon="🤖",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
 
-    st.set_page_config(layout="wide")  # Set the page to wide mode to give more space for sidebar
-
-    # Sidebar for initial options
-    with st.sidebar:
-        st.header("Configuration")
-        engine = st.selectbox("Choose an engine", options=engine_choices, index=engine_choices.index(config.get('default', 'openai')))
-
-        # Get categorized models for selected engine
-        categorized_models = get_categorized_models(engine)
-
-        # Determine which category contains the default model
-        default_model = default_models[engine]
-        default_category = 'medium'  # fallback
-        for cat, models_in_cat in categorized_models.items():
-            if default_model in models_in_cat:
-                default_category = cat
-                break
-
-        # Get available categories (only show categories that have models)
-        available_categories = [category_labels[cat] for cat in ['small', 'medium', 'large', 'reasoning']
-                               if categorized_models[cat]]
-
-        # Model size category selection
-        default_category_label = category_labels[default_category]
-        default_category_index = available_categories.index(default_category_label) if default_category_label in available_categories else 0
-
-        model_category_label = st.selectbox(
-            "Choose model size",
-            options=available_categories,
-            index=default_category_index
-        )
-
-        # Get the category key from the label
-        model_category = category_keys[model_category_label]
-
-        # Show models in selected category
-        models_in_category = categorized_models[model_category]
-
-        # Find default model index in the category
-        if default_model in models_in_category:
-            default_model_index = models_in_category.index(default_model)
-        else:
-            default_model_index = 0
-
-        model = st.selectbox(
-            "Choose a model",
-            options=models_in_category,
-            index=default_model_index
-        )
-
-        # Find the selected model in the engines config and get default temperature and tokens
-        selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
-
-        if model in model_cost_map:
-            model_data = model_cost_map[model]
-        else:
-            model_data = {}
-
-        if selected_model:
-            default_temperature = selected_model.get("temperature")
-            # Prefer max_output_tokens from config, fall back to model_cost_map, then to 4096
-            default_max_tokens = selected_model.get("max_output_tokens") or model_data.get("max_output_tokens") or 4096
-        else:
-            default_temperature = temperature_settings.get('creative', 0.75)
-            default_max_tokens = 4096
-
-        temperature_precise = temperature_settings.get('precise', 0.20)
-        temperature_balanced = temperature_settings.get('balanced', 0.50)
-        temperature_creative = temperature_settings.get('creative', 0.75)
-
-        temperature_precise_label = "precise leaning " + "(" + str(temperature_precise) + ")"
-        temperature_balanced_label = "balanced " + "(" + str(temperature_balanced) + ")"
-        temperature_creative_label = "creative leaning " + "(" + str(temperature_creative) + ")"
-        temperature_custom_label = "custom"
-
-        temperature_option = st.selectbox("Choose desired creativity option (called temperature)", options=[temperature_creative_label, temperature_balanced_label, temperature_precise_label, temperature_custom_label])
-        temperature_mapping = {temperature_creative_label: temperature_creative, temperature_balanced_label: temperature_balanced, temperature_precise_label: temperature_precise}
-
-        if temperature_option == temperature_custom_label:
-            temperature = st.number_input("Enter a custom temperature", min_value=0.0, max_value=1.0, value=default_temperature, step=0.01)
-        else:
-            temperature = temperature_mapping[temperature_option]
-
-        max_tokens_mapping = {str(2**i): 2**i for i in range(8, 17)}  # Powers of 2 from 256 to 65536ß
-        default_max_tokens_list = list(max_tokens_mapping.keys())
-        default_max_tokens_list.append("custom")
-
-        # Get the index of the default max_tokens in the options list
-        default_max_tokens_option = find_closest_max_tokens(default_max_tokens, {option: int(option) for option in default_max_tokens_list if option != 'custom'})
-        default_max_tokens_index = default_max_tokens_list.index(default_max_tokens_option)
-
-    supports_system_role = selected_model.get('supports_system_role', True)
-
-    st.header("Ragbot.AI augmented brain & assistant")
+    # Initialize session state
+    if 'history' not in st.session_state:
+        st.session_state.history = []
+    if 'workspace' not in st.session_state:
+        st.session_state.workspace = None
 
     # Load workspaces from ragbot-data directory
-    # Priority: 1) RAGBOT_DATA_ROOT env var, 2) Docker /app, 3) local workspaces/, 4) sibling ragbot-data/
     data_root = os.getenv('RAGBOT_DATA_ROOT')
-
     if data_root is None:
-        # Check common locations in order of priority
         if os.path.isdir('/app/workspaces'):
-            # Docker deployment
             data_root = '/app'
         elif os.path.isdir('workspaces'):
-            # Local workspaces directory (current working directory)
             data_root = '.'
         elif os.path.isdir('../ragbot-data/workspaces'):
-            # Sibling ragbot-data directory (common development setup)
             data_root = '../ragbot-data'
         else:
-            # Fallback - will result in empty workspaces list
             data_root = '.'
 
     profiles = load_workspaces_as_profiles(data_root)
     profile_choices = [profile['name'] for profile in profiles]
 
-    # Select workspace (shown as "profile" for UI consistency)
-    selected_profile = st.selectbox("Choose a workspace", options=profile_choices)
+    # ===== SIDEBAR =====
+    with st.sidebar:
+        st.title("🤖 Ragbot.AI")
 
-    # Get instruction and dataset paths from selected workspace
-    selected_profile_data = next(profile for profile in profiles if profile['name'] == selected_profile)
-    default_custom_instruction_paths = selected_profile_data.get('instructions', [])
-    default_curated_dataset_paths = selected_profile_data.get('datasets', [])
+        # Workspace selection
+        selected_profile = st.selectbox(
+            "Workspace",
+            options=profile_choices,
+            help="Select a workspace with pre-configured instructions and datasets"
+        )
 
-    default_custom_instruction_paths = [path for path in default_custom_instruction_paths if path.strip() != '']
-    custom_instruction_path = st.text_area("Enter files and folders for custom instructions to provide commands", "\n".join(default_custom_instruction_paths))
+        # Detect workspace change and clear history
+        if st.session_state.workspace != selected_profile:
+            if st.session_state.workspace is not None:
+                st.session_state.history = []
+            st.session_state.workspace = selected_profile
 
-    default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
-    curated_dataset_path = st.text_area("Enter files and folders for curated datasets to provide context", "\n".join(default_curated_dataset_paths))
+        # Get workspace paths
+        selected_profile_data = next(profile for profile in profiles if profile['name'] == selected_profile)
+        default_custom_instruction_paths = [p for p in selected_profile_data.get('instructions', []) if p.strip()]
+        default_curated_dataset_paths = [p for p in selected_profile_data.get('datasets', []) if p.strip()]
 
-    prompt = st.text_area("Enter your prompt here")
+        st.divider()
 
-    # Load files once and count tokens from the loaded content (not re-reading files)
+        # Model selection - compact layout
+        st.subheader("Model")
+        engine = st.selectbox(
+            "Provider",
+            options=engine_choices,
+            index=engine_choices.index(config.get('default', 'openai')),
+            label_visibility="collapsed"
+        )
+
+        categorized_models = get_categorized_models(engine)
+        default_model = default_models[engine]
+
+        # Find default category
+        default_category = 'medium'
+        for cat, models_in_cat in categorized_models.items():
+            if default_model in models_in_cat:
+                default_category = cat
+                break
+
+        available_categories = [cat for cat in ['small', 'medium', 'large', 'reasoning'] if categorized_models[cat]]
+
+        # Two columns for category and model
+        col1, col2 = st.columns(2)
+        with col1:
+            model_category = st.selectbox(
+                "Size",
+                options=available_categories,
+                index=available_categories.index(default_category) if default_category in available_categories else 0,
+                format_func=lambda x: category_labels[x]
+            )
+        with col2:
+            models_in_category = categorized_models[model_category]
+            default_idx = models_in_category.index(default_model) if default_model in models_in_category else 0
+            model = st.selectbox(
+                "Model",
+                options=models_in_category,
+                index=default_idx,
+                format_func=get_model_display_name
+            )
+
+        # Get model config
+        selected_model = next((item for item in engines_config[engine]['models'] if item['name'] == model), None)
+        model_data = model_cost_map.get(model, {})
+
+        if selected_model:
+            default_temperature = selected_model.get("temperature", 0.75)
+            default_max_tokens = selected_model.get("max_output_tokens") or model_data.get("max_output_tokens") or 4096
+        else:
+            default_temperature = 0.75
+            default_max_tokens = 4096
+
+        supports_system_role = selected_model.get('supports_system_role', True) if selected_model else True
+        max_input_tokens, _ = get_model_limits(engine, model)
+
+        st.divider()
+
+        # Temperature - simplified
+        st.subheader("Creativity")
+        temperature_presets = {
+            "Precise": temperature_settings.get('precise', 0.20),
+            "Balanced": temperature_settings.get('balanced', 0.50),
+            "Creative": temperature_settings.get('creative', 0.75)
+        }
+        temp_choice = st.select_slider(
+            "Temperature",
+            options=list(temperature_presets.keys()),
+            value="Creative",
+            label_visibility="collapsed"
+        )
+        temperature = temperature_presets[temp_choice]
+
+        st.divider()
+
+        # Conversation controls
+        st.subheader("Conversation")
+        history_count = len(st.session_state.history) // 2  # Count exchanges, not messages
+        history_tokens = sum(count_tokens_from_text(msg['content']) for msg in st.session_state.history)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Turns", history_count)
+        with col2:
+            st.metric("Tokens", human_format(history_tokens))
+
+        if st.button("🗑️ Clear Chat", use_container_width=True, disabled=history_count == 0):
+            st.session_state.history = []
+            st.rerun()
+
+        st.divider()
+
+        # Advanced settings in expander
+        with st.expander("⚙️ Advanced Settings"):
+            # Max tokens
+            max_tokens_mapping = {str(2**i): 2**i for i in range(8, 17)}
+            default_max_tokens_option = find_closest_max_tokens(default_max_tokens, {k: int(k) for k in max_tokens_mapping})
+            max_tokens = st.select_slider(
+                "Max response tokens",
+                options=list(max_tokens_mapping.keys()),
+                value=default_max_tokens_option
+            )
+            max_tokens = int(max_tokens)
+
+            # Custom instructions path
+            custom_instruction_path = st.text_area(
+                "Custom instructions paths",
+                "\n".join(default_custom_instruction_paths),
+                height=68
+            )
+
+            # Curated datasets path
+            curated_dataset_path = st.text_area(
+                "Dataset paths",
+                "\n".join(default_curated_dataset_paths),
+                height=68
+            )
+
+        # Debug info
+        with st.expander("🔍 Debug Info"):
+            now = datetime.now()
+
+            # Load files for debug info
+            custom_instructions, custom_instructions_files, custom_instructions_tokens = load_and_count_files(
+                tuple(custom_instruction_path.split()), "custom_instructions"
+            )
+            curated_datasets, curated_dataset_files, curated_datasets_tokens = load_and_count_files(
+                tuple(curated_dataset_path.split()), "curated_datasets"
+            )
+
+            st.caption(f"**Provider:** {engine}")
+            st.caption(f"**Model:** {model}")
+            st.caption(f"**Context:** {human_format(max_input_tokens)} tokens")
+            st.caption(f"**Max output:** {human_format(max_tokens)} tokens")
+            st.caption(f"**Temperature:** {temperature}")
+            st.caption(f"**Instructions:** {len(custom_instructions_files)} files ({human_format(custom_instructions_tokens)} tokens)")
+            st.caption(f"**Datasets:** {len(curated_dataset_files)} files ({human_format(curated_datasets_tokens)} tokens)")
+            st.caption(f"**Time:** {now.strftime('%Y-%m-%d %H:%M')}")
+
+    # ===== MAIN CHAT AREA =====
+
+    # Load files for chat (may already be cached)
+    if 'custom_instruction_path' not in dir() or not custom_instruction_path:
+        custom_instruction_path = "\n".join(default_custom_instruction_paths)
+    if 'curated_dataset_path' not in dir() or not curated_dataset_path:
+        curated_dataset_path = "\n".join(default_curated_dataset_paths)
+
     custom_instructions, custom_instructions_files, custom_instructions_tokens = load_and_count_files(
         tuple(custom_instruction_path.split()), "custom_instructions"
     )
@@ -236,146 +305,71 @@ def main():
         tuple(curated_dataset_path.split()), "curated_datasets"
     )
 
-    with st.sidebar:
-        # Calculate prompt tokens using the shared tokenizer
-        prompt_tokens = count_tokens_from_text(prompt)
-
-        # Get model limits
-        max_input_tokens, model_data = get_model_limits(engine, model)
-        total_tokens = custom_instructions_tokens + curated_datasets_tokens + prompt_tokens
-
-        # Calculate suggested max_tokens with 15% safety margin to account for tokenization differences
-        # between tiktoken estimates and actual API tokenization
-        safety_margin = 0.85  # Use 85% of available tokens
-        available_tokens = max_input_tokens - total_tokens
-        suggested_max_tokens = int(available_tokens * safety_margin)
-
-        # Cap at the model's actual max_output_tokens limit
-        model_max_output = default_max_tokens
-        suggested_max_tokens = min(suggested_max_tokens, model_max_output)
-
-        # Find the closest rounded-down max_tokens option that is less than or equal to the model's max_tokens
-        closest_max_tokens_option = find_closest_max_tokens(min(suggested_max_tokens, default_max_tokens), max_tokens_mapping)
-
-        # Get the index of the closest max_tokens option in the list
-        closest_max_tokens_index = default_max_tokens_list.index(closest_max_tokens_option)
-
-        # Validate index and handle edge cases
-        if closest_max_tokens_index >= len(default_max_tokens_list):
-            closest_max_tokens_index = 0  # Default to the first option if the index is out of range
-
-        # Display token information and suggestion
-        total_tokens_humanized = human_format(total_tokens)
-        custom_instructions_tokens_humanized = human_format(custom_instructions_tokens)
-        curated_datasets_tokens_humanized = human_format(curated_datasets_tokens)
-        prompt_tokens_humanized = human_format(prompt_tokens)
-        suggested_max_tokens_humanized = human_format(suggested_max_tokens)
-
-        input_cost_per_token = model_data.get("input_cost_per_token")
-        input_cost = total_tokens * input_cost_per_token
-
-        input_cost_formatted = babel.numbers.format_currency(input_cost, 'USD', locale="en_US")
-
-        st.markdown(f"Input tokens used: {total_tokens_humanized} ({input_cost_formatted})"\
-                    , help="A token is about 4 characters for English text. The maximum number of tokens allowed for the entire request, including the custom instructions, curated datasets, prompt, and the generated response is limited. Adjust the value based on the tokens used by the custom instructions, curated datasets, and prompt.")
-
-        max_tokens_option = st.selectbox("Choose max tokens for the response (less than " + str(suggested_max_tokens_humanized) + ")", options=default_max_tokens_list, index=closest_max_tokens_index)
-
-        if max_tokens_option == "custom":
-            max_tokens = st.number_input("Enter a custom value for max_tokens for the response", min_value=1, max_value=65536, value=default_max_tokens, step=128)
-        else:
-            max_tokens = max_tokens_mapping[max_tokens_option]
-
-    # Note: custom_instructions, curated_datasets, and their file lists are already loaded above
-    # via load_and_count_files() to avoid double file loading
-
-    # Initialize conversation history in session state
-    if 'history' not in st.session_state:
-        st.session_state.history = []
-
-    # Use dotenv to get the API keys
+    # Set API keys
     if engine == 'openai':
         openai.api_key = os.getenv("OPENAI_API_KEY")
     elif engine == 'anthropic':
         anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
 
-    # Get the current date and time
-    now = datetime.now()
-    # Convert to a string in the format of "2021/January/01 01:01 AM (UTC)"
-    date_and_time = now.strftime("%Y/%B/%d %I:%M %p %Z")
-    # Convert to a string in the format of "2021/Jan/01"
-    date = now.strftime("%Y/%b/%d")
+    # Header with current config
+    header_col1, header_col2 = st.columns([3, 1])
+    with header_col1:
+        st.markdown(f"### 💬 {selected_profile}")
+    with header_col2:
+        st.caption(f"{get_model_display_name(model)} · {temp_choice}")
 
-    with st.sidebar:
-        # Conversation history controls
-        st.subheader("Conversation")
-        history_count = len(st.session_state.history)
-        st.write(f"Messages in history: {history_count}")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Clear History", disabled=history_count == 0):
-                st.session_state.history = []
-                st.rerun()
-        with col2:
-            # Calculate history tokens
-            history_tokens = sum(count_tokens_from_text(msg['content']) for msg in st.session_state.history)
-            st.write(f"History tokens: {human_format(history_tokens)}")
-
-        debug_expander = st.expander("Debug Information")
-
-        with debug_expander:
-            st.write(f"The current date and time is {date_and_time}.")
-            st.write(f"engine: {engine}")
-            st.write(f"model: {model}")
-            st.write(f"max_input_tokens: {human_format(max_input_tokens)}")
-            st.write(f"max_tokens: {human_format(max_tokens)}")
-            st.write(f"default_max_tokens: {human_format(default_max_tokens)}")
-            st.write(f"temperature: {temperature}")
-            st.write(f"supports_system_role: {supports_system_role}")
-            st.write(f"Input tokens used: {total_tokens_humanized} (Custom Instructions: {custom_instructions_tokens_humanized}, Curated Datasets: {curated_datasets_tokens_humanized}, Prompt: {prompt_tokens_humanized})")
-            st.write(f"custom_instruction_files ({len(custom_instructions_files)}): {custom_instructions_files}")
-            st.write(f"curated_dataset_files ({len(curated_dataset_files)}): {curated_dataset_files}")
-            st.write(f"custom_instructions length: {len(custom_instructions)} chars")
-            st.write(f"curated_datasets length: {len(curated_datasets)} chars")
-            st.write(f"prompt length: {len(prompt)} chars")
-            st.write(f"history length: {len(st.session_state.history)} messages")
+    # Chat container for messages
+    chat_container = st.container()
 
     # Display conversation history
-    if st.session_state.history:
-        st.subheader("Conversation History")
-        for msg in st.session_state.history:
-            role_label = "You" if msg['role'] == 'user' else "Ragbot.AI"
-            with st.chat_message(msg['role']):
-                st.write(f"**{role_label}:** {msg['content']}")
+    with chat_container:
+        if not st.session_state.history:
+            # Welcome message
+            st.markdown("""
+            <div style="text-align: center; padding: 2rem; color: #666;">
+                <p style="font-size: 1.2rem;">Welcome to Ragbot.AI</p>
+                <p>Your augmented brain & assistant</p>
+                <p style="font-size: 0.9rem; margin-top: 1rem;">Type a message below to start the conversation.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            for msg in st.session_state.history:
+                with st.chat_message(msg['role'], avatar="🧑" if msg['role'] == 'user' else "🤖"):
+                    st.markdown(msg['content'])
 
-    # Get response button
-    if st.button("Send", disabled=not prompt.strip()):
-        if prompt.strip():
-            st.session_state.history.append({"role": "user", "content": prompt})
+    # Chat input at the bottom
+    if prompt := st.chat_input("Message Ragbot.AI..."):
+        # Add user message to history
+        st.session_state.history.append({"role": "user", "content": prompt})
 
-            with st.spinner("Thinking..."):
-                reply = chat(
-                    prompt=prompt,
-                    custom_instructions=custom_instructions,
-                    curated_datasets=curated_datasets,
-                    history=st.session_state.history,
-                    engine=engine,
-                    model=model,
-                    max_tokens=max_tokens,
-                    max_input_tokens=max_input_tokens,
-                    temperature=temperature,
-                    supports_system_role=supports_system_role,
-                    interactive=False  # Non-streaming for Streamlit
-                )
+        # Display user message immediately
+        with chat_container:
+            with st.chat_message("user", avatar="🧑"):
+                st.markdown(prompt)
 
-            st.session_state.history.append({"role": "assistant", "content": reply})
+            # Generate and display assistant response
+            with st.chat_message("assistant", avatar="🤖"):
+                with st.spinner("Thinking..."):
+                    reply = chat(
+                        prompt=prompt,
+                        custom_instructions=custom_instructions,
+                        curated_datasets=curated_datasets,
+                        history=st.session_state.history,
+                        engine=engine,
+                        model=model,
+                        max_tokens=max_tokens,
+                        max_input_tokens=max_input_tokens,
+                        temperature=temperature,
+                        supports_system_role=supports_system_role,
+                        interactive=False
+                    )
+                st.markdown(reply)
 
-            # Rerun to show updated history
-            st.rerun()
+        # Add assistant message to history
+        st.session_state.history.append({"role": "assistant", "content": reply})
 
-    # Show current configuration
-    st.caption(f"Profile: {selected_profile} | AI: {engine}/{model} | Creativity: {temperature} | Date: {date}")
+        # Rerun to update the UI properly
+        st.rerun()
 
 if __name__ == "__main__":
     main()
