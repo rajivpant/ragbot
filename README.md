@@ -1,10 +1,20 @@
-## 🚀 Ragbot → RaGenie Migration Notice
+## 🚀 Ragbot & RaGenie: Two Products, One Ecosystem
 
-**Ragbot is being superseded by RaGenie** - a next-generation AI augmentation platform with production-ready architecture.
+**Ragbot continues active development** alongside **RaGenie**, its next-generation sibling. Both are open source and share the same data layer (ragbot-data).
 
-### Why RaGenie?
+### Choosing Between Ragbot and RaGenie
 
-**RaGenie** ([www.ragenie.com](https://www.ragenie.com) | [www.ragenie.ai](https://www.ragenie.ai)) is a complete rewrite that transforms Ragbot from a Streamlit-based application into a modern, scalable microservices platform:
+| Use Case | Recommendation |
+|----------|----------------|
+| Quick setup, CLI-focused workflow | **Ragbot** |
+| Need advanced RAG with vector search | **RaGenie** |
+| Prefer Streamlit simplicity | **Ragbot** |
+| Need microservices architecture | **RaGenie** |
+| Want both CLI and modern web UI | Use both! |
+
+### RaGenie Overview
+
+**RaGenie** ([www.ragenie.com](https://www.ragenie.com) | [www.ragenie.ai](https://www.ragenie.ai)) is a modern microservices platform that complements Ragbot:
 
 | Feature | Ragbot (v1) | RaGenie (v2) |
 |---------|-------------|--------------|
@@ -39,14 +49,22 @@ Your existing workflow doesn't change:
 - **Integration Guide:** [RAGENIE_INTEGRATION.md](https://github.com/rajivpant/ragbot-data/blob/main/RAGENIE_INTEGRATION.md)
 - **Quick Start:** [RaGenie QUICKSTART.md](https://github.com/rajivpant/ragenie/blob/main/QUICKSTART.md)
 
-### Support for Ragbot v1
+### Development Status
 
-Ragbot v1 will continue to receive:
+Both products are actively developed:
+
+**Ragbot:**
 - ✅ Bug fixes and security updates
 - ✅ Compatibility updates for new LLM models
-- ❌ No new features (developed in RaGenie instead)
+- ✅ New features including RAG capabilities (using Qdrant, same as RaGenie)
+- ✅ Continued CLI and Streamlit UI improvements
 
-**For all new projects, please use [RaGenie](https://www.ragenie.com).**
+**RaGenie:**
+- ✅ Modern microservices architecture
+- ✅ Advanced RAG with automatic indexing
+- ✅ Production-ready deployment features
+
+**Choose the product that fits your workflow - or use both!**
 
 ---
 
