@@ -278,9 +278,7 @@ def main():
     custom_instructions, custom_instructions_files = load_files(file_paths=custom_instruction_path.split(), file_type="custom_instructions")
     curated_datasets, curated_dataset_files = load_files(file_paths=curated_dataset_path.split(), file_type="curated_datasets")
 
-    history = []
-    for curated_dataset in curated_datasets:
-        history.append({"role": "system", "content": curated_dataset,})
+    history = []  # Conversation history not yet implemented in Streamlit UI
 
     # Use dotenv to get the API keys
     if engine == 'openai':

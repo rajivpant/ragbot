@@ -197,22 +197,7 @@ def main():
     else:
         print("No curated_dataset files are being used.")
 
-    history = []
-    for custom_instruction in custom_instructions:
-        history.append(
-            {
-                "role": "system",
-                "content": custom_instruction,
-            }
-        )
-
-    for curated_dataset in curated_datasets:
-        history.append(
-            {
-                "role": "system",
-                "content": curated_dataset,
-            }
-        )
+    history = []  # Will contain user/assistant messages from conversation
 
     if args.load:
         filename = args.load.strip()  # Remove leading and trailing spaces
