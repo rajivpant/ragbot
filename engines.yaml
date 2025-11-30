@@ -1,6 +1,6 @@
 # engines.yaml is a YAML file that contains the configuration for the AI engines and models.
 # Note: The default max tokens is used when the max tokens is not specified in the request.
-# Updated: October 2025 with latest models
+# Updated: November 2025 with latest models
 # max_input_tokens: Maximum tokens for input (context window)
 # max_output_tokens: Maximum tokens the model can generate in response
 # default_max_tokens: Recommended default with safety margin (typically 80% of max_output_tokens)
@@ -8,25 +8,35 @@ engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     models:
-      # o3 Series - Advanced reasoning models (2025)
-      - name: o3
-        category: reasoning
+      # GPT-5.1 Series - Latest flagship (November 2025)
+      - name: gpt-5.1
+        category: large
         is_flagship: true
         supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 200000
-        max_output_tokens: 100000
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 1000000
+        max_output_tokens: 32768
         default_max_tokens: 8192
-      - name: o3-mini
-        category: reasoning
+      # GPT-5 Mini - Fast reasoning model
+      - name: gpt-5-mini
+        category: medium
         supports_system_role: true
         max_temperature: 1
         temperature: 1
-        max_input_tokens: 200000
-        max_output_tokens: 100000
+        max_input_tokens: 1000000
+        max_output_tokens: 32768
         default_max_tokens: 8192
-      # o4 Series - Reasoning with multimodal (2025)
+      # GPT-5 Nano - Fastest and most affordable
+      - name: gpt-5-nano
+        category: small
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 1
+        max_input_tokens: 128000
+        max_output_tokens: 16384
+        default_max_tokens: 4096
+      # o4-mini - Fast reasoning for math/coding
       - name: o4-mini
         category: reasoning
         supports_system_role: true
@@ -35,42 +45,7 @@ engines:
         max_input_tokens: 200000
         max_output_tokens: 100000
         default_max_tokens: 8192
-      # GPT-4.1 Series - Latest flagship models (2025)
-      - name: gpt-4.1
-        category: large
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1000000
-        max_output_tokens: 16384
-        default_max_tokens: 8192
-      - name: gpt-4.1-mini
-        category: medium
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1000000
-        max_output_tokens: 16384
-        default_max_tokens: 8192
-      # GPT-4o - Multimodal flagship model
-      - name: gpt-4o
-        category: medium
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      # GPT-4o Mini - Fast and cost-effective
-      - name: gpt-4o-mini
-        category: small
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-    default_model: gpt-4.1
+    default_model: gpt-5-mini
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:
@@ -115,106 +90,38 @@ engines:
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
-      # Gemini 2.5 Pro - Most capable reasoning model
-      - name: gemini/gemini-2.5-pro
+      # Gemini 3 Pro - Most advanced multimodal reasoning (November 2025)
+      - name: gemini/gemini-3-pro-preview
         category: large
         is_flagship: true
-        supports_system_role: false
+        supports_system_role: true
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-      - name: gemini/gemini-pro-latest
+      # Gemini 3 Pro Image - Image generation capable (November 2025)
+      - name: gemini/gemini-3-pro-image-preview
         category: large
-        supports_system_role: false
+        supports_system_role: true
         max_temperature: 2
         temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 65536
+        max_input_tokens: 65536
+        max_output_tokens: 32768
         default_max_tokens: 8192
-      # Gemini 2.5 Flash - Balanced speed and capability
+      # Gemini 2.5 Flash - Balanced speed and capability (latest Flash)
       - name: gemini/gemini-2.5-flash
         category: medium
-        supports_system_role: false
+        supports_system_role: true
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-      - name: gemini/gemini-flash-latest
-        category: medium
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 65536
-        default_max_tokens: 8192
-      # Gemini 2.5 Flash Lite - Ultra-fast responses
+      # Gemini 2.5 Flash Lite - Ultra-fast responses (latest Lite)
       - name: gemini/gemini-2.5-flash-lite
         category: small
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 65536
-        default_max_tokens: 8192
-      - name: gemini/gemini-flash-lite-latest
-        category: small
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 65536
-        default_max_tokens: 8192
-      # Gemini 2.0 Flash - Previous generation flagship
-      - name: gemini/gemini-2.0-flash
-        category: medium
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      - name: gemini/gemini-2.0-flash-001
-        category: medium
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      # Gemini 2.0 Flash Lite - Fast and lightweight
-      - name: gemini/gemini-2.0-flash-lite
-        category: small
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 8192
-        default_max_tokens: 8192
-      # Gemini 2.0 Pro Experimental - Advanced capabilities
-      - name: gemini/gemini-2.0-pro-exp
-        category: large
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 65536
-        default_max_tokens: 8192
-      # Gemini 2.0 Flash Thinking - Reasoning-focused
-      - name: gemini/gemini-2.0-flash-thinking-exp
-        category: medium
-        supports_system_role: false
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 1048576
-        max_output_tokens: 65536
-        default_max_tokens: 8192
-      # Gemini Experimental Models
-      - name: gemini/gemini-exp-1206
-        category: large
-        supports_system_role: false
+        supports_system_role: true
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 1048576
