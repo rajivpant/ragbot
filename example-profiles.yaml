@@ -1,28 +1,44 @@
 # example-profiles.yaml
-# This is a YAML file that contains a list of profiles that you can use to customize the behavior of Ragbot.AI
-# Each profile can have a list of instructions and datasets that you want to use with that profile.
+#
+# DEPRECATED: This file format is deprecated in favor of workspace-based discovery.
+#
+# Ragbot now automatically discovers workspaces from your ragbot-data directory.
+# Instead of maintaining this profiles.yaml file, you should:
+#
+# 1. Create a workspaces/ folder in your ragbot-data directory
+# 2. Create a subfolder for each workspace (e.g., workspaces/my-project/)
+# 3. Add a workspace.yaml file in each workspace folder
+#
+# Example workspace.yaml structure:
+# ---
+# name: My Project
+# description: Description of this workspace
+# status: active
+# type: project
+#
+# inherits_from:
+#   - parent-workspace  # Optional: inherit from another workspace
+#
+# include_from_root:
+#   - runbooks/voice-and-style/       # Paths relative to ragbot-data root
+#   - datasets/my-public-data/
+# ---
+#
+# The workspace system provides:
+# - Automatic discovery (no manual profile maintenance)
+# - Inheritance between workspaces
+# - Relative paths (portable across machines)
+# - Clear organization (WHO/HOW/WHAT/WHERE framework)
+#
+# For more information, see the ragbot-data README.
+
+# Legacy format (for reference only - will be ignored by new Ragbot versions):
 profiles:
-  - name: "My Personal Profile"
+  - name: "Example Profile"
     instructions:
-      - "/path/to/my/instructions/personal-instructions.md"
+      - "/path/to/ragbot-data/instructions/example.md"
     datasets:
-      - "/path/to/my/datasets/personal-information/"
-      - "/path/to/my/datasets/family-and-friends/"
-
-  - name: "My Work Profile"
-    instructions:
-      - "/path/to/my/instructions/work-instructions.md"
-    datasets:
-      - "/path/to/my/datasets/work-projects/"
-      - "/path/to/my/datasets/industry-knowledge/"
-
-  - name: "Ragbot Source Code"
-    instructions:
-      - "/path/to/ragbot/example-instructions/ragbot-default-instructions.md"
-    datasets:
-      - "/path/to/ragbot/src/"
-      - "/path/to/ragbot/tests/"
-      - "/path/to/ragbot/engines.yaml"
+      - "/path/to/ragbot-data/datasets/example/"
 
   - name: "(none - dont use a profile)"
     instructions: []

@@ -10,7 +10,7 @@ import anthropic
 import tiktoken
 import litellm
 import babel.numbers
-from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles, human_format
+from helpers import load_files, load_config, chat, count_custom_instructions_tokens, count_curated_datasets_tokens, load_profiles, load_workspaces_as_profiles, human_format
 
 load_dotenv() # Load environment variables from .env file
 
@@ -185,17 +185,35 @@ def main():
 
     st.header("Ragbot.AI augmented brain & assistant")
 
-    # Load profiles from profiles.yaml
-    profiles = load_profiles('profiles.yaml')
+    # Load workspaces from ragbot-data directory
+    # Priority: 1) RAGBOT_DATA_ROOT env var, 2) Docker /app, 3) local workspaces/, 4) sibling ragbot-data/
+    data_root = os.getenv('RAGBOT_DATA_ROOT')
+
+    if data_root is None:
+        # Check common locations in order of priority
+        if os.path.isdir('/app/workspaces'):
+            # Docker deployment
+            data_root = '/app'
+        elif os.path.isdir('workspaces'):
+            # Local workspaces directory (current working directory)
+            data_root = '.'
+        elif os.path.isdir('../ragbot-data/workspaces'):
+            # Sibling ragbot-data directory (common development setup)
+            data_root = '../ragbot-data'
+        else:
+            # Fallback - will result in empty workspaces list
+            data_root = '.'
+
+    profiles = load_workspaces_as_profiles(data_root)
     profile_choices = [profile['name'] for profile in profiles]
 
-    # Select profile
-    selected_profile = st.selectbox("Choose a profile", options=profile_choices)
+    # Select workspace (shown as "profile" for UI consistency)
+    selected_profile = st.selectbox("Choose a workspace", options=profile_choices)
 
-    # Get custom instruction and curated dataset paths from selected profile
+    # Get instruction and dataset paths from selected workspace
     selected_profile_data = next(profile for profile in profiles if profile['name'] == selected_profile)
-    default_custom_instruction_paths = selected_profile_data.get('custom_instructions', [])
-    default_curated_dataset_paths = selected_profile_data.get('curated_datasets', [])
+    default_custom_instruction_paths = selected_profile_data.get('instructions', [])
+    default_curated_dataset_paths = selected_profile_data.get('datasets', [])
 
     default_custom_instruction_paths = [path for path in default_custom_instruction_paths if path.strip() != '']
     custom_instruction_path = st.text_area("Enter files and folders for custom instructions to provide commands", "\n".join(default_custom_instruction_paths))
