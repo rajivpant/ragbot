@@ -22,6 +22,22 @@ def load_profiles(profiles_file):
     return profiles['profiles']
 
 
+def load_data_config(data_root):
+    """Load global configuration from workspaces/config.yaml.
+
+    Args:
+        data_root: Root directory containing the workspaces folder
+
+    Returns:
+        Dictionary with config values, or empty dict if file doesn't exist
+    """
+    config_path = os.path.join(data_root, 'workspaces', 'config.yaml')
+    if os.path.isfile(config_path):
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+
 def discover_workspaces(data_root):
     """
     Discover all workspaces by scanning the workspaces directory for workspace.yaml files.
@@ -149,6 +165,7 @@ def workspace_to_profile(workspace, data_root, all_workspaces=None):
 
     return {
         'name': workspace['name'],
+        'dir_name': workspace['dir_name'],
         'instructions': resolved['instructions'],
         'datasets': resolved['datasets']
     }
@@ -176,6 +193,7 @@ def load_workspaces_as_profiles(data_root):
     # Add a "none" option
     profiles.append({
         'name': '(none - no workspace)',
+        'dir_name': '',
         'instructions': [],
         'datasets': []
     })

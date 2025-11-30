@@ -9,7 +9,7 @@ import openai
 import anthropic
 import litellm
 import babel.numbers
-from helpers import load_files, load_config, chat, count_tokens_from_text, load_profiles, load_workspaces_as_profiles, human_format
+from helpers import load_files, load_config, chat, count_tokens_from_text, load_profiles, load_workspaces_as_profiles, load_data_config, human_format
 
 load_dotenv() # Load environment variables from .env file
 
@@ -129,6 +129,18 @@ def main():
     profiles = load_workspaces_as_profiles(data_root)
     profile_choices = [profile['name'] for profile in profiles]
 
+    # Load global config for default workspace
+    data_config = load_data_config(data_root)
+    default_workspace = data_config.get('default_workspace', '')
+
+    # Find index of default workspace (match by directory name or display name)
+    default_index = 0
+    for i, profile in enumerate(profiles):
+        # Check if this profile matches the default workspace
+        if profile.get('name') == default_workspace or profile.get('dir_name') == default_workspace:
+            default_index = i
+            break
+
     # ===== SIDEBAR =====
     with st.sidebar:
         st.title("🤖 Ragbot.AI")
@@ -137,6 +149,7 @@ def main():
         selected_profile = st.selectbox(
             "Workspace",
             options=profile_choices,
+            index=default_index,
             help="Select a workspace with pre-configured instructions and datasets"
         )
 
