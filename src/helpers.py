@@ -252,9 +252,31 @@ def human_format(num):
         num /= 1000.0
     return '{}{}'.format('{:f}'.format(num).rstrip('0').rstrip('.'), ['', 'k', 'M', 'B', 'T'][magnitude])
 
+# Use cl100k_base encoding - compatible with GPT-4, Claude, and most modern LLMs
+# This is a reasonable approximation for token counting across providers
+_tokenizer = None
+
+def get_tokenizer():
+    """Get or create a cached tokenizer instance."""
+    global _tokenizer
+    if _tokenizer is None:
+        _tokenizer = tiktoken.get_encoding('cl100k_base')
+    return _tokenizer
+
+def count_tokens_from_text(text):
+    """Count tokens in a text string using cl100k_base encoding.
+
+    This provides a reasonable approximation for most modern LLMs including
+    GPT-4, Claude, and Gemini models.
+    """
+    if not text:
+        return 0
+    tokenizer = get_tokenizer()
+    return len(tokenizer.encode(text))
+
 def count_tokens(file_paths):
-    """count tokens in a list of files"""
-    tokenizer = tiktoken.get_encoding('p50k_base')
+    """Count tokens in a list of files (legacy function for backwards compatibility)."""
+    tokenizer = get_tokenizer()
     total_tokens = 0
     for file_path in file_paths:
         with open(file_path, 'r') as file:
@@ -263,12 +285,12 @@ def count_tokens(file_paths):
     return total_tokens
 
 def count_custom_instructions_tokens(custom_instruction_path):
-    """count tokens in custom instructions files"""
+    """Count tokens in custom instructions files (legacy function)."""
     _, custom_instruction_files = load_files(file_paths=custom_instruction_path, file_type="custom_instructions")
     return count_tokens(custom_instruction_files)
 
 def count_curated_datasets_tokens(curated_dataset_path):
-    """count tokens in curated datasets files"""
+    """Count tokens in curated datasets files (legacy function)."""
     _, curated_dataset_files = load_files(file_paths=curated_dataset_path, file_type="curated_datasets")
     return count_tokens(curated_dataset_files)
 
@@ -280,12 +302,62 @@ def print_saved_files(directory):
     for file in pathlib.Path(sessions_directory).glob("*.json"):
         print(f" - {file.name}")
 
+
+def compact_history(history, max_tokens, system_tokens=0, current_prompt_tokens=0, reserve_for_response=4096):
+    """
+    Compact conversation history to fit within token limits.
+
+    Uses a sliding window approach: keeps the most recent messages while ensuring
+    the total fits within the context window. Older messages are summarized or dropped.
+
+    Args:
+        history: List of message dicts with 'role' and 'content'
+        max_tokens: Maximum context window size
+        system_tokens: Tokens used by system message (instructions + datasets)
+        current_prompt_tokens: Tokens in the current user prompt
+        reserve_for_response: Tokens to reserve for the model's response
+
+    Returns:
+        Compacted history list
+    """
+    if not history:
+        return []
+
+    # Calculate available tokens for history
+    available_for_history = max_tokens - system_tokens - current_prompt_tokens - reserve_for_response
+
+    if available_for_history <= 0:
+        # No room for history, return empty
+        return []
+
+    # Count tokens in each message and build from most recent
+    tokenizer = get_tokenizer()
+    compacted = []
+    total_tokens = 0
+
+    # Process history from newest to oldest (reverse order)
+    for msg in reversed(history):
+        msg_tokens = len(tokenizer.encode(msg['content']))
+        # Add ~4 tokens overhead per message for role and formatting
+        msg_tokens += 4
+
+        if total_tokens + msg_tokens <= available_for_history:
+            compacted.insert(0, msg)  # Insert at beginning to maintain order
+            total_tokens += msg_tokens
+        else:
+            # Can't fit more messages
+            break
+
+    return compacted
+
+
 def chat(
     prompt,
     curated_datasets,
     custom_instructions,
     model,
     max_tokens,
+    max_input_tokens=128000,
     stream=True,
     request_timeout=15,
     temperature=0.75,
@@ -293,53 +365,118 @@ def chat(
     engine="openai",
     interactive=False,
     new_session=False,
-    supports_system_role=True
+    supports_system_role=True,
+    stream_callback=None
 ):
     """
-    Send a request to the LLM API with the provided prompt and curated_datasets.
+    Send a request to the LLM API with the provided prompt and conversation history.
 
     :param prompt: The user's input to generate a response for.
-    :param curated_datasets: A list of curated_datasets to provide context for the model.
-    :param model: The name of the GPT model to use.
-    :param max_tokens: The maximum number of tokens to generate in the response (default is 1000).
+    :param curated_datasets: Context documents as a string.
+    :param custom_instructions: Custom instructions as a string.
+    :param model: The name of the model to use.
+    :param max_tokens: The maximum number of tokens to generate in the response.
+    :param max_input_tokens: The model's context window size (for history compaction).
     :param stream: Whether to stream the response from the API (default is True).
     :param request_timeout: The request timeout in seconds (default is 15).
-    :param temperature: The creativity of the response, with higher values being more creative (default is 0.75).
-    :param history: The conversation history, if available (default is None).
-    :param engine: The engine to use for the chat, 'openai' or 'anthropic' (default is 'openai').
+    :param temperature: The creativity of the response (default is 0.75).
+    :param history: The conversation history as a list of message dicts.
+    :param engine: The engine to use for the chat (default is 'openai').
     :param interactive: Whether the chat is in interactive mode (default is False).
     :param new_session: Whether this is a new session (default is False).
     :param supports_system_role: Whether the model supports the "system" role (default is True).
+    :param stream_callback: Optional callback function for streaming output. Called with each chunk.
     :return: The generated response text from the model.
     """
-    added_curated_datasets = False
+    # Build system content from instructions and datasets
+    system_content = ""
+    if custom_instructions:
+        system_content = custom_instructions
+    if curated_datasets:
+        system_content = system_content + "\n" + curated_datasets if system_content else curated_datasets
 
-    # Google Generative AI models don't seem to accept the "system" role for the prompt.
-    # Note: custom_instructions and curated_datasets are already strings (from load_files),
-    # not lists, so we concatenate them directly rather than joining.
+    # Calculate token usage for system content and current prompt
+    system_tokens = count_tokens_from_text(system_content) if system_content else 0
+    prompt_tokens = count_tokens_from_text(prompt)
+
+    # Compact history to fit within context window
+    compacted_history = []
+    if history and len(history) > 0:
+        # Don't include the current prompt in history (it's passed separately)
+        # History should contain previous turns only
+        past_history = [msg for msg in history if msg.get('content') != prompt]
+        compacted_history = compact_history(
+            past_history,
+            max_tokens=max_input_tokens,
+            system_tokens=system_tokens,
+            current_prompt_tokens=prompt_tokens,
+            reserve_for_response=max_tokens
+        )
+
+    # Build messages list
     if supports_system_role:
-        # Combine custom instructions and curated datasets
-        system_content = custom_instructions + "\n" + curated_datasets
+        messages = []
 
-        # Only add system message if there's actual content (Anthropic requires non-empty system messages)
+        # Add system message if there's content
         if system_content.strip():
-            messages = [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": prompt}
-            ]
-        else:
-            messages = [
-                {"role": "user", "content": prompt}
-            ]
+            messages.append({"role": "system", "content": system_content})
+
+        # Add compacted conversation history
+        messages.extend(compacted_history)
+
+        # Add current user prompt
+        messages.append({"role": "user", "content": prompt})
     else:
+        # For models that don't support system role (like some Google models)
         messages = []
         if custom_instructions:
             messages.append({"role": "user", "content": custom_instructions})
+            messages.append({"role": "assistant", "content": "I understand. I'll follow these instructions."})
         if curated_datasets:
             messages.append({"role": "user", "content": curated_datasets})
+            messages.append({"role": "assistant", "content": "I've reviewed the context information provided."})
+
+        # Add compacted conversation history
+        messages.extend(compacted_history)
+
+        # Add current user prompt
         messages.append({"role": "user", "content": prompt})
 
-    llm_response = completion(model=model, messages=messages,  max_tokens=max_tokens, temperature=temperature)
-    response = llm_response.get('choices', [{}])[0].get('message', {}).get('content')
-    
+    # Make the API call
+    if stream and interactive:
+        # Streaming mode for interactive sessions
+        response_chunks = []
+        llm_response = completion(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stream=True
+        )
+
+        for chunk in llm_response:
+            if chunk and chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if hasattr(delta, 'content') and delta.content:
+                    response_chunks.append(delta.content)
+                    if stream_callback:
+                        stream_callback(delta.content)
+                    elif interactive:
+                        # Print directly for CLI interactive mode
+                        print(delta.content, end='', flush=True)
+
+        if interactive and not stream_callback:
+            print()  # Newline after streaming completes
+
+        response = ''.join(response_chunks)
+    else:
+        # Non-streaming mode
+        llm_response = completion(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+        response = llm_response.get('choices', [{}])[0].get('message', {}).get('content')
+
     return response
