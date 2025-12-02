@@ -9,14 +9,17 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 | Repository | Type | Purpose | Location |
 |------------|------|---------|----------|
 | **ragbot** | Public | AI assistant CLI and Streamlit UI | `~/projects/my-projects/ragbot/` |
+| **ragbot-site** | Public | Website for ragbot.ai | `~/projects/my-projects/ragbot-site/` |
 | **ragenie** | Public | Next-gen RAG platform | `~/projects/my-projects/ragenie/` |
+| **ragenie-site** | Public | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
 | **ragbot-data** | Private | Shared data for both products | `~/ragbot-data/` |
+| **synthesis-coding-site** | Public | Website for synthesiscoding.com | `~/projects/my-projects/synthesis-coding-site/` |
 
 Note: Home directory varies by machine (`/Users/rajiv` vs `/Users/rajivpant`), so use `~` for paths.
 
 ## VS Code Workspace
 
-All three repositories are in the same VS Code workspace for unified development.
+All repositories are in the same VS Code workspace for unified development.
 
 ## Product Relationship
 
