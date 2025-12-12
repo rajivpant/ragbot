@@ -246,13 +246,6 @@ Using the Web version
 ![](screenshots/Screenshot%202023-08-02%20at%2010.30.37%20PM.png)
 
 
-## Generate Prompt Template
-
-`generate_prompt_template.py` is a Python script that generates a prompt template for AI assistants by concatenating instructions and datasets. It helps users create personalized and context-aware prompts to enhance the effectiveness of their AI-powered tools.
-
-For detailed information on how to use `generate_prompt_template.py` and its benefits, please refer to the [Generate Prompt Template Guide](generate_prompt_template_README.md).
-
-
 Using the command line interface
 --------------------------------
 
