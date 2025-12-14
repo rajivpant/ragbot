@@ -307,7 +307,7 @@ To use Ragbot.AI, you can provide dataset files and/or folders containing multip
 Example 1:
 
 ```console
-rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d instructions/ datasets/public/ ../ragbot-data/datasets/personal/ ../ragbot-data/workspaces/example-client/ -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
+rajivpant@RP-2021-MacBook-Pro ragbot % ./ragbot.py -d instructions/ datasets/public/ ../ragbot-data/datasets/personal/ ../ragbot-data/workspaces/my-employer/ -p "Write a short note in Rajiv's voice about Rajiv's job, coworkers, family members, and travel and food preferences for the person temporarily backfilling for his EA." 
 datasets being used:
  - instructions/
  - datasets/public/travel-food.md
@@ -317,7 +317,7 @@ datasets being used:
  - ../ragbot-data/datasets/personal/accounts.md
  - ../ragbot-data/datasets/personal/contact-info.md
  - ../ragbot-data/datasets/personal/personal-family.md
- - ../ragbot-data/workspaces/example-client/example-client.md
+ - ../ragbot-data/workspaces/my-employer/company.md
 Using AI engine openai with model gpt-4o
 [redacted in this example]
 ```
@@ -382,7 +382,7 @@ rajivpant@RP-2021-MacBook-Pro ragbot %
 Asking it to guess what some of the dataset files I use are for
 
 ```console
-rajivpant@RP-2021-MacBook-Pro ragbot % find datasets ../ragbot-data/datasets -print | ./ragbot.py -d instructions/ datasets/public/ ../ragbot-data/datasets/personal/ ../ragbot-data/workspaces/example-client/ -p "What do you guess these files are for?" 
+rajivpant@RP-2021-MacBook-Pro ragbot % find datasets ../ragbot-data/datasets -print | ./ragbot.py -d instructions/ datasets/public/ ../ragbot-data/datasets/personal/ ../ragbot-data/workspaces/my-employer/ -p "What do you guess these files are for?" 
 datasets being used:
  - instructions/
  - datasets/public/travel-food.md
@@ -392,7 +392,7 @@ datasets being used:
  - ../ragbot-data/datasets/personal/accounts.md
  - ../ragbot-data/datasets/personal/contact-info.md
  - ../ragbot-data/datasets/personal/personal-family.md
- - ../ragbot-data/workspaces/example-client/example-client.md
+ - ../ragbot-data/workspaces/my-employer/company.md
 Using AI engine openai with model gpt-4o
 These files appear to be related to the datasets of an AI system, likely for generating text or providing assistance based on the provided information. The files seem to be divided into two categories: public and private.
 
@@ -408,7 +408,7 @@ Private files (stored in a separate private folder):
 - datasets/personal/personal-family.md: Personal and family information, such as family members and relationships. Does not contain any confidential or sensitive information.
 
 Workspace-specific files:
-- workspaces/example-client/example-client.md: Non-confidential, publicly available information related to the Example-Client corporation, including Rajiv's role there
+- workspaces/my-employer/company.md: Non-confidential, publicly available information related to the employer, including your role
 
 Overall, these files seem to contain various information about a person, their preferences, and professional background, likely used to tailor the AI system's responses and assistance.
 rajivpant@RP-2021-MacBook-Pro ragbot % 
