@@ -1,6 +1,6 @@
 # Ragbot UI/UX Redesign
 
-**Status:** Planning
+**Status:** In Progress
 **Created:** 2025-12-14
 **Last Updated:** 2025-12-14
 
@@ -47,17 +47,27 @@ A new layout with:
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 1: RAG as Default | Pending | Enable RAG by default, auto-indexing |
+| Phase 1: RAG as Default | ✅ Complete | Enable RAG by default, auto-indexing |
 | Phase 2: Top Bar Layout | Pending | Replace sidebar with horizontal top bar |
 | Phase 3: Settings Modal | Pending | Modal dialog for advanced settings |
 | Phase 4: Index Management | Pending | Dedicated index operations screen |
 | Phase 5: Compiler Integration | Pending | Rebuild from sources within UI |
 
+### Phase 1 Completed (2025-12-14)
+
+Changes made:
+- RAG checkbox now defaults to ON when workspace has ai-knowledge content
+- RAG section moved from Advanced Settings to main sidebar (prominent placement)
+- Index status indicator shows ✅ Ready / ⚠️ Not indexed / ❓ Unknown
+- Auto-indexing on first query when index is missing
+- Index button label changes based on status (Index Workspace / Rebuild Index)
+- `helpers.py` updated to default `use_rag=True`
+
 ## Success Metrics
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| Steps to enable RAG | 3+ clicks | 0 (automatic) |
-| Visible settings truncation | Yes | No |
-| Chat area width | ~70% | ~95% |
-| Time to first RAG query | Manual index required | Automatic |
+| Metric | Before | After Phase 1 | Target |
+|--------|--------|---------------|--------|
+| Steps to enable RAG | 3+ clicks | 0 (automatic) | ✅ Done |
+| Visible settings truncation | Yes | Yes | No (Phase 2) |
+| Chat area width | ~70% | ~70% | ~95% (Phase 2) |
+| Time to first RAG query | Manual index required | Auto-indexed | ✅ Done |

@@ -2,30 +2,30 @@
 
 > Phase-by-phase implementation plan for the Ragbot UI redesign.
 
-## Phase 1: RAG as Default (Priority: High)
+## Phase 1: RAG as Default (Priority: High) ✅ COMPLETE
 
 **Goal**: Make RAG work automatically without user intervention
 
 ### Tasks
 
-1. **Enable RAG by default** in `ragbot_streamlit.py`
-   - Change `use_rag = st.checkbox(..., value=False)` to `value=True`
-   - Move RAG toggle out of Advanced Settings
+1. ✅ **Enable RAG by default** in `ragbot_streamlit.py`
+   - Changed `use_rag = st.checkbox(..., value=has_ai_knowledge)` - defaults ON when content exists
+   - Moved RAG section out of Advanced Settings to main sidebar
+   - Added index status indicator (✅ Ready / ⚠️ Not indexed / etc.)
 
-2. **Auto-index on first query**
-   - Check if index exists for workspace
-   - If not, build index automatically (show progress indicator)
-   - Cache index status to avoid repeated checks
+2. ✅ **Auto-index on first query**
+   - Check if index exists for workspace on page load
+   - Auto-index triggered when RAG query made without index
+   - Uses `st.status()` to show indexing progress
 
-3. **Update helpers.py**
-   - Change `use_rag=False` default to `use_rag=True`
-   - Add auto-index logic to `chat()` function
+3. ✅ **Update helpers.py**
+   - Changed `use_rag=False` default to `use_rag=True`
+   - Updated docstring to reflect new default
 
-### Files to Modify
+### Files Modified
 
-- `src/ragbot_streamlit.py`
-- `src/helpers.py`
-- `src/rag.py`
+- `src/ragbot_streamlit.py` - RAG UI moved, auto-indexing added
+- `src/helpers.py` - Default changed to `use_rag=True`
 
 ---
 

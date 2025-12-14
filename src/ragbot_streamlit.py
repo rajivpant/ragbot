@@ -267,6 +267,89 @@ def main():
 
         st.divider()
 
+        # RAG settings - prominent, not hidden
+        st.subheader("🔍 RAG")
+
+        # Check if workspace has ai-knowledge content
+        ai_knowledge = selected_profile_data.get('ai_knowledge', {})
+        has_ai_knowledge = bool(ai_knowledge and (ai_knowledge.get('datasets') or ai_knowledge.get('instructions')))
+
+        # Check index status
+        workspace_dir_name = selected_profile_data.get('dir_name', '')
+        index_status = None
+        index_count = 0
+        if has_ai_knowledge and workspace_dir_name:
+            try:
+                from rag import is_rag_available, get_collection_name, _get_qdrant_client
+                if is_rag_available():
+                    client = _get_qdrant_client()
+                    if client:
+                        collection_name = get_collection_name(workspace_dir_name)
+                        collections = client.get_collections().collections
+                        collection_names = [c.name for c in collections]
+                        if collection_name in collection_names:
+                            collection_info = client.get_collection(collection_name)
+                            index_count = collection_info.points_count
+                            index_status = "ready" if index_count > 0 else "empty"
+                        else:
+                            index_status = "not_indexed"
+            except Exception:
+                index_status = "error"
+
+        # RAG toggle - enabled by default when content is available
+        use_rag = st.checkbox(
+            "Enable RAG retrieval",
+            value=has_ai_knowledge,  # Default ON when content exists
+            disabled=not has_ai_knowledge,
+            help="Retrieve relevant context from indexed knowledge base"
+        )
+
+        # Show index status
+        if has_ai_knowledge:
+            if index_status == "ready":
+                st.caption(f"✅ Index ready ({index_count} chunks)")
+            elif index_status == "not_indexed":
+                st.caption("⚠️ Workspace not indexed yet")
+            elif index_status == "empty":
+                st.caption("⚠️ Index is empty")
+            else:
+                st.caption("❓ Index status unknown")
+        else:
+            st.caption("ℹ️ No knowledge content for this workspace")
+
+        # RAG context slider
+        rag_max_tokens = st.slider(
+            "Context tokens",
+            min_value=500,
+            max_value=8000,
+            value=2000,
+            step=500,
+            disabled=not use_rag,
+            help="Maximum tokens for retrieved context",
+            label_visibility="collapsed" if not use_rag else "visible"
+        )
+
+        # Index button with status-aware label
+        if has_ai_knowledge:
+            button_label = "🔄 Rebuild Index" if index_status == "ready" else "📚 Index Workspace"
+            if st.button(button_label, use_container_width=True, help="Build/rebuild the knowledge index"):
+                try:
+                    from rag import index_workspace, is_rag_available
+                    if is_rag_available():
+                        if ai_knowledge:
+                            with st.spinner("Indexing workspace..."):
+                                stats = index_workspace(workspace_dir_name, ai_knowledge)
+                            st.success(f"✅ Indexed {stats.get('datasets', 0)} chunks")
+                            st.rerun()
+                        else:
+                            st.warning("No ai-knowledge content found")
+                    else:
+                        st.error("RAG dependencies not installed")
+                except ImportError as e:
+                    st.error(f"RAG module not available: {e}")
+
+        st.divider()
+
         # Advanced settings in expander
         with st.expander("⚙️ Advanced Settings"):
             # Max tokens
@@ -278,43 +361,6 @@ def main():
                 value=default_max_tokens_option
             )
             max_tokens = int(max_tokens)
-
-            # RAG settings
-            st.markdown("**RAG (Retrieval)**")
-            use_rag = st.checkbox(
-                "Enable RAG",
-                value=False,
-                help="Retrieve relevant context from indexed datasets/runbooks"
-            )
-            rag_max_tokens = st.slider(
-                "RAG context tokens",
-                min_value=500,
-                max_value=8000,
-                value=2000,
-                step=500,
-                disabled=not use_rag,
-                help="Maximum tokens for retrieved context"
-            )
-
-            # RAG indexing button
-            if st.button("📚 Index Workspace", disabled=not use_rag, help="Index datasets for RAG retrieval"):
-                try:
-                    from rag import index_workspace, is_rag_available
-                    if is_rag_available():
-                        workspace_dir_name = selected_profile_data.get('dir_name', '')
-                        ai_knowledge = selected_profile_data.get('ai_knowledge', {})
-                        if ai_knowledge:
-                            with st.spinner("Indexing..."):
-                                stats = index_workspace(workspace_dir_name, ai_knowledge)
-                            st.success(f"Indexed {stats.get('datasets', 0)} chunks")
-                        else:
-                            st.warning("No ai-knowledge content found for this workspace")
-                    else:
-                        st.error("RAG dependencies not installed")
-                except ImportError as e:
-                    st.error(f"RAG module not available: {e}")
-
-            st.markdown("---")
 
             # Custom instructions path
             custom_instruction_path = st.text_area(
@@ -407,6 +453,20 @@ def main():
         with chat_container:
             with st.chat_message("user", avatar="🧑"):
                 st.markdown(prompt)
+
+            # Auto-index if RAG is enabled but index doesn't exist
+            if use_rag and index_status in ("not_indexed", "empty") and has_ai_knowledge:
+                with st.status("🔄 Building knowledge index...", expanded=True) as status:
+                    try:
+                        from rag import index_workspace, is_rag_available
+                        if is_rag_available():
+                            st.write("Indexing workspace content...")
+                            stats = index_workspace(workspace_dir_name, ai_knowledge)
+                            st.write(f"✅ Indexed {stats.get('datasets', 0)} chunks")
+                            status.update(label="Index ready!", state="complete")
+                    except Exception as e:
+                        st.write(f"⚠️ Auto-indexing failed: {e}")
+                        status.update(label="Indexing failed", state="error")
 
             # Generate and display assistant response
             with st.chat_message("assistant", avatar="🤖"):
