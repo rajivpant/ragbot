@@ -42,6 +42,9 @@ services:
       # Mount source code for development (optional - comment out for production)
       - ./src:/app/src:ro
 
+      # Qdrant vector database storage (for RAG)
+      - ragbot-qdrant:/app/qdrant_data
+
       # Optional: mount .env file (alternative to environment variables)
       # - ./.env:/app/.env:ro
     restart: unless-stopped
@@ -84,6 +87,9 @@ services:
 volumes:
   # Named volume for session persistence
   ragbot-sessions:
+    driver: local
+  # Named volume for Qdrant vector database (RAG)
+  ragbot-qdrant:
     driver: local
 
 networks:

@@ -11,18 +11,49 @@
 #
 # NOTE: Docker Compose automatically loads docker-compose.override.yml
 # if it exists, merging it with docker-compose.yml
+#
+# TIP: Use ${HOME} instead of ~ or /Users/username for portable paths
 
 version: '3.8'
 
 services:
   ragbot-web:
-    # ========================================================================
-    # Mount external ragbot-data workspaces directory
-    # ========================================================================
-    # If you keep your data in a separate directory (e.g., a private git repo),
-    # adjust this path to point to your ragbot-data/workspaces folder:
     volumes:
-      - /path/to/your/ragbot-data/workspaces:/app/workspaces:ro
+      # ========================================================================
+      # AI-KNOWLEDGE REPOS (Convention-based auto-discovery)
+      # ========================================================================
+      # Mount the parent directory containing your ai-knowledge-* repos.
+      # Ragbot auto-discovers any ai-knowledge-{name} directories and loads
+      # their compiled content from compiled/claude-projects/{instructions,knowledge}/
+      #
+      # Example: If you have:
+      #   ~/ai-knowledge/
+      #     ai-knowledge-personal/compiled/claude-projects/instructions/
+      #     ai-knowledge-work/compiled/claude-projects/instructions/
+      #
+      # Ragbot will auto-create "Personal" and "Work" workspaces.
+      - ${HOME}/path/to/ai-knowledge:/app/ai-knowledge:ro
+
+      # ========================================================================
+      # WORKSPACE METADATA (Optional)
+      # ========================================================================
+      # If you want custom workspace names, descriptions, or inheritance,
+      # create workspace.yaml files in a workspaces directory:
+      #
+      # workspaces/
+      #   personal/
+      #     workspace.yaml  # name: "My Personal Assistant", inherits_from: []
+      #   work/
+      #     workspace.yaml  # name: "Work Projects", inherits_from: ["personal"]
+      #
+      # - ./workspaces:/app/workspaces:ro
+
+      # ========================================================================
+      # LEGACY: Mount external ragbot-data directories (optional)
+      # ========================================================================
+      # If you're still using the old ragbot-data structure, keep these:
+      # - ${HOME}/ragbot-data/curated-datasets:/app/curated-datasets:ro
+      # - ${HOME}/ragbot-data/custom-instructions:/app/custom-instructions:ro
 
     # Optional: Override environment variables
     # environment:

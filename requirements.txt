@@ -1,5 +1,5 @@
 # Third-party modules required for Ragbot.AI
-# Updated: October 2025 for compatibility
+# Updated: December 2025 for compatibility
 anthropic>=0.31.0
 appdirs
 babel
@@ -20,3 +20,7 @@ pyyaml
 streamlit
 tiktoken
 watchdog
+
+# RAG dependencies
+qdrant-client>=1.7.0
+sentence-transformers>=2.2.0

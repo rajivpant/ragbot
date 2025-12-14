@@ -279,6 +279,43 @@ def main():
             )
             max_tokens = int(max_tokens)
 
+            # RAG settings
+            st.markdown("**RAG (Retrieval)**")
+            use_rag = st.checkbox(
+                "Enable RAG",
+                value=False,
+                help="Retrieve relevant context from indexed datasets/runbooks"
+            )
+            rag_max_tokens = st.slider(
+                "RAG context tokens",
+                min_value=500,
+                max_value=8000,
+                value=2000,
+                step=500,
+                disabled=not use_rag,
+                help="Maximum tokens for retrieved context"
+            )
+
+            # RAG indexing button
+            if st.button("📚 Index Workspace", disabled=not use_rag, help="Index datasets for RAG retrieval"):
+                try:
+                    from rag import index_workspace, is_rag_available
+                    if is_rag_available():
+                        workspace_dir_name = selected_profile_data.get('dir_name', '')
+                        ai_knowledge = selected_profile_data.get('ai_knowledge', {})
+                        if ai_knowledge:
+                            with st.spinner("Indexing..."):
+                                stats = index_workspace(workspace_dir_name, ai_knowledge)
+                            st.success(f"Indexed {stats.get('datasets', 0)} chunks")
+                        else:
+                            st.warning("No ai-knowledge content found for this workspace")
+                    else:
+                        st.error("RAG dependencies not installed")
+                except ImportError as e:
+                    st.error(f"RAG module not available: {e}")
+
+            st.markdown("---")
+
             # Custom instructions path
             custom_instruction_path = st.text_area(
                 "Custom instructions paths",
@@ -374,6 +411,8 @@ def main():
             # Generate and display assistant response
             with st.chat_message("assistant", avatar="🤖"):
                 with st.spinner("Thinking..."):
+                    # Get workspace name for RAG
+                    workspace_name = selected_profile_data.get('dir_name', '')
                     reply = chat(
                         prompt=prompt,
                         custom_instructions=custom_instructions,
@@ -385,7 +424,10 @@ def main():
                         max_input_tokens=max_input_tokens,
                         temperature=temperature,
                         supports_system_role=supports_system_role,
-                        interactive=False
+                        interactive=False,
+                        workspace_name=workspace_name,
+                        use_rag=use_rag,
+                        rag_max_tokens=rag_max_tokens
                     )
                 st.markdown(reply)
 
