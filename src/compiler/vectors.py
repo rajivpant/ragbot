@@ -2,18 +2,21 @@
 Vector Store Generator for AI Knowledge Compiler
 
 Chunks content for RAG systems and optionally generates embeddings.
+Uses the shared chunking library for consistent chunking behavior.
 
 Library API:
-- chunk_content(content, chunk_size, overlap) -> list
+- chunk_content(content, chunk_size, overlap) -> list (deprecated, use chunking library)
 - generate_chunks_for_rag(assembled, config) -> list
 - save_chunks(chunks, output_path)
 """
 
 import os
 import json
-import hashlib
 from typing import Optional
 from pathlib import Path
+
+# Import from shared chunking library
+from ..chunking import chunk_text, chunk_for_compiler, ChunkConfig, Chunk
 
 
 def chunk_content(content: str, chunk_size: int = 1000,
@@ -21,62 +24,25 @@ def chunk_content(content: str, chunk_size: int = 1000,
     """
     Split content into overlapping chunks.
 
-    Uses character-based chunking with approximate token estimates.
-    This is simpler and faster than token-based chunking.
+    DEPRECATED: Use chunking.chunk_text() directly for new code.
+
+    This function is kept for backward compatibility with existing callers.
 
     Args:
         content: Text content to chunk
-        chunk_size: Target size of each chunk in tokens (converted to ~4 chars/token)
+        chunk_size: Target size of each chunk in tokens
         chunk_overlap: Number of tokens to overlap between chunks
-        tokenizer: Tokenizer name (currently unused, kept for API compatibility)
+        tokenizer: Tokenizer name (unused, kept for API compatibility)
 
     Returns:
         List of chunk dictionaries with 'text', 'start_char', 'end_char', 'tokens'
     """
-    # Use character-based chunking (approx 4 chars per token)
-    char_chunk_size = chunk_size * 4
-    char_overlap = chunk_overlap * 4
-
-    return _chunk_by_chars(content, char_chunk_size, char_overlap)
-
-
-def _chunk_by_chars(content: str, chunk_size: int, chunk_overlap: int) -> list:
-    """
-    Character-based chunking with overlap.
-
-    Args:
-        content: Text content
-        chunk_size: Size in characters
-        chunk_overlap: Overlap in characters
-
-    Returns:
-        List of chunk dictionaries
-    """
-    if not content:
-        return []
-
-    chunks = []
-    start = 0
-
-    while start < len(content):
-        end = min(start + chunk_size, len(content))
-        chunk_text = content[start:end]
-
-        chunks.append({
-            'text': chunk_text,
-            'start_char': start,
-            'end_char': end,
-            'tokens': len(chunk_text) // 4  # Rough estimate
-        })
-
-        # If we've reached the end, we're done
-        if end >= len(content):
-            break
-
-        # Move to next chunk with overlap
-        start = end - chunk_overlap
-
-    return chunks
+    config = ChunkConfig(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        extract_title=False
+    )
+    return chunk_text(content, config)
 
 
 def chunk_file(file_info: dict, chunk_size: int = 1000,
@@ -90,36 +56,22 @@ def chunk_file(file_info: dict, chunk_size: int = 1000,
         chunk_overlap: Overlap between chunks
 
     Returns:
-        List of chunks with metadata
+        List of chunks with metadata (as dictionaries for JSON serialization)
     """
     content = file_info.get('content', '')
     rel_path = file_info.get('relative_path', '')
     category = file_info.get('category', 'other')
 
-    raw_chunks = chunk_content(content, chunk_size, chunk_overlap)
+    chunks = chunk_for_compiler(
+        content=content,
+        source_path=rel_path,
+        category=category,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap
+    )
 
-    chunks = []
-    for i, chunk in enumerate(raw_chunks):
-        # Generate a unique ID for the chunk
-        chunk_id = hashlib.md5(
-            f"{rel_path}:{i}:{chunk['start_char']}".encode()
-        ).hexdigest()[:12]
-
-        chunks.append({
-            'id': chunk_id,
-            'text': chunk['text'],
-            'tokens': chunk['tokens'],
-            'metadata': {
-                'source_file': rel_path,
-                'category': category,
-                'chunk_index': i,
-                'total_chunks': len(raw_chunks),
-                'start_char': chunk['start_char'],
-                'end_char': chunk['end_char']
-            }
-        })
-
-    return chunks
+    # Convert Chunk objects to dictionaries for backward compatibility
+    return [chunk.to_dict() for chunk in chunks]
 
 
 def generate_chunks_for_rag(assembled: dict, config: dict = None) -> list:

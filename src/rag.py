@@ -1,15 +1,17 @@
 # rag.py
 # RAG (Retrieval-Augmented Generation) support for Ragbot
 # Uses Qdrant for vector storage and sentence-transformers for embeddings
+# Uses shared chunking library for consistent text chunking
 #
 # Author: Rajiv Pant
 
 import os
-import json
-import hashlib
 import logging
 from typing import Optional
 from pathlib import Path
+
+# Import from shared chunking library
+from .chunking import chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -17,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Lazy imports - only load heavy dependencies when needed
 _qdrant_client = None
 _embedding_model = None
+
 
 def _get_qdrant_client():
     """Get or create Qdrant client (lazy initialization)."""
@@ -151,36 +154,27 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
 
     from qdrant_client.models import PointStruct
 
-    points = []
-    total_chunks = 0
+    # Configure chunking for RAG (smaller chunks, title extraction)
+    config = ChunkConfig(
+        chunk_size=500,
+        chunk_overlap=50,
+        extract_title=True,
+        category=content_type
+    )
 
-    for path in content_paths:
-        if os.path.isfile(path):
-            chunks = _chunk_file(path, content_type)
-            for chunk in chunks:
-                embedding = model.encode(chunk['text']).tolist()
-                point_id = _generate_point_id(chunk)
-                points.append(PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload=chunk['metadata']
-                ))
-            total_chunks += len(chunks)
-        elif os.path.isdir(path):
-            for root, _, files in os.walk(path):
-                for filename in files:
-                    if filename.endswith(('.md', '.txt', '.yaml', '.yml')):
-                        file_path = os.path.join(root, filename)
-                        chunks = _chunk_file(file_path, content_type)
-                        for chunk in chunks:
-                            embedding = model.encode(chunk['text']).tolist()
-                            point_id = _generate_point_id(chunk)
-                            points.append(PointStruct(
-                                id=point_id,
-                                vector=embedding,
-                                payload=chunk['metadata']
-                            ))
-                        total_chunks += len(chunks)
+    # Chunk all files
+    chunks = chunk_files(content_paths, config)
+
+    # Generate embeddings and create points
+    points = []
+    for chunk in chunks:
+        embedding = model.encode(chunk.text).tolist()
+        point_id = get_qdrant_point_id(chunk)
+        points.append(PointStruct(
+            id=point_id,
+            vector=embedding,
+            payload=chunk.metadata
+        ))
 
     # Upsert points in batches
     if points:
@@ -191,82 +185,9 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
 
     return {
         'collection': collection_name,
-        'indexed': total_chunks,
+        'indexed': len(chunks),
         'content_type': content_type
     }
-
-
-def _chunk_file(file_path: str, content_type: str,
-                chunk_size: int = 500, chunk_overlap: int = 50) -> list:
-    """
-    Read and chunk a file for indexing.
-
-    Args:
-        file_path: Path to the file
-        content_type: Type of content ('datasets', 'runbooks')
-        chunk_size: Target chunk size in tokens (~4 chars/token)
-        chunk_overlap: Overlap between chunks
-
-    Returns:
-        List of chunk dictionaries with text and metadata
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-    except Exception as e:
-        logger.warning(f"Failed to read {file_path}: {e}")
-        return []
-
-    if not content.strip():
-        return []
-
-    # Character-based chunking (approx 4 chars per token)
-    char_chunk_size = chunk_size * 4
-    char_overlap = chunk_overlap * 4
-
-    chunks = []
-    start = 0
-    chunk_index = 0
-
-    while start < len(content):
-        end = min(start + char_chunk_size, len(content))
-        chunk_text = content[start:end]
-
-        # Extract title from first line if it's a markdown header
-        title = None
-        lines = chunk_text.split('\n')
-        if lines and lines[0].startswith('#'):
-            title = lines[0].lstrip('#').strip()
-
-        chunks.append({
-            'text': chunk_text,
-            'metadata': {
-                'source_file': file_path,
-                'filename': os.path.basename(file_path),
-                'content_type': content_type,
-                'chunk_index': chunk_index,
-                'title': title,
-                'char_start': start,
-                'char_end': end
-            }
-        })
-
-        if end >= len(content):
-            break
-
-        start = end - char_overlap
-        chunk_index += 1
-
-    return chunks
-
-
-def _generate_point_id(chunk: dict) -> int:
-    """Generate a unique integer ID for a chunk."""
-    # Create a hash from file path and chunk index
-    key = f"{chunk['metadata']['source_file']}:{chunk['metadata']['chunk_index']}"
-    hash_bytes = hashlib.md5(key.encode()).digest()
-    # Convert first 8 bytes to int (Qdrant requires int IDs)
-    return int.from_bytes(hash_bytes[:8], byteorder='big') & 0x7FFFFFFFFFFFFFFF
 
 
 def search(workspace_name: str, query: str, limit: int = 5,

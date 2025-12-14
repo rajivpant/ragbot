@@ -9,16 +9,21 @@ The compiler lives in `ragbot/src/compiler/` as a library-first design, with CLI
 ## Module Structure
 
 ```
-src/compiler/
-├── __init__.py         # Public API exports
-├── cli.py              # Command-line interface
-├── config.py           # Configuration parsing
-├── cache.py            # Compilation caching
-├── assembler.py        # Content assembly
-├── inheritance.py      # Inheritance resolution
-├── instructions.py     # LLM-specific instruction compilation
-├── manifest.py         # Manifest generation
-└── vectors.py          # Vector chunk generation
+src/
+├── chunking/               # Shared chunking library
+│   ├── __init__.py         # Public API exports
+│   └── core.py             # Core chunking algorithms
+├── compiler/
+│   ├── __init__.py         # Public API exports
+│   ├── cli.py              # Command-line interface
+│   ├── config.py           # Configuration parsing
+│   ├── cache.py            # Compilation caching
+│   ├── assembler.py        # Content assembly
+│   ├── inheritance.py      # Inheritance resolution
+│   ├── instructions.py     # LLM-specific instruction compilation
+│   ├── manifest.py         # Manifest generation
+│   └── vectors.py          # Vector chunk generation (uses chunking/)
+└── rag.py                  # RAG runtime (uses chunking/)
 ```
 
 ## Module Responsibilities
@@ -46,8 +51,15 @@ src/compiler/
 
 ### `vectors.py`
 - Chunks content for RAG vector search
-- Uses sentence-transformers for embeddings
+- Uses shared `chunking/` library for consistent behavior
 - Generates JSON chunks for Qdrant indexing
+
+### `chunking/` (Shared Library)
+- Single source of truth for text chunking
+- Used by both compiler (build-time) and RAG (runtime)
+- Provides `ChunkConfig` for configurable chunk sizes
+- Exports `chunk_text()`, `chunk_file()`, `chunk_files()`
+- Convenience functions: `chunk_for_compiler()`, `chunk_for_rag()`
 
 ### `manifest.py`
 - Generates `manifest.json` with compilation metadata
