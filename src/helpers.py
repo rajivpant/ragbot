@@ -42,19 +42,22 @@ def discover_ai_knowledge_repos(ai_knowledge_root):
     """
     Auto-discover ai-knowledge repos by convention.
 
-    Convention: Any directory matching 'ai-knowledge-*' with a compiled/claude-projects/
-    structure is automatically recognized as a workspace.
+    Convention: Any directory matching 'ai-knowledge-*' is recognized as a workspace.
+    Metadata is read from compile-config.yaml if present.
 
     Args:
         ai_knowledge_root: Root directory containing ai-knowledge-* folders
-                          (typically /app/ai-knowledge in Docker)
+                          (typically /app/ai-knowledge in Docker, or
+                          ~/projects/my-projects/ai-knowledge locally)
 
     Returns:
-        Dictionary mapping workspace names to their compiled content paths:
+        Dictionary mapping workspace names to their content and metadata:
         {
             'rajiv': {
-                'instructions': '/app/ai-knowledge/ai-knowledge-rajiv/compiled/claude-projects/instructions',
-                'datasets': '/app/ai-knowledge/ai-knowledge-rajiv/compiled/claude-projects/knowledge'
+                'instructions': '/path/ai-knowledge-rajiv/compiled/claude-projects/instructions',
+                'datasets': '/path/ai-knowledge-rajiv/compiled/claude-projects/knowledge',
+                'repo_path': '/path/ai-knowledge-rajiv',
+                'config': {...}  # From compile-config.yaml
             },
             ...
         }
@@ -76,113 +79,121 @@ def discover_ai_knowledge_repos(ai_knowledge_root):
         # Extract workspace name from repo name (ai-knowledge-rajiv -> rajiv)
         workspace_name = item.replace('ai-knowledge-', '')
 
+        # Read compile-config.yaml for metadata
+        config = {}
+        compile_config_path = os.path.join(repo_path, 'compile-config.yaml')
+        if os.path.isfile(compile_config_path):
+            with open(compile_config_path, 'r') as f:
+                config = yaml.safe_load(f) or {}
+
         # Convention: compiled content is in compiled/claude-projects/
         compiled_base = os.path.join(repo_path, 'compiled', 'claude-projects')
         instructions_dir = os.path.join(compiled_base, 'instructions')
         knowledge_dir = os.path.join(compiled_base, 'knowledge')
 
-        # Only include if at least one content directory exists
+        # Also check source/ for uncompiled repos
+        source_dir = os.path.join(repo_path, 'source')
+        has_source = os.path.isdir(source_dir)
+
+        # Include if has compiled content OR source content OR compile-config
         has_instructions = os.path.isdir(instructions_dir)
         has_knowledge = os.path.isdir(knowledge_dir)
 
-        if has_instructions or has_knowledge:
+        if has_instructions or has_knowledge or has_source or config:
             discovered[workspace_name] = {
                 'instructions': instructions_dir if has_instructions else None,
                 'datasets': knowledge_dir if has_knowledge else None,
-                'repo_path': repo_path
+                'repo_path': repo_path,
+                'source_path': source_dir if has_source else None,
+                'config': config
             }
 
     return discovered
 
 
-def discover_workspaces(data_root, ai_knowledge_root=None):
+def discover_workspaces(data_root=None, ai_knowledge_root=None):
     """
-    Discover all workspaces by scanning the workspaces directory for workspace.yaml files,
-    and auto-discovering ai-knowledge repos by convention.
+    Discover all workspaces from ai-knowledge repos.
 
     Args:
-        data_root: Root directory containing the workspaces folder
-        ai_knowledge_root: Optional root directory for ai-knowledge repos
-                          (defaults to /app/ai-knowledge)
+        data_root: Unused, kept for API compatibility
+        ai_knowledge_root: Root directory for ai-knowledge repos
+                          (defaults to /app/ai-knowledge in Docker,
+                          or ~/projects/my-projects/ai-knowledge locally)
 
     Returns:
-        List of workspace dictionaries with 'name', 'path', and 'config' keys
+        List of workspace dictionaries with 'name', 'path', 'config', and 'ai_knowledge' keys
     """
-    # Default ai-knowledge location in Docker
+    # Determine ai-knowledge root location
     if ai_knowledge_root is None:
-        ai_knowledge_root = '/app/ai-knowledge'
+        # Check multiple locations in order of preference
+        candidates = [
+            '/app/ai-knowledge',  # Docker
+            os.path.expanduser('~/projects/my-projects/ai-knowledge'),  # Local dev
+        ]
+        for candidate in candidates:
+            if os.path.isdir(candidate):
+                ai_knowledge_root = candidate
+                break
 
-    # First, discover ai-knowledge repos by convention
-    ai_knowledge_repos = discover_ai_knowledge_repos(ai_knowledge_root)
+    # Discover ai-knowledge repos
+    ai_knowledge_repos = {}
+    if ai_knowledge_root:
+        ai_knowledge_repos = discover_ai_knowledge_repos(ai_knowledge_root)
 
-    workspaces_dir = os.path.join(data_root, 'workspaces')
     discovered = []
-    seen_workspaces = set()
 
-    # Process workspace.yaml files (they take precedence for metadata)
-    if os.path.isdir(workspaces_dir):
-        for workspace_name in os.listdir(workspaces_dir):
-            workspace_path = os.path.join(workspaces_dir, workspace_name)
-            workspace_yaml = os.path.join(workspace_path, 'workspace.yaml')
+    # Process ai-knowledge repos
+    for workspace_name, content_info in ai_knowledge_repos.items():
+        compile_config = content_info.get('config', {})
+        project_config = compile_config.get('project', {})
 
-            if os.path.isdir(workspace_path) and os.path.isfile(workspace_yaml):
-                with open(workspace_yaml, 'r') as f:
-                    config = yaml.safe_load(f) or {}
+        # Get display name from compile-config.yaml or derive from workspace name
+        display_name = project_config.get('name', workspace_name)
+        if display_name == workspace_name:
+            # Make it human-readable if it's just the dir name
+            display_name = workspace_name.replace('-', ' ').title()
 
-                # Check if this workspace has ai-knowledge content
-                ai_knowledge_content = ai_knowledge_repos.get(workspace_name, {})
+        description = project_config.get('description', f'AI Knowledge workspace: {workspace_name}')
 
-                discovered.append({
-                    'name': config.get('name', workspace_name.title()),
-                    'path': workspace_path,
-                    'dir_name': workspace_name,
-                    'config': config,
-                    'ai_knowledge': ai_knowledge_content
-                })
-                seen_workspaces.add(workspace_name)
-
-    # Add any ai-knowledge repos that don't have workspace.yaml files
-    # (auto-discovered by convention)
-    for workspace_name, content_paths in ai_knowledge_repos.items():
-        if workspace_name not in seen_workspaces:
-            # Create workspace entry with default config
-            discovered.append({
-                'name': workspace_name.replace('-', ' ').title(),
-                'path': None,  # No local workspace folder
-                'dir_name': workspace_name,
-                'config': {
-                    'name': workspace_name.replace('-', ' ').title(),
-                    'description': f'Auto-discovered from ai-knowledge-{workspace_name}',
-                    'status': 'active',
-                    'type': 'project'
-                },
-                'ai_knowledge': content_paths
-            })
+        discovered.append({
+            'name': display_name,
+            'path': None,
+            'dir_name': workspace_name,
+            'config': {
+                'name': display_name,
+                'description': description,
+                'status': 'active',
+                'type': project_config.get('type', 'project'),
+                'inherits_from': compile_config.get('inherits_from', []),
+            },
+            'ai_knowledge': content_info
+        })
 
     # Sort by name for consistent ordering
     discovered.sort(key=lambda x: x['name'])
     return discovered
 
 
-def resolve_workspace_paths(workspace, data_root, all_workspaces=None, resolved_chain=None):
+def resolve_workspace_paths(workspace, data_root=None, all_workspaces=None, resolved_chain=None):
     """
     Resolve a workspace's content paths including inherited workspaces and ai-knowledge content.
 
     Content sources (in order of precedence, later sources can override):
     1. Inherited workspaces (parent content comes first)
     2. ai-knowledge compiled content (from ai-knowledge-* repos)
-    3. Local workspace content (instructions/, runbooks/, datasets/)
+    3. ai-knowledge source content (fallback if not compiled yet)
 
     Each workspace can have:
     - instructions/ folder: identity and instruction files
     - runbooks/ folder: how-to guides and procedures
     - datasets/ folder: reference data and context
 
-    Workspaces inherit content from parent workspaces via 'inherits_from'.
+    Workspaces inherit content from parent workspaces via 'inherits_from' in compile-config.yaml.
 
     Args:
         workspace: Workspace dictionary from discover_workspaces()
-        data_root: Root directory containing the workspaces folder
+        data_root: Unused, kept for API compatibility
         all_workspaces: List of all discovered workspaces (for inheritance resolution)
         resolved_chain: Set of workspace names already resolved (to prevent circular inheritance)
 
@@ -194,7 +205,6 @@ def resolve_workspace_paths(workspace, data_root, all_workspaces=None, resolved_
 
     config = workspace.get('config', {})
     workspace_name = workspace['dir_name']
-    workspace_path = workspace.get('path')  # May be None for auto-discovered workspaces
 
     # Prevent circular inheritance
     if workspace_name in resolved_chain:
@@ -219,7 +229,7 @@ def resolve_workspace_paths(workspace, data_root, all_workspaces=None, resolved_
                 instructions.extend(parent_paths['instructions'])
                 datasets.extend(parent_paths['datasets'])
 
-    # Second, add ai-knowledge compiled content (convention-based)
+    # Second, add ai-knowledge compiled content
     ai_knowledge = workspace.get('ai_knowledge', {})
     if ai_knowledge:
         ai_instructions = ai_knowledge.get('instructions')
@@ -229,39 +239,36 @@ def resolve_workspace_paths(workspace, data_root, all_workspaces=None, resolved_
         if ai_datasets and os.path.isdir(ai_datasets):
             datasets.append(ai_datasets)
 
-    # Third, add local workspace content (if workspace path exists)
-    if workspace_path and os.path.isdir(workspace_path):
-        # Instructions folder (identity, instructions)
-        instructions_dir = os.path.join(workspace_path, 'instructions')
-        if os.path.isdir(instructions_dir):
-            instructions.append(instructions_dir)
+        # Fallback to source content if no compiled content exists
+        # This allows workspaces to work before compilation
+        source_path = ai_knowledge.get('source_path')
+        if source_path and os.path.isdir(source_path):
+            # If no compiled instructions, use source instructions
+            if not ai_instructions or not os.path.isdir(ai_instructions):
+                source_instructions = os.path.join(source_path, 'instructions')
+                if os.path.isdir(source_instructions):
+                    instructions.append(source_instructions)
+                # Also include runbooks as instructions
+                source_runbooks = os.path.join(source_path, 'runbooks')
+                if os.path.isdir(source_runbooks):
+                    instructions.append(source_runbooks)
 
-        # Runbooks folder (how-to guides) - goes to instructions
-        runbooks_dir = os.path.join(workspace_path, 'runbooks')
-        if os.path.isdir(runbooks_dir):
-            instructions.append(runbooks_dir)
-
-        # Datasets folder (reference data, context)
-        datasets_dir = os.path.join(workspace_path, 'datasets')
-        if os.path.isdir(datasets_dir):
-            datasets.append(datasets_dir)
-
-        # Include any files directly in the workspace (excluding workspace.yaml)
-        for item in os.listdir(workspace_path):
-            item_path = os.path.join(workspace_path, item)
-            if item != 'workspace.yaml' and os.path.isfile(item_path):
-                datasets.append(item_path)
+            # If no compiled datasets, use source datasets
+            if not ai_datasets or not os.path.isdir(ai_datasets):
+                source_datasets = os.path.join(source_path, 'datasets')
+                if os.path.isdir(source_datasets):
+                    datasets.append(source_datasets)
 
     return {'instructions': instructions, 'datasets': datasets}
 
 
-def workspace_to_profile(workspace, data_root, all_workspaces=None):
+def workspace_to_profile(workspace, data_root=None, all_workspaces=None):
     """
     Convert a workspace to the profile format expected by existing Ragbot code.
 
     Args:
         workspace: Workspace dictionary from discover_workspaces()
-        data_root: Root directory containing workspaces, instructions, datasets folders
+        data_root: Optional root directory for legacy workspaces (deprecated)
         all_workspaces: List of all discovered workspaces (for inheritance resolution)
 
     Returns:
@@ -278,19 +285,22 @@ def workspace_to_profile(workspace, data_root, all_workspaces=None):
     }
 
 
-def load_workspaces_as_profiles(data_root):
+def load_workspaces_as_profiles(data_root=None, ai_knowledge_root=None):
     """
     Discover workspaces and convert them to profiles format for compatibility.
 
     This is the main entry point for workspace-based profile loading.
+    Workspaces are discovered from ai-knowledge repos (primary) and optionally
+    from legacy ragbot-data/workspaces (deprecated).
 
     Args:
-        data_root: Root directory containing workspaces folder
+        data_root: Optional root directory for legacy workspaces (deprecated)
+        ai_knowledge_root: Optional root directory for ai-knowledge repos
 
     Returns:
         List of profiles in the format: [{'name': ..., 'instructions': [...], 'datasets': [...]}, ...]
     """
-    workspaces = discover_workspaces(data_root)
+    workspaces = discover_workspaces(data_root, ai_knowledge_root)
     profiles = []
 
     for workspace in workspaces:
@@ -493,7 +503,7 @@ def chat(
     supports_system_role=True,
     stream_callback=None,
     workspace_name=None,
-    use_rag=False,
+    use_rag=True,  # RAG enabled by default - core feature of Ragbot
     rag_max_tokens=2000
 ):
     """
@@ -515,7 +525,7 @@ def chat(
     :param supports_system_role: Whether the model supports the "system" role (default is True).
     :param stream_callback: Optional callback function for streaming output. Called with each chunk.
     :param workspace_name: Name of the workspace for RAG retrieval (optional).
-    :param use_rag: Whether to use RAG for retrieving relevant context (default is False).
+    :param use_rag: Whether to use RAG for retrieving relevant context (default is True).
     :param rag_max_tokens: Maximum tokens for RAG-retrieved context (default is 2000).
     :return: The generated response text from the model.
     """
