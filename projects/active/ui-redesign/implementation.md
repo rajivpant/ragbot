@@ -29,58 +29,80 @@
 
 ---
 
-## Phase 2: Top Bar Layout (Priority: Medium) 🚧 DEFERRED
+## Phase 2: FastAPI Backend ✅ COMPLETE
 
-**Goal**: Replace narrow sidebar with horizontal top bar
+**Goal**: Build REST API backend to enable modern frontend development
 
-**Status**: Attempted and reverted due to Streamlit framework limitations.
+**Status**: Implemented (2025-12-14)
 
-### Issues Encountered
+### Completed
 
-1. **Streamlit header overlap** - Custom top bar elements were covered by Streamlit's built-in header
-2. **Deploy button** - Streamlit's "Deploy" button appeared and could not be hidden via CSS
-3. **Dropdown rendering** - Selectboxes rendered as gray bars instead of proper dropdowns
-4. **CSS limitations** - Streamlit's internal styling conflicts with custom CSS overrides
+1. **Core Library Extraction** (`src/ragbot/`)
+   - `core.py` - Chat engine with streaming support
+   - `workspaces.py` - Workspace discovery and management
+   - `models.py` - Pydantic models for API
+   - `config.py` - Configuration and model definitions
+   - `exceptions.py` - Custom exceptions
 
-### Original Planned Tasks
+2. **FastAPI Application** (`src/api/`)
+   - `main.py` - FastAPI app with CORS, health check
+   - `routers/chat.py` - Chat endpoint with SSE streaming
+   - `routers/workspaces.py` - Workspace endpoints
+   - `routers/models.py` - Model listing
+   - `routers/config.py` - Configuration endpoint
 
-1. **Create new layout structure**
-   - Use `st.columns()` for top bar elements
-   - Remove sidebar via CSS
-   - Full-width chat area
+3. **Docker Configuration**
+   - Updated `Dockerfile` with FastAPI as default
+   - Updated `docker-compose.yml` with ragbot-api service
+   - Streamlit moved to optional profile
 
-2. **Implement top bar components**
-   - Workspace selector (dropdown)
-   - Combined model selector
-   - Creativity selector
-   - Settings popover
+### API Endpoints
 
-### Future Approach
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | Chat with SSE streaming |
+| `/api/workspaces` | GET | List all workspaces |
+| `/api/workspaces/{name}` | GET | Get workspace details |
+| `/api/workspaces/{name}/index` | GET/POST | Index status/trigger |
+| `/api/models` | GET | List available models |
+| `/api/config` | GET | Get configuration |
+| `/health` | GET | Health check |
 
-Per strategic decision (2025-12-14), these layout improvements are deferred until:
-- Migration to FastAPI backend + React/Next.js frontend
-- This will enable proper UI control, mobile apps, and voice interfaces
-- See README.md for full rationale
+### Files Created
+
+- `src/ragbot/__init__.py`
+- `src/ragbot/core.py`
+- `src/ragbot/workspaces.py`
+- `src/ragbot/models.py`
+- `src/ragbot/config.py`
+- `src/ragbot/exceptions.py`
+- `src/api/__init__.py`
+- `src/api/main.py`
+- `src/api/dependencies.py`
+- `src/api/routers/chat.py`
+- `src/api/routers/workspaces.py`
+- `src/api/routers/models.py`
+- `src/api/routers/config.py`
+- `ragbot_api` (shell script)
 
 ---
 
-## Phase 3: Settings Modal (Priority: Medium) 🚧 DEFERRED
+## Phase 3: React Frontend (Pending)
 
-**Goal**: Replace sidebar settings with modal dialog
+**Goal**: Modern web UI to replace Streamlit
 
-**Status**: Merged into Phase 2, deferred along with it.
+### Planned
 
-### Original Planned Tasks
+1. **React/Next.js Frontend**
+   - Connect to FastAPI backend
+   - SSE handling for streaming chat
+   - Responsive design
 
-1. **Create settings popover**
-   - Use `st.popover()` for settings panel
-   - Organize settings into logical groups
-
-2. **Settings groups**
-   - RAG Configuration
-   - Response Settings
-   - Conversation controls
-   - Advanced options
+2. **Features**
+   - Workspace selector
+   - Model selector
+   - Chat interface with streaming
+   - Index management UI
 
 ---
 

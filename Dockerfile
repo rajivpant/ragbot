@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Ragbot.AI
-# Supports both CLI and web (Streamlit) interfaces
+# Supports CLI, API (FastAPI), and Web (Streamlit) interfaces
 
 # Stage 1: Base image with dependencies
 FROM python:3.12-slim as base
@@ -37,29 +37,23 @@ COPY --from=dependencies /usr/local/bin /usr/local/bin
 # Copy application code
 COPY src/ ./src/
 COPY engines.yaml .
-COPY ragbot ragbot_web ./
+COPY ragbot ragbot_web ragbot_api ./
 
 # Make shell scripts executable
-RUN chmod +x ragbot ragbot_web
+RUN chmod +x ragbot ragbot_web ragbot_api
 
 # Create directories for data persistence
 RUN mkdir -p /root/.local/share/ragbot/sessions && \
     mkdir -p /app/datasets && \
     mkdir -p /app/instructions
 
-# Create a non-root user (optional but recommended for security)
-# Uncomment the following lines if you want to run as non-root:
-# RUN useradd -m -u 1000 ragbot && \
-#     chown -R ragbot:ragbot /app /root/.local/share/ragbot
-# USER ragbot
+# Expose both API and Streamlit ports
+EXPOSE 8000 8501
 
-# Expose Streamlit default port
-EXPOSE 8501
-
-# Health check for web interface
+# Health check for API (primary service)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')" || exit 1
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Default command runs the web interface
+# Default command runs the API server
 # Can be overridden in docker-compose or docker run
-CMD ["streamlit", "run", "src/ragbot_streamlit.py", "--server.address", "0.0.0.0"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

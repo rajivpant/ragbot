@@ -1,0 +1,32 @@
+#!/bin/bash
+# Start the Ragbot API server
+# Usage: ./ragbot_api [--port PORT] [--reload]
+
+cd "$(dirname "$0")"
+
+PORT=${PORT:-8000}
+HOST=${HOST:-0.0.0.0}
+RELOAD=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --port)
+            PORT="$2"
+            shift 2
+            ;;
+        --host)
+            HOST="$2"
+            shift 2
+            ;;
+        --reload)
+            RELOAD="--reload"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+exec uvicorn src.api.main:app --host "$HOST" --port "$PORT" $RELOAD

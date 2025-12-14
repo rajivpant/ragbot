@@ -48,10 +48,10 @@ A new layout with:
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 1: RAG as Default | ✅ Complete | Enable RAG by default, auto-indexing |
-| Phase 2: Top Bar Layout | 🚧 Deferred | Replace sidebar with horizontal top bar |
-| Phase 3: Settings Modal | 🚧 Deferred | Modal dialog for advanced settings |
+| Phase 2: FastAPI Backend | ✅ Complete | REST API with SSE streaming |
+| Phase 3: Core Library | ✅ Complete | `src/ragbot/` package extraction |
 | Phase 4: Index Management | Pending | Dedicated index operations screen |
-| Phase 5: Compiler Integration | Pending | Rebuild from sources within UI |
+| Phase 5: React Frontend | Pending | Modern web UI (replaces Streamlit) |
 
 ### Phase 1 Completed (2025-12-14)
 
@@ -63,18 +63,29 @@ Changes made:
 - Index button label changes based on status (Index Workspace / Rebuild Index)
 - `helpers.py` updated to default `use_rag=True`
 
-### Phase 2 & 3 Deferred
+### Phase 2 & 3: FastAPI Backend (Complete)
 
-**Reason**: Streamlit's layout limitations make a proper top bar difficult:
-- Streamlit header overlaps custom top elements
-- Deploy button cannot be hidden
-- Need to consider migration to React/Next.js for better UI control
+**Status**: FastAPI backend implemented (2025-12-14)
 
-**Future approach**: Build a FastAPI backend service, then create React frontend that can be:
+The FastAPI backend is now complete and ready for frontend development:
+- REST API at `src/api/` with full OpenAPI documentation
+- SSE streaming for chat responses
+- Workspace management endpoints
+- Model configuration endpoints
+- Health check endpoint
+
+**API Endpoints**:
+- `POST /api/chat` - Chat with streaming (SSE)
+- `GET /api/workspaces` - List workspaces
+- `GET /api/workspaces/{name}` - Workspace details
+- `POST /api/workspaces/{name}/index` - Trigger indexing
+- `GET /api/models` - List available models
+- `GET /api/config` - Get configuration
+
+**Next Steps**: Build React/Next.js frontend that can be:
 - Web app (React/Next.js)
 - Mobile apps (React Native or native iOS/Android)
 - Voice interfaces
-- This aligns with RaGenie architecture plans
 
 ## Success Metrics
 
