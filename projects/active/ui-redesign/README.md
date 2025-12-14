@@ -18,12 +18,12 @@ This project redesigns Ragbot's user interface to better reflect its core value 
 
 ## Solution
 
-A new layout with:
-- Top bar for primary controls
-- RAG enabled by default
-- Auto-indexing when index is missing
-- Dedicated index management screen
+A modern architecture with:
+- FastAPI backend with REST API and SSE streaming
+- React/Next.js frontend (replacing Streamlit)
+- RAG enabled by default with auto-indexing
 - Full-width chat area
+- Mobile and voice interface ready
 
 ## Documents
 
@@ -34,7 +34,9 @@ A new layout with:
 
 ## Quick Links
 
-- **Source Code:** `ragbot/src/ragbot_streamlit.py`
+- **Backend API:** `ragbot/src/api/`
+- **Core Library:** `ragbot/src/ragbot/`
+- **Streamlit (legacy):** `ragbot/src/ragbot_streamlit.py`
 
 ## Related Projects
 
@@ -50,8 +52,7 @@ A new layout with:
 | Phase 1: RAG as Default | ✅ Complete | Enable RAG by default, auto-indexing |
 | Phase 2: FastAPI Backend | ✅ Complete | REST API with SSE streaming |
 | Phase 3: Core Library | ✅ Complete | `src/ragbot/` package extraction |
-| Phase 4: Index Management | Pending | Dedicated index operations screen |
-| Phase 5: React Frontend | Pending | Modern web UI (replaces Streamlit) |
+| Phase 4: React Frontend | Pending | Modern web UI (replaces Streamlit) |
 
 ### Phase 1 Completed (2025-12-14)
 

@@ -94,81 +94,35 @@
 ### Planned
 
 1. **React/Next.js Frontend**
-   - Connect to FastAPI backend
-   - SSE handling for streaming chat
-   - Responsive design
+   - Connect to FastAPI backend at `/api/*`
+   - SSE handling for streaming chat responses
+   - Responsive design for desktop and mobile
 
-2. **Features**
-   - Workspace selector
-   - Model selector
+2. **Core Features**
+   - Workspace selector dropdown
+   - Model selector with provider grouping
    - Chat interface with streaming
-   - Index management UI
+   - Index status indicator and management
 
----
+3. **Technical Stack**
+   - Next.js 14+ with App Router
+   - TypeScript
+   - Tailwind CSS
+   - SSE client for streaming
 
-## Phase 4: Index Management Screen (Priority: Medium)
+### Files to Create
 
-**Goal**: Dedicated screen for index operations
-
-### Tasks
-
-1. **Create index management page**
-   - Could be a separate Streamlit page or modal
-   - Show all workspaces and their index status
-
-2. **Index operations**
-   - Rebuild index from compiled content
-   - Recompile from sources (trigger AI Knowledge Compiler)
-   - Clear index
-   - Index all workspaces
-
-3. **Status indicators**
-   - ✅ Ready: Index exists and is current
-   - ⚠️ Stale: Index exists but source files are newer
-   - ❌ None: No index exists
-
-### Files to Modify
-
-- New: `src/ui/index_management.py`
-- `src/rag.py` (add status checking methods)
-
----
-
-## Phase 5: Compiler Integration (Priority: Low)
-
-**Goal**: Ability to recompile from sources within Ragbot
-
-### Tasks
-
-1. **Add compiler trigger**
-   - Call AI Knowledge Compiler from Ragbot
-   - Show compilation progress
-   - Refresh index after compilation
-
-2. **Watch mode** (future)
-   - Detect source file changes
-   - Auto-recompile and re-index
-
-### Files to Modify
-
-- `src/ui/index_management.py`
-- `src/compiler/` (if needed)
+- `ragbot-web/` or `web/` directory with Next.js project
 
 ---
 
 ## Technical Considerations
 
-### Streamlit Limitations
+### API Integration
 
-- No native modal support (use `st.dialog` in newer versions or custom CSS)
-- Limited layout control (use `st.columns`, custom CSS)
-- State management complexity (use session state carefully)
-
-### RAG Auto-Indexing
-
-- First query may be slow (indexing happens in background)
-- Need progress indicator during indexing
-- Consider lazy indexing (index on demand, not all at once)
+- FastAPI backend runs on port 8000
+- CORS configured for localhost:3000
+- SSE streaming via EventSource API
 
 ### Mobile Responsiveness
 
@@ -177,17 +131,8 @@
 
 ---
 
-## Open Questions
-
-1. **Multi-page vs Single-page**: Should Index Management be a separate page or a modal?
-2. **Keyboard Shortcuts**: Should we add keyboard shortcuts (Cmd+K for settings, etc.)?
-3. **Theme Support**: Should we support dark/light themes?
-4. **Mobile First**: How important is mobile support?
-
----
-
 ## References
 
-- [Claude Desktop UI](https://claude.ai) - Reference for collapsible sidebar
-- [ChatGPT UI](https://chatgpt.com) - Reference for clean chat interface
-- [Streamlit Components](https://docs.streamlit.io/library/components) - Available UI elements
+- [Claude Desktop UI](https://claude.ai) - Reference for clean chat interface
+- [ChatGPT UI](https://chatgpt.com) - Reference for streaming responses
+- [Next.js Documentation](https://nextjs.org/docs) - React framework
