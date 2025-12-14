@@ -48,8 +48,8 @@ A new layout with:
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 1: RAG as Default | ✅ Complete | Enable RAG by default, auto-indexing |
-| Phase 2: Top Bar Layout | Pending | Replace sidebar with horizontal top bar |
-| Phase 3: Settings Modal | Pending | Modal dialog for advanced settings |
+| Phase 2: Top Bar Layout | 🚧 Deferred | Replace sidebar with horizontal top bar |
+| Phase 3: Settings Modal | 🚧 Deferred | Modal dialog for advanced settings |
 | Phase 4: Index Management | Pending | Dedicated index operations screen |
 | Phase 5: Compiler Integration | Pending | Rebuild from sources within UI |
 
@@ -63,11 +63,24 @@ Changes made:
 - Index button label changes based on status (Index Workspace / Rebuild Index)
 - `helpers.py` updated to default `use_rag=True`
 
+### Phase 2 & 3 Deferred
+
+**Reason**: Streamlit's layout limitations make a proper top bar difficult:
+- Streamlit header overlaps custom top elements
+- Deploy button cannot be hidden
+- Need to consider migration to React/Next.js for better UI control
+
+**Future approach**: Build a FastAPI backend service, then create React frontend that can be:
+- Web app (React/Next.js)
+- Mobile apps (React Native or native iOS/Android)
+- Voice interfaces
+- This aligns with RaGenie architecture plans
+
 ## Success Metrics
 
 | Metric | Before | After Phase 1 | Target |
 |--------|--------|---------------|--------|
 | Steps to enable RAG | 3+ clicks | 0 (automatic) | ✅ Done |
-| Visible settings truncation | Yes | Yes | No (Phase 2) |
-| Chat area width | ~70% | ~70% | ~95% (Phase 2) |
+| Visible settings truncation | Yes | Yes | Deferred |
+| Chat area width | ~70% | ~70% | Deferred |
 | Time to first RAG query | Manual index required | Auto-indexed | ✅ Done |

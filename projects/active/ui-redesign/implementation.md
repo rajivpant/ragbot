@@ -29,56 +29,58 @@
 
 ---
 
-## Phase 2: Top Bar Layout (Priority: High)
+## Phase 2: Top Bar Layout (Priority: Medium) 🚧 DEFERRED
 
 **Goal**: Replace narrow sidebar with horizontal top bar
 
-### Tasks
+**Status**: Attempted and reverted due to Streamlit framework limitations.
+
+### Issues Encountered
+
+1. **Streamlit header overlap** - Custom top bar elements were covered by Streamlit's built-in header
+2. **Deploy button** - Streamlit's "Deploy" button appeared and could not be hidden via CSS
+3. **Dropdown rendering** - Selectboxes rendered as gray bars instead of proper dropdowns
+4. **CSS limitations** - Streamlit's internal styling conflicts with custom CSS overrides
+
+### Original Planned Tasks
 
 1. **Create new layout structure**
    - Use `st.columns()` for top bar elements
-   - Remove sidebar (`st.sidebar`)
-   - Use full page width for chat
+   - Remove sidebar via CSS
+   - Full-width chat area
 
 2. **Implement top bar components**
    - Workspace selector (dropdown)
-   - Model selector (dropdown with provider grouping)
-   - Creativity selector (preset dropdown)
-   - Settings button (opens modal)
-   - Index button (opens index management)
+   - Combined model selector
+   - Creativity selector
+   - Settings popover
 
-3. **Style improvements**
-   - Custom CSS for compact top bar
-   - Responsive design for different screen sizes
+### Future Approach
 
-### Files to Modify
-
-- `src/ragbot_streamlit.py`
-- New: `src/ui/top_bar.py`
-- New: `src/ui/styles.css`
+Per strategic decision (2025-12-14), these layout improvements are deferred until:
+- Migration to FastAPI backend + React/Next.js frontend
+- This will enable proper UI control, mobile apps, and voice interfaces
+- See README.md for full rationale
 
 ---
 
-## Phase 3: Settings Modal (Priority: Medium)
+## Phase 3: Settings Modal (Priority: Medium) 🚧 DEFERRED
 
 **Goal**: Replace sidebar settings with modal dialog
 
-### Tasks
+**Status**: Merged into Phase 2, deferred along with it.
 
-1. **Create modal component**
-   - Use Streamlit's `st.dialog` or custom implementation
+### Original Planned Tasks
+
+1. **Create settings popover**
+   - Use `st.popover()` for settings panel
    - Organize settings into logical groups
 
 2. **Settings groups**
-   - Model Configuration (provider, model, max tokens)
-   - RAG Configuration (toggle, context tokens)
-   - Conversation (history stats, clear button)
-   - Debug Info (file counts, token counts, index stats)
-
-### Files to Modify
-
-- `src/ragbot_streamlit.py`
-- New: `src/ui/settings_modal.py`
+   - RAG Configuration
+   - Response Settings
+   - Conversation controls
+   - Advanced options
 
 ---
 
