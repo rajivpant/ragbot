@@ -56,7 +56,7 @@ A modern architecture with:
 | Phase 4: Docker Setup | ✅ Complete | Full Docker Compose configuration |
 | Phase 5: Config & Models | ✅ Complete | engines.yaml integration, all 9 models tested |
 | Phase 6: Testing | ✅ Complete | 82 tests passing (config, keystore, API, helpers) |
-| Phase 7: Cleanup | 🔄 Planned | Remove Streamlit, legacy code cleanup |
+| Phase 7: Cleanup | ✅ Complete | Streamlit removed, legacy code cleaned up |
 
 ### Phase 1 Completed (2025-12-14)
 
@@ -274,3 +274,43 @@ These items are documented for potential future projects. They don't block curre
 - A/B testing different approaches
 
 **Decision**: Current behavior is correct and functional. Revisit only if user feedback indicates problems with model switching experience
+
+### Mobile Interface
+
+**Current state**: React UI is responsive but not optimized for mobile.
+
+**Future enhancement**: Mobile-first improvements:
+- Touch-friendly controls
+- Swipe gestures for settings panel
+- PWA (Progressive Web App) support for home screen install
+- Offline mode with cached conversations
+
+### Voice Interface
+
+**Current state**: Text-only input.
+
+**Future enhancement**: Voice input/output:
+- Speech-to-text for input
+- Text-to-speech for responses
+- Wake word activation
+- Integration with device assistants
+
+### Conversation Management
+
+**Current state**: Conversations are ephemeral (lost on refresh).
+
+**Future enhancement**: Persistent conversations:
+- Save/load conversation history
+- Named conversation threads
+- Search across past conversations
+- Export conversations (markdown, JSON)
+
+### Multi-User / Authentication
+
+**Current state**: Single-user, no authentication.
+
+**Future enhancement**: Multi-user support:
+- User accounts with workspace permissions
+- Shared workspaces for teams
+- Per-user API key management
+- Usage tracking and quotas

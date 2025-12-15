@@ -68,3 +68,42 @@ A compilation pipeline that:
 |---------|------|---------|
 | 0.2.0 | 2025-12-14 | Inheritance merging, context filtering, knowledge/full/ and by-context/ output |
 | 0.1.0 | 2025-12-13 | Initial compiler with convention-based discovery and LLM compilation |
+
+## Future Considerations
+
+These items are documented for potential future projects. They don't block current project completion.
+
+### CI/CD Integration
+
+**Current state**: Compiler runs manually via `ragbot compile` CLI.
+
+**Future project**: GitHub Actions workflow for auto-compilation:
+- Trigger on changes to `source/` in any ai-knowledge repo
+- Run `--dry-run` validation first
+- Commit compiled output if validation passes
+- Post-compilation hooks (e.g., sync to Claude Projects)
+
+### Token Budget Enforcement
+
+**Current state**: No hard limits on compiled output size.
+
+**Future enhancement**: Prevent output exceeding LLM context windows:
+- Token counting during compilation
+- Per-LLM limits (Claude 200K, GPT 400K, Gemini 1M)
+- Warnings at 80%, errors at limit
+
+### Dry-Run / Validation Mode
+
+**Current state**: Compiler writes output directly.
+
+**Future enhancement**: `ragbot compile --dry-run` to validate without writing:
+- Check inheritance chains
+- Report missing files
+- Catch privacy leaks before they happen
+
+### Sync Status Dashboard
+
+**Future enhancement**: Visibility into compilation state:
+- Last compile time per repo
+- Files changed since last compile
+- Inheritance tree visualization
