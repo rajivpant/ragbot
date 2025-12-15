@@ -6,14 +6,33 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 
 ## Repository Ecosystem
 
+### Core Repositories
+
 | Repository | Type | Purpose | Location |
 |------------|------|---------|----------|
 | **ragbot** | Public | AI assistant CLI and Streamlit UI | `~/projects/my-projects/ragbot/` |
 | **ragbot-site** | Public | Website for ragbot.ai | `~/projects/my-projects/ragbot-site/` |
 | **ragenie** | Public | Next-gen RAG platform | `~/projects/my-projects/ragenie/` |
 | **ragenie-site** | Public | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
-| **ragbot-data** | Private | Shared data for both products | `~/ragbot-data/` |
+| **ragbot-data** | Private | DEPRECATED - kept for workspace history | `~/ragbot-data/` |
 | **synthesis-coding-site** | Public | Website for synthesiscoding.com | `~/projects/my-projects/synthesis-coding-site/` |
+
+### AI Knowledge Repositories
+
+All located in `~/projects/my-projects/ai-knowledge/`. See `ai-knowledge-rajiv/my-projects.yaml` for the authoritative list.
+
+| Repository | GitHub Org | Type | Inherits From |
+|------------|------------|------|---------------|
+| **ai-knowledge-ragbot** | rajivpant | Public | (root) |
+| **ai-knowledge-rajiv** | rajivpant | Private | ragbot |
+| **ai-knowledge-example-company** | rajivpant | Private | rajiv |
+| **ai-knowledge-example-client** | rajivpant | Private | example-company |
+| **ai-knowledge-example-client** | rajivpant | Private | example-company |
+| **ai-knowledge-example-client** | rajivpant | Private | example-company |
+| **ai-knowledge-example-client** | rajivpant | Private | rajiv |
+| **ai-knowledge-example-client** | tgorg-ai | Private | rajiv, example-company |
+
+**Note:** example-client is in a different GitHub org (`tgorg-ai`), not `rajivpant`.
 
 Note: Home directory varies by machine (`/Users/rajiv` vs `/Users/rajivpant`), so use `~` for paths.
 
