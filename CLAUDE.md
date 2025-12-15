@@ -92,26 +92,12 @@ Each ai-knowledge repo contains:
 
 **⚠️ THIS IS A PUBLIC REPOSITORY - CONFIDENTIALITY IS CRITICAL ⚠️**
 
-### NEVER include in docs or code
+### Rules
 
-These names are CONFIDENTIAL and must NEVER appear in this repo:
-
-- **Client names**: example-client, example-client, example-client, example-client, example-client
-- **Company names**: example-company
-- **Personal name**: rajiv (in generic examples - use "personal" instead)
-- **GitHub orgs**: tgorg-ai
-- Any workspace name from `my-projects.yaml` except "ragbot"
-
-### Safe to use
-
-- `ragbot` (this repo's name, public)
-- Generic placeholders: `personal`, `company`, `example-company`, `example-client`, `client-a`
-
-### Before ANY edit or commit
-
-1. **Search for confidential names**: `grep -ri "example-client\|example-client\|example-company\|example-client\|example-client\|example-client\|rajiv" .`
-2. **Replace with generic names** if any found
-3. **Ask the user** if unsure whether a name is confidential
+- **NEVER** include client, company, or personal workspace names
+- **ONLY** use generic placeholders: `personal`, `company`, `example-company`, `example-client`, `client-a`
+- The list of confidential names is in `~/.claude/CLAUDE.md` (private, not in any repo)
+- When in doubt, ask the user before committing
 
 ## Key Concepts
 
