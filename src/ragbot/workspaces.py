@@ -53,7 +53,8 @@ def discover_ai_knowledge_repos(ai_knowledge_root: str) -> Dict[str, Dict[str, A
                 config = yaml.safe_load(f) or {}
 
         # Check compiled content locations
-        compiled_base = os.path.join(repo_path, 'compiled', 'claude-projects')
+        # New flat structure: compiled/{project}/instructions/ and compiled/{project}/knowledge/
+        compiled_base = os.path.join(repo_path, 'compiled', workspace_name)
         instructions_dir = os.path.join(compiled_base, 'instructions')
         knowledge_dir = os.path.join(compiled_base, 'knowledge')
 
