@@ -408,8 +408,8 @@ ragbot chat -profile personal -p "What are my travel preferences?"
 # Use Anthropic Claude (loads claude.md instructions)
 ragbot chat -profile personal -e anthropic -p "Summarize my work history"
 
-# Use OpenAI GPT (loads chatgpt.md instructions)
-ragbot chat -profile personal -e openai -m gpt-4o -p "Summarize my work history"
+# Use OpenAI GPT-5.2 (loads chatgpt.md instructions)
+ragbot chat -profile personal -e openai -m gpt-5.2 -p "Summarize my work history"
 
 # Use Google Gemini (loads gemini.md instructions)
 ragbot chat -profile personal -e google -p "Summarize my work history"

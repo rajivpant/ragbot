@@ -131,7 +131,7 @@ Each compiled project produces:
 compiled/{project}/
 ├── instructions/           # LLM-specific custom instructions
 │   ├── claude.md           # For Anthropic models (Claude)
-│   ├── chatgpt.md          # For OpenAI models (GPT, o1, o3)
+│   ├── chatgpt.md          # For OpenAI models (GPT-5.x)
 │   └── gemini.md           # For Google models (Gemini)
 ├── knowledge/              # Individual knowledge files
 │   ├── runbooks-*.md
@@ -152,7 +152,7 @@ When using Ragbot (CLI or Web UI), the correct instruction file is **automatical
 | Model Type | Instruction File |
 |------------|------------------|
 | Anthropic models (Claude, claude-sonnet, claude-opus, etc.) | `instructions/claude.md` |
-| OpenAI models (GPT-4o, o1, o3, etc.) | `instructions/chatgpt.md` |
+| OpenAI models (GPT-5.x, etc.) | `instructions/chatgpt.md` |
 | Google models (Gemini, gemini-2.5-pro, etc.) | `instructions/gemini.md` |
 
 ### Mid-Conversation Model Switching
@@ -162,9 +162,9 @@ When users switch models mid-conversation in the Web UI, the system automaticall
 **Example flow:**
 1. User selects workspace "personal" and Claude model
 2. System loads `claude.md` instructions
-3. User switches to GPT-4o mid-conversation
+3. User switches to GPT-5.2 mid-conversation
 4. On next message, system automatically loads `chatgpt.md` instructions
-5. Conversation continues with GPT-4o-optimized instructions
+5. Conversation continues with GPT-5.2-optimized instructions
 
 ### Implementation Details
 
@@ -180,7 +180,7 @@ chat(
 
 chat(
     prompt="Hello",
-    model="gpt-4o",  # → loads chatgpt.md
+    model="gpt-5.2",  # → loads chatgpt.md
     workspace_name="personal"
 )
 ```

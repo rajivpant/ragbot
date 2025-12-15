@@ -138,7 +138,7 @@ def _get_engine_from_model(model: str) -> str:
     """Determine the engine/provider from a model name.
 
     Args:
-        model: Model identifier (e.g., "anthropic/claude-sonnet-4", "gpt-4o")
+        model: Model identifier (e.g., "anthropic/claude-sonnet-4", "gpt-5.2")
 
     Returns:
         Engine name ('anthropic', 'openai', or 'google')
@@ -161,7 +161,7 @@ def _load_llm_specific_instructions(workspace_name: str, model: str) -> str:
 
     The compiler generates separate instruction files for each LLM platform:
     - claude.md for Anthropic models (Claude)
-    - chatgpt.md for OpenAI models (GPT, o1, o3)
+    - chatgpt.md for OpenAI models (GPT-5.x)
     - gemini.md for Google Gemini models
 
     When a user switches models mid-conversation, this function ensures the
@@ -217,7 +217,7 @@ def chat(
     When workspace_name is provided and custom_instructions is empty, this function
     automatically loads the appropriate LLM-specific instructions based on the model:
     - Anthropic models (Claude) → compiled/{workspace}/instructions/claude.md
-    - OpenAI models (GPT, o1, o3) → compiled/{workspace}/instructions/chatgpt.md
+    - OpenAI models (GPT-5.x) → compiled/{workspace}/instructions/chatgpt.md
     - Google models (Gemini) → compiled/{workspace}/instructions/gemini.md
 
     This ensures that when users switch models mid-conversation, the correct
