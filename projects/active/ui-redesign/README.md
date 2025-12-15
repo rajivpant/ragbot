@@ -137,15 +137,23 @@ cd ragbot && docker compose up -d
 - Use `get_default_model()` to get default (reads from engines.yaml)
 - Frontend should fetch providers from `/api/models/providers` endpoint
 
-### Model Version Management
+### CRITICAL: Never Rely on Training Data for Model Information
 
-**Problem**: Model versions were downgraded or outdated versions were used.
+**Problem**: AI assistants (including Claude) have outdated training data. When asked to update model configurations, Claude repeatedly downgraded models to older versions it "knew" from training (e.g., GPT-4o instead of GPT-5.2, o3 instead of gpt-5.2-thinking).
 
-**Rule**: NEVER downgrade model versions. Always use the latest released models.
-- Check current date (December 2025)
-- Search for latest model versions from official sources
-- Update engines.yaml with latest models
-- Added rule to CLAUDE.md to prevent future violations
+**Impact**: This caused significant damage to the codebase and user frustration.
+
+**Rules added to CLAUDE.md**:
+1. NEVER downgrade model versions - ever
+2. DO NOT rely on training data for model information
+3. Always use web search to find current model versions
+4. If engines.yaml has a model configured, the user put it there intentionally
+5. Today's date is provided in system context - use it
+
+**Current models (December 2025)**:
+- OpenAI: gpt-5-mini, gpt-5.1, gpt-5.2, gpt-5.2-thinking
+- Anthropic: claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-5
+- Google: gemini-2.5-flash-lite, gemini-2.5-flash, gemini-3-pro-preview
 
 ### Single Source of Truth
 
@@ -157,6 +165,23 @@ cd ragbot && docker compose up -d
 - Context windows and output limits
 
 Code should NEVER duplicate this information. All code should call functions that read from engines.yaml.
+
+### LiteLLM Provider Prefixes
+
+**Problem**: OpenAI models returned blank responses because LiteLLM needs provider prefixes for routing.
+
+**Solution**: The `_normalize_model_id()` function in `config.py` adds the appropriate prefix:
+- Anthropic models: `anthropic/{model_name}`
+- OpenAI models: `openai/{model_name}`
+- Google models: Already have `gemini/` prefix in engines.yaml
+
+### Git Branch Strategy for Development
+
+**Practice**: Use feature branches for significant work:
+- Create `feature/react-ui` branch for development
+- Commit frequently to protect against data loss
+- Keep main branch stable for public users
+- Merge to main only when ready to publish
 
 ## Success Metrics
 

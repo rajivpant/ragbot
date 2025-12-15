@@ -34,13 +34,25 @@ All repositories are in the same VS Code workspace for unified development.
 ragbot/
 ├── src/
 │   ├── ragbot.py              # CLI entry point
-│   ├── ragbot_streamlit.py    # Streamlit web UI
-│   ├── helpers.py             # Shared utilities
-│   └── rag/                   # RAG module (planned)
-├── docker-compose.yml
+│   ├── ragbot/                # Core library (chat, config, models)
+│   ├── api/                   # FastAPI backend
+│   ├── rag.py                 # RAG module
+│   └── compiler/              # AI Knowledge Compiler
+├── web/                       # React/Next.js frontend
+│   ├── src/components/        # React components
+│   ├── src/lib/api.ts         # API client
+│   └── Dockerfile             # Frontend container
+├── docker-compose.yml         # Full stack deployment
 ├── requirements.txt
-├── engines.yaml               # LLM engine configurations
+├── engines.yaml               # LLM engine configurations (SINGLE SOURCE OF TRUTH)
 └── profiles.yaml              # User profiles
+```
+
+**Running the stack:**
+```bash
+cd ~/projects/my-projects/ragbot
+docker compose up -d
+# Access at http://localhost:3000
 ```
 
 ## Data Location
@@ -108,10 +120,21 @@ Each repo in the ecosystem has its own git history. Don't run git commands from 
 
 ## Development Notes
 
-- Python CLI with Streamlit UI
+- Python CLI with FastAPI backend + React/Next.js frontend
 - Uses LiteLLM for multi-provider LLM support
-- Engines configured in `engines.yaml`
+- Engines configured in `engines.yaml` (SINGLE SOURCE OF TRUTH for all model config)
 - Profiles/workspaces configured in `profiles.yaml`
+
+### Configuration Functions (from engines.yaml)
+
+All model/provider configuration comes from `engines.yaml`. Use these functions:
+- `load_engines_config()` - Load the raw configuration
+- `get_providers()` - Get list of provider names
+- `get_all_models()` - Get all models with full info
+- `get_default_model()` - Get the default model ID
+- `get_temperature_settings()` - Get temperature presets
+
+**NEVER hardcode model names, provider names, or defaults in code.**
 
 ## Model Configuration Rules - CRITICAL
 
