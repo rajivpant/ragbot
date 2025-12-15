@@ -200,9 +200,26 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     # Generate embeddings and create points
     points = []
     for chunk in chunks:
-        embedding = model.encode(chunk.text).tolist()
+        # Build text for embedding that includes filename and title for better semantic matching
+        # This helps queries like "show me my biography" match documents about biography
+        filename = chunk.metadata.get('filename', '')
+        title = chunk.metadata.get('title', '')
+
+        # Create embedding text with document context
+        embedding_parts = []
+        if filename:
+            # Convert filename to readable form: rajiv-pant-biography.md -> rajiv pant biography
+            readable_filename = filename.rsplit('.', 1)[0].replace('-', ' ').replace('_', ' ')
+            embedding_parts.append(f"Document: {readable_filename}")
+        if title:
+            embedding_parts.append(f"Title: {title}")
+        embedding_parts.append(chunk.text)
+
+        embedding_text = '\n'.join(embedding_parts)
+        embedding = model.encode(embedding_text).tolist()
+
         point_id = get_qdrant_point_id(chunk)
-        # Store text directly in payload for portable retrieval
+        # Store original text in payload for retrieval (not the embedding text)
         payload = {**chunk.metadata, 'text': chunk.text}
         points.append(PointStruct(
             id=point_id,
@@ -302,6 +319,32 @@ def search(workspace_name: str, query: str, limit: int = 5,
                 'metadata': result.payload
             })
 
+        # Re-rank: boost results where query terms appear in filename or title
+        # This improves results for queries like "show me my biography" where
+        # semantic search might not prioritize exact document name matches
+        query_terms = set(query.lower().split())
+        for item in formatted:
+            filename = item['metadata'].get('filename', '').lower()
+            title = item['metadata'].get('title', '').lower()
+
+            # Check for exact term matches in filename
+            filename_words = set(filename.replace('-', ' ').replace('_', ' ').replace('.md', '').split())
+            title_words = set(title.split()) if title else set()
+
+            # Boost score if query terms appear in filename or title
+            matching_filename_terms = query_terms & filename_words
+            matching_title_terms = query_terms & title_words
+
+            if matching_filename_terms:
+                # Significant boost for filename matches
+                item['score'] += 0.3 * len(matching_filename_terms)
+            if matching_title_terms:
+                # Moderate boost for title matches
+                item['score'] += 0.2 * len(matching_title_terms)
+
+        # Re-sort by boosted score
+        formatted.sort(key=lambda x: x['score'], reverse=True)
+
         return formatted
     except Exception as e:
         logger.error(f"Search failed: {e}")
@@ -323,7 +366,10 @@ def get_relevant_context(workspace_name: str, query: str,
     Returns:
         Formatted context string to include in the prompt
     """
-    results = search(workspace_name, query, limit=10)
+    # Fetch more results than needed to allow re-ranking to surface keyword matches
+    # Using 50 ensures we capture documents where filename matches query terms
+    # even if semantic similarity is low
+    results = search(workspace_name, query, limit=50)
 
     if not results:
         return ""
