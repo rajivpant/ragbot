@@ -202,10 +202,12 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     for chunk in chunks:
         embedding = model.encode(chunk.text).tolist()
         point_id = get_qdrant_point_id(chunk)
+        # Store text directly in payload for portable retrieval
+        payload = {**chunk.metadata, 'text': chunk.text}
         points.append(PointStruct(
             id=point_id,
             vector=embedding,
-            payload=chunk.metadata
+            payload=payload
         ))
 
     # Upsert points in batches
@@ -268,28 +270,31 @@ def search(workspace_name: str, query: str, limit: int = 5,
                 ]
             )
 
-        # Search
-        results = client.search(
+        # Search using query_points (qdrant-client >= 1.10)
+        results = client.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=limit,
             query_filter=search_filter
         )
 
         # Format results
         formatted = []
-        for result in results:
-            # Read the chunk text from the file
-            try:
-                source_file = result.payload.get('source_file', '')
-                char_start = result.payload.get('char_start', 0)
-                char_end = result.payload.get('char_end', 0)
+        for result in results.points:
+            # Get text directly from payload (stored during indexing)
+            # Fall back to file reading for backwards compatibility
+            text = result.payload.get('text', '')
+            if not text:
+                try:
+                    source_file = result.payload.get('source_file', '')
+                    char_start = result.payload.get('char_start', 0)
+                    char_end = result.payload.get('char_end', 0)
 
-                with open(source_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    text = content[char_start:char_end]
-            except:
-                text = "[Content not available]"
+                    with open(source_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        text = content[char_start:char_end]
+                except:
+                    text = "[Content not available]"
 
             formatted.append({
                 'text': text,

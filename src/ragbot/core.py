@@ -287,6 +287,8 @@ def chat(
                     )
             except ImportError:
                 pass
+            except Exception:
+                pass
 
         if curated_datasets:
             system_content = f"{system_content}\n{curated_datasets}" if system_content else curated_datasets
