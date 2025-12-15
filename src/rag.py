@@ -15,14 +15,21 @@
 # - HyDE (Hypothetical Document Embeddings)
 # - Provider-agnostic model selection via engines.yaml categories
 #
+# Phase 3 Improvements (December 2025):
+# - BM25/keyword search alongside vector search (hybrid retrieval)
+# - Reciprocal Rank Fusion (RRF) for result merging
+# - LLM-based reranking with provider's fast model
+#
 # Author: Rajiv Pant
 
 import os
 import re
 import json
+import math
 import logging
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, List, Tuple, Any, Set
 from pathlib import Path
+from collections import Counter
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -231,6 +238,451 @@ Query: "{query}"
 
 Write 2-3 sentences that a relevant document would contain. Be factual and specific.
 Do not include any preamble or explanation, just the hypothetical content."""
+
+# =============================================================================
+# Phase 3: Advanced Retrieval (BM25, RRF, Reranking)
+# =============================================================================
+
+# Reranker prompt template - scores query-document relevance
+RERANKER_PROMPT = """You are a relevance scoring assistant for a RAG system.
+Score how relevant each document chunk is to the user's query.
+
+User query: "{query}"
+
+For each chunk below, output a relevance score from 0-10:
+- 0-2: Not relevant (off-topic, wrong context)
+- 3-4: Marginally relevant (tangentially related)
+- 5-6: Somewhat relevant (contains related information)
+- 7-8: Relevant (answers part of the query)
+- 9-10: Highly relevant (directly answers the query)
+
+Chunks to score:
+{chunks}
+
+Respond with JSON only (no markdown):
+{{
+  "scores": [score1, score2, score3, ...]
+}}
+
+Important: Return exactly {num_chunks} scores in the same order as the chunks."""
+
+
+def bm25_tokenize(text: str) -> List[str]:
+    """Tokenize text for BM25 search.
+
+    Simple tokenizer that:
+    - Converts to lowercase
+    - Splits on non-alphanumeric characters
+    - Removes very short tokens
+    - Removes common stop words
+
+    Args:
+        text: Text to tokenize
+
+    Returns:
+        List of tokens
+    """
+    # Simple tokenization: lowercase, split on non-alphanumeric
+    tokens = re.findall(r'\b[a-z0-9]+\b', text.lower())
+
+    # Remove stop words and very short tokens
+    stop_words = {
+        'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+        'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+        'will', 'would', 'could', 'should', 'may', 'might', 'must',
+        'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from',
+        'it', 'its', 'this', 'that', 'these', 'those',
+        'i', 'me', 'my', 'you', 'your', 'we', 'our', 'they', 'their',
+        'what', 'which', 'who', 'whom', 'when', 'where', 'why', 'how',
+        'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other',
+        'some', 'such', 'no', 'not', 'only', 'same', 'so', 'than', 'too',
+        'very', 'just', 'can', 'now', 'as', 'if', 'then', 'else', 'also'
+    }
+
+    return [t for t in tokens if len(t) > 1 and t not in stop_words]
+
+
+class BM25Index:
+    """Simple BM25 index for keyword search.
+
+    BM25 (Best Matching 25) is a ranking function used for information retrieval.
+    It considers term frequency, document frequency, and document length.
+
+    This implementation is designed for in-memory use with Ragbot's RAG system.
+    """
+
+    def __init__(self, k1: float = 1.5, b: float = 0.75):
+        """Initialize BM25 index.
+
+        Args:
+            k1: Term frequency saturation parameter (default: 1.5)
+            b: Document length normalization parameter (default: 0.75)
+        """
+        self.k1 = k1
+        self.b = b
+        self.documents: List[Dict] = []  # Store original documents
+        self.doc_tokens: List[List[str]] = []  # Tokenized documents
+        self.doc_lengths: List[int] = []  # Document lengths
+        self.avg_doc_length: float = 0.0
+        self.doc_freqs: Dict[str, int] = Counter()  # Document frequencies
+        self.term_freqs: List[Counter] = []  # Term frequencies per document
+
+    def add_documents(self, documents: List[Dict], text_field: str = 'text'):
+        """Add documents to the index.
+
+        Args:
+            documents: List of document dicts with text and metadata
+            text_field: Field containing the text to index
+        """
+        for doc in documents:
+            text = doc.get(text_field, '')
+            # Also include filename and title in indexable text
+            filename = doc.get('metadata', {}).get('filename', '')
+            title = doc.get('metadata', {}).get('title', '')
+
+            # Combine text with filename/title for better keyword matching
+            full_text = f"{filename} {title} {text}"
+            tokens = bm25_tokenize(full_text)
+
+            self.documents.append(doc)
+            self.doc_tokens.append(tokens)
+            self.doc_lengths.append(len(tokens))
+
+            # Count term frequencies for this document
+            tf = Counter(tokens)
+            self.term_freqs.append(tf)
+
+            # Update document frequencies (how many docs contain each term)
+            for term in set(tokens):
+                self.doc_freqs[term] += 1
+
+        # Update average document length
+        if self.doc_lengths:
+            self.avg_doc_length = sum(self.doc_lengths) / len(self.doc_lengths)
+
+    def search(self, query: str, limit: int = 10) -> List[Tuple[Dict, float]]:
+        """Search for documents matching the query.
+
+        Args:
+            query: Search query
+            limit: Maximum number of results
+
+        Returns:
+            List of (document, score) tuples, sorted by score descending
+        """
+        if not self.documents:
+            return []
+
+        query_tokens = bm25_tokenize(query)
+        if not query_tokens:
+            return []
+
+        n_docs = len(self.documents)
+        scores = []
+
+        for doc_idx in range(n_docs):
+            score = 0.0
+            doc_length = self.doc_lengths[doc_idx]
+            tf = self.term_freqs[doc_idx]
+
+            for term in query_tokens:
+                if term not in self.doc_freqs:
+                    continue
+
+                # IDF: Inverse Document Frequency
+                df = self.doc_freqs[term]
+                idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1)
+
+                # TF: Term Frequency with BM25 normalization
+                term_freq = tf.get(term, 0)
+                tf_norm = (term_freq * (self.k1 + 1)) / (
+                    term_freq + self.k1 * (1 - self.b + self.b * doc_length / self.avg_doc_length)
+                )
+
+                score += idf * tf_norm
+
+            if score > 0:
+                scores.append((self.documents[doc_idx], score))
+
+        # Sort by score descending
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return scores[:limit]
+
+
+def reciprocal_rank_fusion(
+    result_lists: List[List[Tuple[Dict, float]]],
+    k: int = 60
+) -> List[Tuple[Dict, float]]:
+    """Merge multiple ranked result lists using Reciprocal Rank Fusion.
+
+    RRF is a simple but effective method for combining ranked lists.
+    Score = sum(1 / (k + rank)) for each list where the document appears.
+
+    Args:
+        result_lists: List of ranked result lists, each containing (document, score) tuples
+        k: Constant to prevent high ranks from dominating (default: 60)
+
+    Returns:
+        Merged list of (document, rrf_score) tuples, sorted by RRF score
+    """
+    # Create unique key for each document
+    def doc_key(doc: Dict) -> str:
+        metadata = doc.get('metadata', doc)
+        filename = metadata.get('filename', '')
+        char_start = metadata.get('char_start', 0)
+        return f"{filename}:{char_start}"
+
+    # Calculate RRF scores
+    rrf_scores: Dict[str, float] = {}
+    doc_map: Dict[str, Dict] = {}
+
+    for result_list in result_lists:
+        for rank, (doc, _original_score) in enumerate(result_list, start=1):
+            key = doc_key(doc)
+            rrf_scores[key] = rrf_scores.get(key, 0) + 1 / (k + rank)
+            doc_map[key] = doc
+
+    # Sort by RRF score
+    sorted_results = sorted(
+        [(doc_map[key], score) for key, score in rrf_scores.items()],
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return sorted_results
+
+
+def rerank_with_llm(
+    query: str,
+    results: List[Dict],
+    user_model: Optional[str] = None,
+    workspace: Optional[str] = None,
+    top_k: int = 20
+) -> List[Dict]:
+    """Rerank search results using an LLM for relevance scoring.
+
+    Uses the provider's fast model to score each result's relevance
+    to the query, then reorders by LLM score.
+
+    Args:
+        query: Original user query
+        results: List of search results with 'text' and 'metadata'
+        user_model: User's selected model (for provider selection)
+        workspace: Workspace name for API key resolution
+        top_k: Number of top results to rerank (default: 20)
+
+    Returns:
+        Reranked results with 'llm_score' added
+    """
+    if not results:
+        return results
+
+    # Only rerank top_k results to control costs/latency
+    to_rerank = results[:top_k]
+    rest = results[top_k:]
+
+    # Format chunks for the prompt
+    chunk_texts = []
+    for i, result in enumerate(to_rerank):
+        text = result.get('text', '')[:500]  # Truncate for prompt size
+        filename = result.get('metadata', {}).get('filename', 'unknown')
+        chunk_texts.append(f"[{i+1}] {filename}: {text}")
+
+    chunks_str = "\n\n".join(chunk_texts)
+
+    # Build and send prompt
+    prompt = RERANKER_PROMPT.format(
+        query=query,
+        chunks=chunks_str,
+        num_chunks=len(to_rerank)
+    )
+
+    response = _call_fast_llm(prompt, user_model, workspace)
+
+    if response:
+        try:
+            # Parse JSON response
+            json_str = response
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0]
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0]
+
+            result_data = json.loads(json_str.strip())
+            scores = result_data.get('scores', [])
+
+            # Apply LLM scores
+            for i, result in enumerate(to_rerank):
+                if i < len(scores):
+                    llm_score = float(scores[i])
+                    result['llm_score'] = llm_score
+                    # Combine with original score (weighted average)
+                    original_score = result.get('score', 0.5)
+                    result['combined_score'] = 0.3 * original_score + 0.7 * (llm_score / 10)
+                else:
+                    result['llm_score'] = 5.0  # Default middle score
+                    result['combined_score'] = result.get('score', 0.5)
+
+            # Sort by combined score
+            to_rerank.sort(key=lambda x: x.get('combined_score', 0), reverse=True)
+
+            logger.info(f"LLM reranking complete: top scores = {[r.get('llm_score', 0) for r in to_rerank[:5]]}")
+
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse reranker response: {e}")
+            # Fall back to original order
+            for result in to_rerank:
+                result['llm_score'] = None
+                result['combined_score'] = result.get('score', 0.5)
+    else:
+        # LLM unavailable - use original scores
+        logger.info("LLM reranking skipped (no fast model available)")
+        for result in to_rerank:
+            result['llm_score'] = None
+            result['combined_score'] = result.get('score', 0.5)
+
+    # Combine reranked and rest
+    return to_rerank + rest
+
+
+def hybrid_search(
+    workspace_name: str,
+    query: str,
+    limit: int = 50,
+    content_type: Optional[str] = None,
+    use_bm25: bool = True,
+    use_rrf: bool = True
+) -> List[Dict]:
+    """Perform hybrid search combining vector and BM25 search.
+
+    This is the core Phase 3 retrieval function. It:
+    1. Runs vector (semantic) search
+    2. Runs BM25 (keyword) search
+    3. Merges results using Reciprocal Rank Fusion
+
+    Args:
+        workspace_name: Workspace to search
+        query: Search query
+        limit: Maximum number of results
+        content_type: Filter by content type
+        use_bm25: Enable BM25 keyword search
+        use_rrf: Use RRF to merge results (vs simple concatenation)
+
+    Returns:
+        List of search results with 'text', 'score', 'metadata'
+    """
+    # Step 1: Vector search (existing implementation)
+    vector_results = search(workspace_name, query, limit=limit, content_type=content_type)
+
+    if not use_bm25:
+        return vector_results
+
+    # Step 2: BM25 search
+    # First, we need to get all documents to build the BM25 index
+    # For efficiency, we'll use the vector search results as the corpus
+    # (This is a practical trade-off: full BM25 would require loading all docs)
+
+    client = _get_qdrant_client()
+    if not client:
+        return vector_results
+
+    collection_name = get_collection_name(workspace_name)
+
+    try:
+        # Get documents for BM25 indexing
+        # We fetch more candidates for BM25 to search through
+        all_points = []
+        offset = None
+
+        # Limit scrolling to avoid memory issues
+        max_scroll = 500
+        while len(all_points) < max_scroll:
+            result = client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False
+            )
+            points, next_offset = result
+            all_points.extend(points)
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        if not all_points:
+            return vector_results
+
+        # Build BM25 index
+        bm25_docs = []
+        for point in all_points:
+            payload = point.payload
+            # Apply content_type filter
+            if content_type and payload.get('content_type') != content_type:
+                continue
+            bm25_docs.append({
+                'text': payload.get('text', ''),
+                'metadata': payload
+            })
+
+        if not bm25_docs:
+            return vector_results
+
+        bm25_index = BM25Index()
+        bm25_index.add_documents(bm25_docs)
+
+        # Search with BM25
+        bm25_results_raw = bm25_index.search(query, limit=limit)
+
+        # Convert to standard format
+        bm25_results = []
+        for doc, score in bm25_results_raw:
+            bm25_results.append({
+                'text': doc.get('text', ''),
+                'score': score,
+                'metadata': doc.get('metadata', {})
+            })
+
+        logger.info(f"Hybrid search: {len(vector_results)} vector, {len(bm25_results)} BM25")
+
+        # Step 3: Merge results
+        if use_rrf and vector_results and bm25_results:
+            # Prepare for RRF
+            vector_list = [(r, r['score']) for r in vector_results]
+            bm25_list = [(r, r['score']) for r in bm25_results]
+
+            # Apply RRF
+            merged = reciprocal_rank_fusion([vector_list, bm25_list])
+
+            # Convert back to standard format
+            final_results = []
+            for doc, rrf_score in merged[:limit]:
+                result = doc.copy()
+                result['rrf_score'] = rrf_score
+                # Preserve original score if present
+                if 'score' not in result:
+                    result['score'] = rrf_score
+                final_results.append(result)
+
+            return final_results
+        else:
+            # Simple merge (concatenate and dedupe)
+            seen = set()
+            merged = []
+
+            for r in vector_results + bm25_results:
+                key = (r['metadata'].get('filename', ''), r['metadata'].get('char_start', 0))
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(r)
+
+            # Sort by score
+            merged.sort(key=lambda x: x['score'], reverse=True)
+            return merged[:limit]
+
+    except Exception as e:
+        logger.error(f"Hybrid search failed: {e}")
+        return vector_results
 
 
 def _get_fast_model(user_model: Optional[str] = None) -> Optional[str]:
@@ -1063,7 +1515,8 @@ def search(workspace_name: str, query: str, limit: int = 5,
 def get_relevant_context(workspace_name: str, query: str,
                          max_tokens: int = 16000,
                          user_model: Optional[str] = None,
-                         use_phase2: bool = True) -> str:
+                         use_phase2: bool = True,
+                         use_phase3: bool = True) -> str:
     """
     Get relevant context for a query, formatted for LLM consumption.
 
@@ -1081,12 +1534,18 @@ def get_relevant_context(workspace_name: str, query: str,
     - HyDE (Hypothetical Document Embeddings)
     - Provider-agnostic model selection via engines.yaml categories
 
+    Phase 3 Improvements:
+    - Hybrid search (vector + BM25 keyword search)
+    - Reciprocal Rank Fusion for result merging
+    - LLM-based reranking with provider's fast model
+
     Args:
         workspace_name: Name of the workspace
         query: User's query
         max_tokens: Maximum tokens for retrieved context (default: 16000)
         user_model: User's selected model (for provider-specific fast model)
         use_phase2: Enable Phase 2 LLM-powered features (default: True)
+        use_phase3: Enable Phase 3 hybrid search and reranking (default: True)
 
     Returns:
         Formatted context string to include in the prompt
@@ -1136,6 +1595,7 @@ def get_relevant_context(workspace_name: str, query: str,
 
     # Step 3: Multi-query search with result fusion
     # Phase 2: Search with multiple query variations and merge results
+    # Phase 3: Use hybrid search (vector + BM25) with RRF
     all_results = []
     seen_chunks = set()  # Track by (filename, char_start) to avoid duplicates
 
@@ -1143,7 +1603,15 @@ def get_relevant_context(workspace_name: str, query: str,
 
     # Search with each expanded query
     for expanded_query in expanded_queries[:7]:  # Limit to 7 queries max
-        results = search(workspace_name, expanded_query, limit=50)
+        # Phase 3: Use hybrid search if enabled
+        if use_phase3:
+            results = hybrid_search(
+                workspace_name, expanded_query, limit=50,
+                use_bm25=True, use_rrf=True
+            )
+        else:
+            results = search(workspace_name, expanded_query, limit=50)
+
         for result in results:
             # Create a unique key for this chunk
             filename = result['metadata'].get('filename', '')
@@ -1158,7 +1626,14 @@ def get_relevant_context(workspace_name: str, query: str,
     hyde_doc = query_info.get('hyde_document')
     if hyde_doc:
         logger.info("Running HyDE search with hypothetical document")
-        hyde_results = search(workspace_name, hyde_doc, limit=30, use_preprocessing=False)
+        if use_phase3:
+            hyde_results = hybrid_search(
+                workspace_name, hyde_doc, limit=30,
+                use_bm25=True, use_rrf=True
+            )
+        else:
+            hyde_results = search(workspace_name, hyde_doc, limit=30, use_preprocessing=False)
+
         for result in hyde_results:
             filename = result['metadata'].get('filename', '')
             char_start = result['metadata'].get('char_start', 0)
@@ -1171,7 +1646,19 @@ def get_relevant_context(workspace_name: str, query: str,
                 all_results.append(result)
 
     # Sort all results by score
-    all_results.sort(key=lambda x: x['score'], reverse=True)
+    all_results.sort(key=lambda x: x.get('rrf_score', x.get('score', 0)), reverse=True)
+
+    # Step 3c: LLM-based reranking (Phase 3)
+    if use_phase3 and all_results:
+        logger.info(f"Running LLM reranking on {len(all_results)} results")
+        all_results = rerank_with_llm(
+            query, all_results,
+            user_model=user_model,
+            workspace=workspace_name,
+            top_k=20  # Only rerank top 20 for efficiency
+        )
+        # Re-sort by combined score after reranking
+        all_results.sort(key=lambda x: x.get('combined_score', x.get('score', 0)), reverse=True)
 
     if not all_results:
         return ""
@@ -1207,14 +1694,27 @@ def get_relevant_context(workspace_name: str, query: str,
     if not context_parts:
         return ""
 
-    # Add summary of sources and Phase 2 info
-    phase2_note = ""
+    # Add summary of sources and Phase 2/3 info
+    phase_notes = []
     if use_phase2 and query_info.get('phase2_enabled'):
-        phase2_note = f"<!-- Phase 2: {len(expanded_queries)} queries, HyDE={'yes' if hyde_doc else 'no'} -->\n"
+        phase_notes.append(f"Phase2: {len(expanded_queries)} queries, HyDE={'yes' if hyde_doc else 'no'}")
+
+    if use_phase3:
+        # Check if any results have reranking scores
+        has_reranking = any(r.get('llm_score') is not None for r in all_results[:10])
+        has_rrf = any(r.get('rrf_score') is not None for r in all_results[:10])
+        phase3_parts = ["Phase3: hybrid"]
+        if has_rrf:
+            phase3_parts.append("RRF")
+        if has_reranking:
+            phase3_parts.append("reranked")
+        phase_notes.append(" + ".join(phase3_parts))
+
+    phase_note = f"<!-- {', '.join(phase_notes)} -->\n" if phase_notes else ""
 
     sources_note = f"<!-- Sources: {', '.join(sorted(seen_files)[:10])} -->\n"
 
-    return "<retrieved_context>\n" + phase2_note + sources_note + "\n---\n".join(context_parts) + "</retrieved_context>"
+    return "<retrieved_context>\n" + phase_note + sources_note + "\n---\n".join(context_parts) + "</retrieved_context>"
 
 
 def index_workspace(workspace_name: str, ai_knowledge_paths: dict) -> dict:
