@@ -152,9 +152,10 @@ cd ragbot
 cp .env.docker .env
 # Edit .env and add at least one API key (OpenAI, Anthropic, or Gemini)
 
-# 3. Copy starter templates
-cp -r examples/templates/datasets/starter/ datasets/my-data/
-cp examples/templates/instructions/starter/default-instructions.md instructions/
+# 3. Get starter templates from ai-knowledge-ragbot
+git clone https://github.com/rajivpant/ai-knowledge-ragbot.git ~/ai-knowledge-ragbot
+cp -r ~/ai-knowledge-ragbot/source/datasets/templates/ datasets/my-data/
+cp ~/ai-knowledge-ragbot/source/instructions/templates/default.md instructions/
 
 # 4. Customize with your information
 # Edit the files in datasets/my-data/ with your personal details
@@ -183,9 +184,10 @@ mkdir ~/ragbot-data
 cp docker-compose.override.example.yml docker-compose.override.yml
 # Edit docker-compose.override.yml to point to your data directory
 
-# 4. Organize your data
-cp -r examples/templates/datasets/starter/* ~/ragbot-data/datasets/
-cp examples/templates/instructions/starter/default-instructions.md ~/ragbot-data/instructions/
+# 4. Organize your data (get templates from ai-knowledge-ragbot)
+git clone https://github.com/rajivpant/ai-knowledge-ragbot.git ~/ai-knowledge-ragbot
+cp -r ~/ai-knowledge-ragbot/source/datasets/templates/* ~/ragbot-data/datasets/
+cp ~/ai-knowledge-ragbot/source/instructions/templates/default.md ~/ragbot-data/instructions/
 
 # 5. Configure API keys
 cp .env.docker .env
@@ -197,9 +199,7 @@ docker-compose up -d
 
 ### What's Next?
 
-- 📖 **New to Ragbot?** Check out [examples/README.md](examples/README.md) for templates and use cases
-- 🎯 **Starter templates:** Copy from [examples/templates/](examples/templates/) to get started
-- 📚 **Advanced techniques:** Explore the [library](examples/library/) for proven prompts and frameworks
+- 📖 **Knowledge Base:** Get templates and runbooks from [ai-knowledge-ragbot](https://github.com/rajivpant/ai-knowledge-ragbot)
 - 🎓 **Understand the philosophy:** Read [docs/DATA_ORGANIZATION.md](docs/DATA_ORGANIZATION.md)
 - 🐳 **Docker deployment:** See [README-DOCKER.md](README-DOCKER.md) for deployment guide
 - 🤝 **Contributing safely:** Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing
@@ -243,6 +243,17 @@ AI Knowledge Integration
 ------------------------
 
 Ragbot integrates with the **AI Knowledge** ecosystem for managing knowledge bases across multiple workspaces.
+
+### Open Source Knowledge Base
+
+The **[ai-knowledge-ragbot](https://github.com/rajivpant/ai-knowledge-ragbot)** repository contains open-source runbooks, templates, and guides that ship with Ragbot:
+
+- **Instruction templates** - Starter configurations for AI assistants
+- **Dataset templates** - Personal and professional profile templates
+- **Runbooks** - Procedures for content creation, communication, system configuration
+- **Guides** - Reference materials for working with AI
+
+Personal ai-knowledge repos can inherit from ai-knowledge-ragbot to get these shared resources while adding private content.
 
 ### AI Knowledge Compiler
 
