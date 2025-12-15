@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { Prism as SyntaxHighlighter, SyntaxHighlighterProps } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/lib/api';
 
@@ -114,11 +114,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
                     <div className="relative group/code">
                       <CodeCopyButton code={codeString} />
                       <SyntaxHighlighter
-                        style={oneDark}
+                        style={oneDark as SyntaxHighlighterProps['style']}
                         language={match[1]}
                         PreTag="div"
                         className="rounded-lg !my-0"
-                        {...props}
                       >
                         {codeString}
                       </SyntaxHighlighter>

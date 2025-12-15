@@ -89,8 +89,9 @@ export function SettingsPanel({
         setTemperaturePresets(tempSettings);
 
         // Set default workspace if none selected and config has one
-        if (!workspace && configData.default_workspace) {
-          const defaultWs = wsData.find(w => w.dir_name === configData.default_workspace || w.name.toLowerCase() === configData.default_workspace.toLowerCase());
+        const defaultWorkspaceName = configData.default_workspace;
+        if (!workspace && defaultWorkspaceName) {
+          const defaultWs = wsData.find(w => w.dir_name === defaultWorkspaceName || w.name.toLowerCase() === defaultWorkspaceName.toLowerCase());
           if (defaultWs) {
             onWorkspaceChange(defaultWs.dir_name);
           }
