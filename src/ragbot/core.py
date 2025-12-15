@@ -199,7 +199,7 @@ def chat(
     stream_callback: Optional[Callable[[str], None]] = None,
     workspace_name: Optional[str] = None,
     use_rag: bool = True,
-    rag_max_tokens: int = 2000,
+    rag_max_tokens: int = 16000,
     auto_load_instructions: bool = True
 ) -> str:
     """
@@ -418,7 +418,7 @@ def chat_stream(
     supports_system_role = kwargs.get('supports_system_role', True)
     workspace_name = kwargs.get('workspace_name')
     use_rag = kwargs.get('use_rag', True)
-    rag_max_tokens = kwargs.get('rag_max_tokens', 2000)
+    rag_max_tokens = kwargs.get('rag_max_tokens', 16000)
     auto_load_instructions = kwargs.get('auto_load_instructions', True)
 
     # Build system content - auto-load LLM-specific instructions if available

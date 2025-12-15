@@ -26,7 +26,7 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = Field(None, ge=0, le=2, description="Creativity level (None uses model default from engines.yaml)")
     max_tokens: int = Field(4096, ge=1, le=8192, description="Max response tokens")
     use_rag: bool = Field(True, description="Use RAG for context retrieval")
-    rag_max_tokens: int = Field(2000, ge=0, description="Max tokens for RAG context")
+    rag_max_tokens: int = Field(16000, ge=0, description="Max tokens for RAG context")
     history: List[Message] = Field(default_factory=list, description="Conversation history")
     stream: bool = Field(True, description="Stream the response")
 

@@ -3,15 +3,167 @@
 # Uses Qdrant for vector storage and sentence-transformers for embeddings
 # Uses shared chunking library for consistent text chunking
 #
+# Phase 1 Improvements (December 2025):
+# - Increased context budget from 2K to 16K tokens
+# - Full document retrieval for targeted queries
+# - Query preprocessing (contraction expansion)
+# - Enhanced filename/title matching
+#
 # Author: Rajiv Pant
 
 import os
+import re
 import logging
-from typing import Optional
+from typing import Optional, Dict, List, Tuple
 from pathlib import Path
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Query Preprocessing (Phase 1 Improvements)
+# =============================================================================
+
+# Common contractions to expand for better keyword matching
+CONTRACTIONS = {
+    "what's": "what is",
+    "where's": "where is",
+    "who's": "who is",
+    "how's": "how is",
+    "that's": "that is",
+    "there's": "there is",
+    "here's": "here is",
+    "it's": "it is",
+    "let's": "let us",
+    "can't": "cannot",
+    "won't": "will not",
+    "don't": "do not",
+    "doesn't": "does not",
+    "didn't": "did not",
+    "isn't": "is not",
+    "aren't": "are not",
+    "wasn't": "was not",
+    "weren't": "were not",
+    "haven't": "have not",
+    "hasn't": "has not",
+    "hadn't": "had not",
+    "couldn't": "could not",
+    "wouldn't": "would not",
+    "shouldn't": "should not",
+    "i'm": "i am",
+    "you're": "you are",
+    "we're": "we are",
+    "they're": "they are",
+    "i've": "i have",
+    "you've": "you have",
+    "we've": "we have",
+    "they've": "they have",
+    "i'll": "i will",
+    "you'll": "you will",
+    "we'll": "we will",
+    "they'll": "they will",
+    "i'd": "i would",
+    "you'd": "you would",
+    "we'd": "we would",
+    "they'd": "they would",
+}
+
+# Patterns that indicate a document lookup request (not semantic search)
+DOCUMENT_LOOKUP_PATTERNS = [
+    r"^show\s+(?:me\s+)?(?:my\s+|the\s+)?(.+)$",
+    r"^display\s+(?:my\s+|the\s+)?(.+)$",
+    r"^get\s+(?:me\s+)?(?:my\s+|the\s+)?(.+)$",
+    r"^read\s+(?:my\s+|the\s+)?(.+)$",
+    r"^open\s+(?:my\s+|the\s+)?(.+)$",
+    r"^use\s+(?:the\s+)?(.+?)(?:\s+runbook)?$",
+    r"^what(?:'s| is)\s+in\s+(?:my\s+|the\s+)?(.+)$",
+    r"^what\s+does\s+(?:my\s+|the\s+)?(.+?)\s+(?:say|contain|have).*$",
+]
+
+
+def expand_contractions(query: str) -> str:
+    """
+    Expand contractions in a query for better keyword matching.
+
+    Example: "what's in my biography" -> "what is in my biography"
+
+    Args:
+        query: Original user query
+
+    Returns:
+        Query with contractions expanded
+    """
+    result = query.lower()
+    for contraction, expansion in CONTRACTIONS.items():
+        # Use word boundaries to avoid partial matches
+        result = re.sub(r'\b' + re.escape(contraction) + r'\b', expansion, result)
+    return result
+
+
+def detect_document_request(query: str) -> Tuple[bool, Optional[str]]:
+    """
+    Detect if a query is asking for a specific document by name.
+
+    Args:
+        query: User's query
+
+    Returns:
+        Tuple of (is_document_request, document_hint)
+        document_hint is the extracted document name/pattern if detected
+    """
+    query_lower = query.lower().strip()
+
+    for pattern in DOCUMENT_LOOKUP_PATTERNS:
+        match = re.match(pattern, query_lower, re.IGNORECASE)
+        if match:
+            # Extract the document hint from the match
+            doc_hint = match.group(1).strip()
+            # Remove common suffixes that aren't part of the name
+            doc_hint = re.sub(r'\s*(file|document|doc|content|runbook)s?\s*$', '', doc_hint)
+            if doc_hint:
+                return True, doc_hint
+
+    return False, None
+
+
+def preprocess_query(query: str) -> Dict[str, any]:
+    """
+    Preprocess a query for optimal retrieval.
+
+    This implements Phase 1 query preprocessing:
+    1. Expand contractions for keyword matching
+    2. Detect document lookup requests
+    3. Extract key terms for filename matching
+
+    Args:
+        query: Original user query
+
+    Returns:
+        Dict with:
+        - original_query: The unchanged input
+        - processed_query: Query with contractions expanded
+        - is_document_request: Whether this looks like a document lookup
+        - document_hint: Extracted document name pattern (if applicable)
+        - search_terms: Key terms for filename matching
+    """
+    expanded = expand_contractions(query)
+    is_doc_request, doc_hint = detect_document_request(query)
+
+    # Extract meaningful search terms (remove stop words)
+    stop_words = {'a', 'an', 'the', 'my', 'your', 'is', 'are', 'was', 'were',
+                  'in', 'on', 'at', 'to', 'for', 'of', 'with', 'me', 'show',
+                  'tell', 'give', 'get', 'find', 'what', 'where', 'how', 'when',
+                  'display', 'open', 'read', 'use', 'about', 'does', 'do'}
+    words = re.findall(r'\b[a-z]+\b', expanded.lower())
+    search_terms = [w for w in words if w not in stop_words and len(w) > 2]
+
+    return {
+        'original_query': query,
+        'processed_query': expanded,
+        'is_document_request': is_doc_request,
+        'document_hint': doc_hint,
+        'search_terms': search_terms,
+    }
 
 # Lazy import for chunking - handle both relative and absolute imports
 _chunking_loaded = False
@@ -241,8 +393,155 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     }
 
 
+def find_full_document(workspace_name: str, document_hint: str,
+                       search_terms: List[str]) -> Optional[Dict]:
+    """
+    Find and retrieve a complete document by name/hint.
+
+    This is used when query preprocessing detects a document lookup request
+    (e.g., "show me my biography"). Instead of returning chunks, we find
+    the best matching document and return its full content.
+
+    Args:
+        workspace_name: Name of the workspace
+        document_hint: Extracted document name hint (e.g., "biography")
+        search_terms: Additional search terms from the query
+
+    Returns:
+        Dict with 'content', 'filename', 'source_file' if found, None otherwise
+    """
+    client = _get_qdrant_client()
+    if not client:
+        return None
+
+    collection_name = get_collection_name(workspace_name)
+
+    try:
+        # Check if collection exists
+        collections = client.get_collections().collections
+        collection_names = [c.name for c in collections]
+        if collection_name not in collection_names:
+            return None
+
+        # Get all unique source files from the collection
+        # We scroll through to find documents matching the hint
+        all_points = []
+        offset = None
+        while True:
+            result = client.scroll(
+                collection_name=collection_name,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False
+            )
+            points, next_offset = result
+            all_points.extend(points)
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        if not all_points:
+            return None
+
+        # Group chunks by source file and score each file
+        file_chunks: Dict[str, List] = {}
+        for point in all_points:
+            source_file = point.payload.get('source_file', '')
+            if source_file:
+                if source_file not in file_chunks:
+                    file_chunks[source_file] = []
+                file_chunks[source_file].append(point.payload)
+
+        # Score each file based on how well it matches the hint and terms
+        file_scores = []
+        hint_words = set(document_hint.lower().replace('-', ' ').replace('_', ' ').split())
+        term_set = set(search_terms)
+
+        for source_file, chunks in file_chunks.items():
+            filename = chunks[0].get('filename', '') if chunks else ''
+            title = chunks[0].get('title', '') if chunks else ''
+
+            # Convert filename to word set
+            filename_clean = filename.lower().rsplit('.', 1)[0] if filename else ''
+            filename_words = set(filename_clean.replace('-', ' ').replace('_', ' ').split())
+
+            # Convert title to word set
+            title_words = set(title.lower().split()) if title else set()
+
+            score = 0
+
+            # Score based on hint matching
+            hint_in_filename = hint_words & filename_words
+            hint_in_title = hint_words & title_words
+            if hint_in_filename:
+                score += 10 * len(hint_in_filename)  # Strong boost for filename match
+            if hint_in_title:
+                score += 5 * len(hint_in_title)  # Good boost for title match
+
+            # Score based on search terms
+            terms_in_filename = term_set & filename_words
+            terms_in_title = term_set & title_words
+            if terms_in_filename:
+                score += 3 * len(terms_in_filename)
+            if terms_in_title:
+                score += 2 * len(terms_in_title)
+
+            # Check for substring match (e.g., "bio" in "biography")
+            if document_hint.lower() in filename_clean:
+                score += 15  # Strong boost for substring match
+
+            if score > 0:
+                file_scores.append((source_file, filename, score, chunks))
+
+        if not file_scores:
+            return None
+
+        # Sort by score and get best match
+        file_scores.sort(key=lambda x: x[2], reverse=True)
+        best_source, best_filename, best_score, best_chunks = file_scores[0]
+
+        logger.info(f"Full document match: {best_filename} (score: {best_score})")
+
+        # Reconstruct full document from chunks
+        # Sort chunks by char_start to maintain order
+        sorted_chunks = sorted(best_chunks, key=lambda c: c.get('char_start', 0))
+
+        # Merge chunks, removing overlapping content
+        full_content = ""
+        last_end = 0
+        for chunk in sorted_chunks:
+            chunk_start = chunk.get('char_start', 0)
+            chunk_text = chunk.get('text', '')
+
+            if chunk_start >= last_end:
+                # No overlap, append full chunk
+                full_content += chunk_text
+            else:
+                # Overlap - only add non-overlapping part
+                overlap = last_end - chunk_start
+                if overlap < len(chunk_text):
+                    full_content += chunk_text[overlap:]
+
+            last_end = chunk.get('char_end', chunk_start + len(chunk_text))
+
+        return {
+            'content': full_content.strip(),
+            'filename': best_filename,
+            'source_file': best_source,
+            'score': best_score,
+            'title': sorted_chunks[0].get('title', '') if sorted_chunks else '',
+            'content_type': sorted_chunks[0].get('content_type', 'datasets') if sorted_chunks else 'datasets'
+        }
+
+    except Exception as e:
+        logger.error(f"Full document retrieval failed: {e}")
+        return None
+
+
 def search(workspace_name: str, query: str, limit: int = 5,
-           content_type: Optional[str] = None) -> list:
+           content_type: Optional[str] = None,
+           use_preprocessing: bool = True) -> list:
     """
     Search for relevant content using semantic similarity.
 
@@ -251,6 +550,7 @@ def search(workspace_name: str, query: str, limit: int = 5,
         query: Search query
         limit: Maximum number of results
         content_type: Filter by content type ('datasets', 'runbooks', or None for all)
+        use_preprocessing: If True, preprocess query (expand contractions, extract terms)
 
     Returns:
         List of search results with text and metadata
@@ -263,6 +563,15 @@ def search(workspace_name: str, query: str, limit: int = 5,
 
     collection_name = get_collection_name(workspace_name)
 
+    # Preprocess query for better matching
+    if use_preprocessing:
+        query_info = preprocess_query(query)
+        search_query = query_info['processed_query']
+        search_terms = query_info['search_terms']
+    else:
+        search_query = query
+        search_terms = set(query.lower().split())
+
     try:
         # Check if collection exists
         collections = client.get_collections().collections
@@ -271,8 +580,8 @@ def search(workspace_name: str, query: str, limit: int = 5,
             logger.warning(f"Collection {collection_name} not found")
             return []
 
-        # Generate query embedding
-        query_vector = model.encode(query).tolist()
+        # Generate query embedding using preprocessed query
+        query_vector = model.encode(search_query).tolist()
 
         # Build filter if content_type specified
         search_filter = None
@@ -322,7 +631,8 @@ def search(workspace_name: str, query: str, limit: int = 5,
         # Re-rank: boost results where query terms appear in filename or title
         # This improves results for queries like "show me my biography" where
         # semantic search might not prioritize exact document name matches
-        query_terms = set(query.lower().split())
+        # Use preprocessed search_terms which have contractions expanded and stop words removed
+        query_terms = set(search_terms) if isinstance(search_terms, list) else search_terms
         for item in formatted:
             filename = item['metadata'].get('filename', '').lower()
             title = item['metadata'].get('title', '').lower()
@@ -336,11 +646,11 @@ def search(workspace_name: str, query: str, limit: int = 5,
             matching_title_terms = query_terms & title_words
 
             if matching_filename_terms:
-                # Significant boost for filename matches
-                item['score'] += 0.3 * len(matching_filename_terms)
+                # Significant boost for filename matches (increased from 0.3)
+                item['score'] += 0.5 * len(matching_filename_terms)
             if matching_title_terms:
-                # Moderate boost for title matches
-                item['score'] += 0.2 * len(matching_title_terms)
+                # Good boost for title matches (increased from 0.2)
+                item['score'] += 0.3 * len(matching_title_terms)
 
         # Re-sort by boosted score
         formatted.sort(key=lambda x: x['score'], reverse=True)
@@ -352,24 +662,61 @@ def search(workspace_name: str, query: str, limit: int = 5,
 
 
 def get_relevant_context(workspace_name: str, query: str,
-                         max_tokens: int = 2000) -> str:
+                         max_tokens: int = 16000) -> str:
     """
     Get relevant context for a query, formatted for LLM consumption.
 
     This is the main entry point for RAG-augmented prompts.
 
+    Phase 1 Improvements:
+    - Increased default max_tokens from 2000 to 16000 (8x increase)
+    - Full document retrieval for targeted queries ("show me my biography")
+    - Query preprocessing with contraction expansion
+    - Enhanced filename/title matching
+
     Args:
         workspace_name: Name of the workspace
         query: User's query
-        max_tokens: Maximum tokens for retrieved context
+        max_tokens: Maximum tokens for retrieved context (default: 16000)
 
     Returns:
         Formatted context string to include in the prompt
     """
+    # Step 1: Preprocess the query
+    query_info = preprocess_query(query)
+
+    # Step 2: For document lookup requests, try full document retrieval first
+    if query_info['is_document_request'] and query_info['document_hint']:
+        logger.info(f"Document request detected: '{query_info['document_hint']}'")
+
+        full_doc = find_full_document(
+            workspace_name,
+            query_info['document_hint'],
+            query_info['search_terms']
+        )
+
+        if full_doc:
+            # Check if full document fits in budget
+            doc_tokens = len(full_doc['content']) // 4
+            if doc_tokens <= max_tokens:
+                logger.info(f"Returning full document: {full_doc['filename']} ({doc_tokens} tokens)")
+                content_type = full_doc.get('content_type', 'datasets')
+                filename = full_doc.get('filename', 'unknown')
+                title = full_doc.get('title', '')
+
+                header = f"[{content_type}: {filename}]"
+                if title:
+                    header = f"[{content_type}: {filename} - {title}]"
+
+                return f"<retrieved_context>\n{header}\n\n{full_doc['content']}\n</retrieved_context>"
+            else:
+                logger.info(f"Full document too large ({doc_tokens} tokens > {max_tokens}), using chunks")
+
+    # Step 3: Fall back to semantic search with chunk retrieval
     # Fetch more results than needed to allow re-ranking to surface keyword matches
-    # Using 50 ensures we capture documents where filename matches query terms
+    # Using 100 ensures we capture documents where filename matches query terms
     # even if semantic similarity is low
-    results = search(workspace_name, query, limit=50)
+    results = search(workspace_name, query, limit=100)
 
     if not results:
         return ""
@@ -377,6 +724,7 @@ def get_relevant_context(workspace_name: str, query: str,
     # Build context string within token budget
     context_parts = []
     current_tokens = 0
+    seen_files = set()
 
     for result in results:
         text = result['text']
@@ -389,14 +737,25 @@ def get_relevant_context(workspace_name: str, query: str,
         source = result['metadata'].get('filename', 'unknown')
         content_type = result['metadata'].get('content_type', 'content')
         score = result['score']
+        title = result['metadata'].get('title', '')
 
-        context_parts.append(f"[{content_type}: {source} (relevance: {score:.2f})]\n{text}\n")
+        # Track which files we've included
+        seen_files.add(source)
+
+        header = f"[{content_type}: {source} (relevance: {score:.2f})]"
+        if title and source not in title:
+            header = f"[{content_type}: {source} - {title} (relevance: {score:.2f})]"
+
+        context_parts.append(f"{header}\n{text}\n")
         current_tokens += text_tokens
 
     if not context_parts:
         return ""
 
-    return "<retrieved_context>\n" + "\n---\n".join(context_parts) + "</retrieved_context>"
+    # Add summary of sources
+    sources_note = f"<!-- Sources: {', '.join(sorted(seen_files)[:10])} -->\n"
+
+    return "<retrieved_context>\n" + sources_note + "\n---\n".join(context_parts) + "</retrieved_context>"
 
 
 def index_workspace(workspace_name: str, ai_knowledge_paths: dict) -> dict:

@@ -20,7 +20,7 @@ export function Chat() {
   const [model, setModel] = useState<string | undefined>();
   const [temperature, setTemperature] = useState(0.75);
   const [useRag, setUseRag] = useState(true);
-  const [ragMaxTokens, setRagMaxTokens] = useState(2000);
+  const [ragMaxTokens, setRagMaxTokens] = useState(16000);
   const [maxTokens, setMaxTokens] = useState(4096);
   const [showSettings, setShowSettings] = useState(true); // Start expanded
 

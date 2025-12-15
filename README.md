@@ -228,8 +228,8 @@ Ragbot now includes built-in RAG capabilities using **Qdrant** vector database a
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Enable RAG | Off | Toggle RAG-augmented responses |
-| RAG context tokens | 2000 | Maximum tokens for retrieved context |
+| Enable RAG | On | Toggle RAG-augmented responses |
+| RAG context tokens | 16000 | Maximum tokens for retrieved context (Phase 1: 8x increase from 2000) |
 | Embedding model | all-MiniLM-L6-v2 | 384-dimension embeddings, fast and effective |
 
 ### Technical Details
