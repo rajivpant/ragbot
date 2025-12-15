@@ -1,6 +1,22 @@
+"""Tests for the helpers module.
+
+Tests legacy helper functions that provide backwards compatibility.
+"""
+
 import pytest
-from helpers import load_config, load_profiles, process_file, load_files, human_format, count_tokens, count_custom_instructions_tokens, count_curated_datasets_tokens
 import os
+import sys
+
+# Add src directory to path
+src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+from helpers import (
+    load_config, load_profiles, process_file, load_files,
+    human_format, count_tokens_for_files,
+    count_custom_instructions_tokens, count_curated_datasets_tokens
+)
 
 @pytest.fixture
 def setup_files():
@@ -10,18 +26,22 @@ def setup_files():
     test_curated_dataset_file = 'test_curated_dataset.md'
 
     # Create test configuration file
+    # Note: Using test model names that match engines.yaml structure
+    # Model name is arbitrary for config loading tests - doesn't need to be real
     with open(test_config_file, 'w') as f:
         f.write("""
         engines:
-          - name: openai
-            api_key_name: OPENAI_API_KEY
+          - name: anthropic
+            api_key_name: ANTHROPIC_API_KEY
             models:
-              - name: gpt-4-turbo
+              - name: test-model
                 supports_system_role: true
                 max_temperature: 1
                 temperature: 0.75
-            default_model: gpt-4-turbo
-        default: openai
+                max_input_tokens: 200000
+                max_output_tokens: 64000
+            default_model: test-model
+        default: anthropic
         temperature_settings:
           precise: 0.25
           balanced: 0.50
@@ -58,7 +78,7 @@ def test_load_config(setup_files):
     test_config_file, *_ = setup_files
     config = load_config(test_config_file)
     assert 'engines' in config
-    assert config['default'] == 'openai'
+    assert config['default'] == 'anthropic'
 
 def test_load_profiles(setup_files):
     _, test_profiles_file, *_ = setup_files
@@ -92,9 +112,9 @@ def test_human_format():
     formatted = human_format(1500)
     assert formatted == '1.5k'
 
-def test_count_tokens(setup_files):
+def test_count_tokens_for_files(setup_files):
     test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
-    tokens = count_tokens([test_custom_instruction_file])
+    tokens = count_tokens_for_files([test_custom_instruction_file])
     assert tokens > 0
 
 def test_count_custom_instructions_tokens(setup_files):
