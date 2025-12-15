@@ -30,7 +30,7 @@ All located in `~/projects/my-projects/ai-knowledge/`. The authoritative list is
 
 **Note:** Some repos may be in different GitHub orgs. Check `my-projects.yaml` for the full list.
 
-Note: Home directory varies by machine (`/Users/rajiv` vs `/Users/rajivpant`), so use `~` for paths.
+Note: Home directory varies by machine, so use `~` for paths.
 
 ## VS Code Workspace
 
@@ -103,7 +103,7 @@ Each ai-knowledge repo contains:
 
 ### Workspace System
 
-- `user_workspace` config points to the user's identity workspace (e.g., "rajiv")
+- `user_workspace` config points to the user's identity workspace (e.g., "personal")
 - Workspace folder names are usernames - do NOT rename to generic names
 - Workspaces inherit from the user workspace
 

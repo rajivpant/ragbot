@@ -527,8 +527,13 @@ def compile_project(config: dict,
     inheritance_config = None
     if personalized:
         # Find personal repo path if not provided
+        # NOTE: The actual personal repo name is configured in ~/.config/ragbot/config.yaml
+        # This is a fallback that should be replaced with proper config lookup
         if not personal_repo_path:
-            personal_repo_path = os.path.join(base_path, 'ai-knowledge-rajiv')
+            # Try to get user_workspace from config, fallback to convention
+            from ..ragbot.keystore import get_user_config
+            user_workspace = get_user_config('user_workspace', 'personal')
+            personal_repo_path = os.path.join(base_path, f'ai-knowledge-{user_workspace}')
 
         inheritance_config_path = find_inheritance_config(personal_repo_path)
         if inheritance_config_path:

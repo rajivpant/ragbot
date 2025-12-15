@@ -13,12 +13,12 @@ Example usage:
     workspaces = discover_workspaces()
 
     # Get a specific workspace
-    workspace = get_workspace("rajiv")
+    workspace = get_workspace("personal")
 
     # Chat with context from workspace
     response = chat(
         prompt="Hello!",
-        workspace_name="rajiv",
+        workspace_name="personal",
         model="anthropic/claude-sonnet-4-20250514"
     )
 """
