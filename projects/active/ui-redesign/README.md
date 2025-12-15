@@ -1,6 +1,6 @@
 # Ragbot UI/UX Redesign
 
-**Status:** In Progress
+**Status:** Complete (Phase 5), Testing Planned (Phase 6)
 **Created:** 2025-12-14
 **Last Updated:** 2025-12-14
 
@@ -54,7 +54,8 @@ A modern architecture with:
 | Phase 2: FastAPI Backend | ✅ Complete | REST API with SSE streaming |
 | Phase 3: React Frontend | ✅ Complete | Next.js web UI with TypeScript |
 | Phase 4: Docker Setup | ✅ Complete | Full Docker Compose configuration |
-| Phase 5: Cleanup | In Progress | Remove hardcoded config, finalize engines.yaml integration |
+| Phase 5: Config & Models | ✅ Complete | engines.yaml integration, all 9 models tested |
+| Phase 6: Testing | 🔄 Planned | Comprehensive test suite for models and API |
 
 ### Phase 1 Completed (2025-12-14)
 
@@ -103,20 +104,51 @@ cd ragbot && docker compose up -d
 # Access at http://localhost:3000
 ```
 
-### Phase 5: Cleanup (In Progress)
+### Phase 5: Config & Model Fixes (Complete)
 
-**Status**: Refactoring to use engines.yaml as single source of truth
+**Status**: Complete (2025-12-14)
 
+**Configuration cleanup**:
 - Removed hardcoded MODELS dict from `src/ragbot/config.py`
 - All model/provider config now loads from `engines.yaml`
 - Added new functions: `load_engines_config()`, `get_providers()`, `get_temperature_settings()`
-- Added API endpoints: `/api/models/providers`, `/api/models/temperature-settings`
-- Frontend needs update to fetch providers dynamically from API
+- Added API endpoints: `/api/models/providers`, `/api/models/temperature-settings`, `/api/config/keys`
+- Frontend fetches providers dynamically from API
 
-**Next Steps**:
-- Update frontend SettingsPanel to fetch providers from API instead of hardcoding
-- Remove Streamlit and legacy code
-- Update models to latest December 2025 versions
+**Model fixes (all 9 models tested and working)**:
+- OpenAI: gpt-5-mini, gpt-5.2-chat-latest, gpt-5.2
+- Anthropic: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929, claude-opus-4-5-20251101
+- Google: gemini/gemini-2.5-flash-lite, gemini/gemini-2.5-flash, gemini/gemini-3-pro-preview
+
+**Technical fixes**:
+- OpenAI GPT-5 models use temperature=1.0 (only supported value)
+- gpt-5-mini uses `max_completion_tokens` instead of `max_tokens`
+- Made ChatRequest.temperature Optional to use model defaults from engines.yaml
+- Added `litellm.drop_params=True` for unsupported parameter handling
+
+**API Key UX improvements**:
+- `/api/config/keys` endpoint returns detailed key status per provider
+- Shows key source (workspace/default) in UI
+- Auto-switches to provider with available key when workspace changes
+- Provider dropdown filters to only show providers with keys
+
+### Phase 6: Testing (Planned)
+
+**Status**: Planned
+
+**Goal**: Add comprehensive test coverage for all model configurations
+
+**Planned tasks**:
+- Model integration tests to verify all engines.yaml models work
+- Unit tests for config.py functions (load_engines_config, get_all_models, etc.)
+- Unit tests for keystore.py functions (get_api_key, get_key_status, etc.)
+- API endpoint tests for chat, models, config, workspaces
+- Frontend component tests (optional)
+
+**Benefits**:
+- Catch model configuration issues before deployment
+- Prevent regressions when updating engines.yaml
+- Ensure API key handling works correctly
 
 ## Lessons Learned
 
@@ -151,9 +183,9 @@ cd ragbot && docker compose up -d
 5. Today's date is provided in system context - use it
 
 **Current models (December 2025)**:
-- OpenAI: gpt-5-mini, gpt-5.1, gpt-5.2, gpt-5.2-thinking
-- Anthropic: claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-5
-- Google: gemini-2.5-flash-lite, gemini-2.5-flash, gemini-3-pro-preview
+- OpenAI: gpt-5-mini, gpt-5.2-chat-latest, gpt-5.2
+- Anthropic: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929, claude-opus-4-5-20251101
+- Google: gemini/gemini-2.5-flash-lite, gemini/gemini-2.5-flash, gemini/gemini-3-pro-preview
 
 ### Single Source of Truth
 
@@ -174,6 +206,21 @@ Code should NEVER duplicate this information. All code should call functions tha
 - Anthropic models: `anthropic/{model_name}`
 - OpenAI models: `openai/{model_name}`
 - Google models: Already have `gemini/` prefix in engines.yaml
+
+### Model-Specific Parameter Handling
+
+**Problem**: Different LLM providers use different parameter names and constraints:
+- OpenAI GPT-5 models only support temperature=1.0
+- gpt-5-mini requires `max_completion_tokens` instead of `max_tokens`
+- Gemini 3 Pro uses "thinking tokens" that consume the output budget
+
+**Solution**:
+1. Store model-specific temperature in engines.yaml
+2. Make ChatRequest.temperature Optional (uses model default)
+3. Detect model type in core.py and use correct parameter name
+4. Set `litellm.drop_params=True` to ignore unsupported parameters
+
+**Lesson**: When models don't work, debug the code/API parameters first. Don't downgrade to older models.
 
 ### Git Branch Strategy for Development
 

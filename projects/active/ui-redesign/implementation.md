@@ -136,7 +136,110 @@
 
 ---
 
-## Phase 4: Cleanup (Pending)
+## Phase 4: Docker Setup ✅ COMPLETE
+
+**Goal**: Full Docker Compose configuration for development and deployment
+
+**Status**: Complete (2025-12-14)
+
+### Completed
+
+1. **Docker Compose Configuration**
+   - `docker-compose.yml` with ragbot-api and ragbot-web services
+   - `web/Dockerfile` for Next.js frontend
+   - Named volume for node_modules persistence
+
+2. **Environment Configuration**
+   - API URL configuration via environment variables
+   - Support for .env file
+
+---
+
+## Phase 5: Config & Model Fixes ✅ COMPLETE
+
+**Goal**: Remove hardcoded configuration, fix all model integrations
+
+**Status**: Complete (2025-12-14)
+
+### Completed
+
+1. **Configuration Cleanup**
+   - Removed hardcoded MODELS dict from `src/ragbot/config.py`
+   - All model/provider config now loads from `engines.yaml`
+   - Added new config functions: `load_engines_config()`, `get_providers()`, `get_temperature_settings()`
+
+2. **API Endpoints Added**
+   - `/api/models/providers` - List providers from engines.yaml
+   - `/api/models/temperature-settings` - Get temperature presets
+   - `/api/config/keys` - Detailed key status per provider
+
+3. **Model Fixes (All 9 Models Tested)**
+   - OpenAI: gpt-5-mini, gpt-5.2-chat-latest, gpt-5.2
+   - Anthropic: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929, claude-opus-4-5-20251101
+   - Google: gemini/gemini-2.5-flash-lite, gemini/gemini-2.5-flash, gemini/gemini-3-pro-preview
+
+4. **Technical Fixes**
+   - OpenAI GPT-5 models: temperature=1.0 (only supported value)
+   - gpt-5-mini: uses `max_completion_tokens` instead of `max_tokens`
+   - Made ChatRequest.temperature Optional (uses model default from engines.yaml)
+   - Added `litellm.drop_params=True` for unsupported parameter handling
+
+5. **API Key UX Improvements**
+   - Show key source (workspace/default) in UI
+   - Auto-switch to provider with available key when workspace changes
+   - Provider dropdown filters to only show providers with keys
+
+### Files Modified
+
+- `src/ragbot/config.py` - Removed hardcoded models, added engines.yaml loading
+- `src/ragbot/core.py` - Model-specific parameter handling
+- `src/ragbot/models.py` - Optional temperature field
+- `src/ragbot/keystore.py` - Added get_key_status()
+- `src/api/routers/config.py` - Added /keys endpoint
+- `web/src/lib/api.ts` - Added getKeysStatus()
+- `web/src/components/SettingsPanel.tsx` - Key source display, provider filtering
+- `engines.yaml` - Updated model IDs and parameters
+
+---
+
+## Phase 6: Testing (Planned)
+
+**Goal**: Comprehensive test coverage for models and API
+
+**Status**: Planned
+
+### Planned Tasks
+
+1. **Model Integration Tests** (`tests/test_models_integration.py`)
+   - Test each model in engines.yaml with a simple prompt
+   - Verify streaming responses work
+   - Catch configuration issues early
+
+2. **Config Unit Tests** (`tests/test_config.py`)
+   - `load_engines_config()` returns valid structure
+   - `get_all_models()` returns models from engines.yaml
+   - `get_default_model()` returns valid model ID
+   - `get_temperature_settings()` returns presets
+
+3. **Keystore Unit Tests** (`tests/test_keystore.py`)
+   - `get_api_key()` returns key from correct source
+   - `get_key_status()` returns correct status
+   - `check_api_keys()` returns availability
+
+4. **API Endpoint Tests** (`tests/test_api.py`)
+   - `/api/models` returns models
+   - `/api/config` returns config
+   - `/api/config/keys` returns key status
+   - `/api/workspaces` returns workspaces
+   - `/api/chat` handles streaming
+
+5. **Update Existing Tests**
+   - Review and fix any tests broken by recent changes
+   - Ensure tests don't have hardcoded model names
+
+---
+
+## Phase 7: Cleanup (Future)
 
 **Goal**: Remove deprecated code and finalize migration
 
