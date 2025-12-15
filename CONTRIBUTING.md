@@ -279,8 +279,8 @@ Than to accidentally expose personal information.
 
 ## Additional Resources
 
-- [Contribution Workflow Guide](docs/CONTRIBUTION_WORKFLOW.md) - Detailed process
-- [Data Organization Philosophy](docs/DATA_ORGANIZATION.md) - Why we separate code from data
+- [Data Organization Philosophy](docs/data-organization.md) - Why we separate code from data
+- [Compilation Guide](docs/compilation-guide.md) - How the AI Knowledge compiler works
 - [Examples README](examples/README.md) - How to use templates and library
 
 ## Code of Conduct

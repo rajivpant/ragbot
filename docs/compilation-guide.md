@@ -267,4 +267,4 @@ Check that `local_path` in my-projects.yaml points to existing directories.
 ## Further Reading
 
 - [Data Organization Philosophy](./data-organization.md) — Why separate code from data
-- [Repository Structure](./repository-structure.md) — Detailed structure documentation
+- [Project Documentation Convention](./conventions/project-documentation.md) — Project folder structure
