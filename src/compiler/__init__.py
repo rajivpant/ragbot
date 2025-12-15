@@ -4,25 +4,32 @@ AI Knowledge Compiler
 Library for compiling AI Knowledge repositories into optimized outputs
 for various LLM platforms (Claude, ChatGPT, Gemini, etc.).
 
-This is a library-first design: all functionality is available as importable
-Python modules. The CLI (ragbot compile) is a thin wrapper.
+Key concept: The output repo determines what content is included—not who
+runs the compiler. See docs/compilation-guide.md for details.
 
 Example usage:
-    from ragbot.compiler import compile_project
-    from ragbot.compiler.config import load_compile_config, resolve_model
+    from ragbot.compiler import compile_project, compile_all_with_inheritance
+    from ragbot.compiler.config import load_compile_config
 
-    config = load_compile_config("/path/to/ai-knowledge-my-project")
-    result = compile_project(config, platforms=['anthropic'], personalized=True)
+    # Baseline compilation (single repo)
+    config = load_compile_config("/path/to/ai-knowledge-{project}")
+    result = compile_project(config, platforms=['anthropic'])
+
+    # With-inheritance compilation (output repo determines content)
+    result = compile_all_with_inheritance(
+        output_repo_path="/path/to/ai-knowledge-{output}"
+    )
 
 Public API:
-- compile_project() - Main compilation function
-- compile_all_projects() - Compile all projects in a directory
-- Config functions: load_compile_config, resolve_model, validate_config
-- Assembler functions: assemble_content, count_tokens
-- Instruction functions: compile_instructions, format_for_platform
-- Cache functions: load_cache, save_cache, is_file_changed
-- Manifest functions: generate_manifest, save_manifest
-- Vector functions: chunk_content, generate_chunks_for_rag
+- compile_project() - Compile a single project
+- compile_all_with_inheritance() - Compile all projects into an output repo
+- compile_all_projects() - Compile all projects (baseline only)
+- Config: load_compile_config, resolve_model, validate_config
+- Assembler: assemble_content, count_tokens
+- Instructions: compile_instructions, format_for_platform
+- Cache: load_cache, save_cache, is_file_changed
+- Manifest: generate_manifest, save_manifest
+- Vectors: chunk_content, generate_chunks_for_rag
 """
 
 import os
@@ -412,7 +419,9 @@ def compile_project(config: dict,
                     instructions_only: bool = False,
                     verbose: bool = False,
                     personal_repo_path: str = None,
-                    base_path: str = None) -> dict:
+                    base_path: str = None,
+                    output_repo_path: str = None,
+                    target_project: str = None) -> dict:
     """
     Compile an AI Knowledge project.
 
@@ -428,6 +437,11 @@ def compile_project(config: dict,
         │   └── gemini-knowledge.md (consolidated for Gemini's 10-file limit)
         └── vectors/
             └── chunks.jsonl
+
+    PRIVACY RULES:
+    - If personalized=True, output MUST go to output_repo_path (your private repo)
+    - Personalized compilations merge private content and must NEVER go to shared repos
+    - See: projects/active/ai-knowledge-architecture/architecture.md
 
     This is the main compilation function. It:
     1. Assembles content from source directories
@@ -449,6 +463,8 @@ def compile_project(config: dict,
         verbose: Print verbose output
         personal_repo_path: Path to personal repo (for inheritance config)
         base_path: Base path where ai-knowledge-* repos are located
+        output_repo_path: Path to repo where output should be written (REQUIRED if personalized)
+        target_project: Name of project to compile (if different from config's project)
 
     Returns:
         Dictionary with:
@@ -460,7 +476,8 @@ def compile_project(config: dict,
     """
     start_time = time.time()
 
-    project_name = get_project_name(config)
+    # Use target_project if specified, otherwise get from config
+    project_name = target_project or get_project_name(config)
     repo_path = config.get('_repo_path', '.')
     source_path = get_source_path(config)
 
@@ -468,9 +485,33 @@ def compile_project(config: dict,
     if not base_path:
         base_path = os.path.expanduser('~/projects/my-projects/ai-knowledge')
 
+    # =========================================================================
+    # PRIVACY SAFEGUARD: Validate output destination for personalized builds
+    # =========================================================================
+    # Personalized compilations merge private content (personal info, etc.)
+    # and MUST go to the user's private repo, never to shared/client repos.
+    #
+    # See: projects/active/ai-knowledge-architecture/architecture.md
+    # =========================================================================
+    if personalized and not output_repo_path:
+        # If personalized but no explicit output repo, default to personal repo
+        if not personal_repo_path:
+            try:
+                from ragbot.keystore import get_user_config
+            except ImportError:
+                from ..ragbot.keystore import get_user_config
+            user_workspace = get_user_config('user_workspace', 'rajiv')
+            personal_repo_path = os.path.join(base_path, f'ai-knowledge-{user_workspace}')
+        output_repo_path = personal_repo_path
+
     # Determine output directory: compiled/{project}/
-    # All compilations go to compiled/{project}/ at same level
-    base_output = get_output_dir(config)  # Gets the repo's compiled/ directory
+    if output_repo_path:
+        # Output goes to specified repo (used for personalized compilations)
+        base_output = os.path.join(output_repo_path, 'compiled')
+    else:
+        # Output goes to source repo (baseline compilation)
+        base_output = get_output_dir(config)  # Gets the repo's compiled/ directory
+
     output_dir = os.path.join(base_output, project_name)
 
     result = {
@@ -504,8 +545,11 @@ def compile_project(config: dict,
         # This is a fallback that should be replaced with proper config lookup
         if not personal_repo_path:
             # Try to get user_workspace from config, fallback to convention
-            from ..ragbot.keystore import get_user_config
-            user_workspace = get_user_config('user_workspace', 'personal')
+            try:
+                from ragbot.keystore import get_user_config
+            except ImportError:
+                from ..ragbot.keystore import get_user_config
+            user_workspace = get_user_config('user_workspace', 'rajiv')
             personal_repo_path = os.path.join(base_path, f'ai-knowledge-{user_workspace}')
 
         inheritance_config_path = find_inheritance_config(personal_repo_path)
@@ -742,6 +786,151 @@ def compile_all_projects(base_path: str, **kwargs) -> dict:
             results[project_name] = result
         except Exception as e:
             results[project_name] = {'error': str(e)}
+
+    return results
+
+
+def compile_all_with_inheritance(
+    output_repo_path: str,
+    base_path: str = None,
+    verbose: bool = False,
+    **kwargs
+) -> dict:
+    """
+    Compile all projects with inheritance into a specified output repo.
+
+    The output repo determines what content is included—not who runs the compiler.
+    Anyone with write access can compile into a repo. Content included depends
+    solely on the output repo's position in the inheritance tree.
+
+    See: docs/compilation-guide.md
+
+    Example:
+        # Compile into personal repo (includes all personal content)
+        compile_all_with_inheritance(
+            output_repo_path='~/ai-knowledge/ai-knowledge-{person}'
+        )
+
+        # Compile into company repo (no personal content)
+        compile_all_with_inheritance(
+            output_repo_path='~/ai-knowledge/ai-knowledge-{company}'
+        )
+
+        # Compile into client repo (baseline only)
+        compile_all_with_inheritance(
+            output_repo_path='~/ai-knowledge/ai-knowledge-{client}'
+        )
+
+    Output structure:
+        {output_repo}/compiled/
+        ├── {project1}/    ← content based on output repo's inheritance position
+        ├── {project2}/
+        └── ...
+
+    Args:
+        output_repo_path: Path to repo where compiled output goes (determines content)
+        base_path: Base path containing all ai-knowledge-* repos
+        verbose: Print verbose output
+        **kwargs: Additional arguments passed to compile_project
+
+    Returns:
+        Dictionary with:
+        - projects: Dict of project_name -> compilation result
+        - output_repo: Path to output repo
+        - total_compiled: Number of projects compiled
+        - errors: List of any errors
+    """
+    if not base_path:
+        base_path = os.path.expanduser('~/projects/my-projects/ai-knowledge')
+
+    # Expand ~ in output path
+    if output_repo_path.startswith('~'):
+        output_repo_path = os.path.expanduser(output_repo_path)
+
+    results = {
+        'projects': {},
+        'output_repo': output_repo_path,
+        'total_compiled': 0,
+        'errors': []
+    }
+
+    # Find inheritance config - look in personal repo first, then output repo
+    # The inheritance config (my-projects.yaml) lives ONLY in personal repos
+    personal_repo_path = os.path.join(base_path, 'ai-knowledge-rajiv')  # TODO: Make configurable
+    inheritance_config_path = find_inheritance_config(personal_repo_path)
+
+    if not inheritance_config_path:
+        # Try output repo as fallback (in case it IS the personal repo)
+        inheritance_config_path = find_inheritance_config(output_repo_path)
+
+    if not inheritance_config_path:
+        results['errors'].append(f"No my-projects.yaml found in {personal_repo_path} or {output_repo_path}")
+        return results
+
+    try:
+        inheritance_config = load_inheritance_config(inheritance_config_path)
+    except Exception as e:
+        results['errors'].append(f"Failed to load inheritance config: {e}")
+        return results
+
+    projects = inheritance_config.get('projects', {})
+
+    if verbose:
+        print(f"Found {len(projects)} projects in my-projects.yaml")
+        print(f"All with-inheritance output will go to: {output_repo_path}/compiled/")
+
+    # Compile each project with inheritance into the output repo
+    for project_name, project_config in projects.items():
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"Compiling: {project_name} (with-inheritance)")
+            print('='*60)
+
+        # Get the source repo path for this project
+        local_path = project_config.get('local_path', '')
+        if local_path.startswith('~'):
+            local_path = os.path.expanduser(local_path)
+        if not local_path or not os.path.exists(local_path):
+            local_path = os.path.join(base_path, f'ai-knowledge-{project_name}')
+
+        if not os.path.exists(local_path):
+            results['errors'].append(f"Repo not found for {project_name}: {local_path}")
+            results['projects'][project_name] = {'error': 'Repo not found'}
+            continue
+
+        config_path = os.path.join(local_path, 'compile-config.yaml')
+        if not os.path.exists(config_path):
+            results['errors'].append(f"No compile-config.yaml for {project_name}")
+            results['projects'][project_name] = {'error': 'No compile-config.yaml'}
+            continue
+
+        try:
+            config = load_compile_config(local_path)
+
+            # Compile with inheritance, output to specified repo
+            result = compile_project(
+                config=config,
+                personalized=True,  # Enable inheritance chain resolution
+                verbose=verbose,
+                personal_repo_path=personal_repo_path,  # For inheritance config lookup
+                base_path=base_path,
+                output_repo_path=output_repo_path,  # CRITICAL: Output goes to specified repo
+                target_project=project_name,
+                **kwargs
+            )
+
+            results['projects'][project_name] = result
+            results['total_compiled'] += 1
+
+            if verbose:
+                chain = result.get('inheritance_chain', [])
+                if chain:
+                    print(f"  Inheritance: {' → '.join(chain)}")
+                print(f"  Output: {result.get('output_dir')}")
+
+        except Exception as e:
+            results['errors'].append(f"Failed to compile {project_name}: {e}")
+            results['projects'][project_name] = {'error': str(e)}
 
     return results
 

@@ -257,7 +257,9 @@ Personal ai-knowledge repos can inherit from ai-knowledge-ragbot to get these sh
 
 ### AI Knowledge Compiler
 
-The AI Knowledge Compiler transforms source content into optimized formats for AI consumption:
+The AI Knowledge Compiler transforms source content into optimized formats for AI consumption.
+
+**Key concept:** The output repo determines what content is included—not who runs the compiler. Anyone with write access can compile into a repo. See [docs/compilation-guide.md](docs/compilation-guide.md) for details.
 
 ```
 ai-knowledge-{workspace}/
@@ -270,6 +272,16 @@ ai-knowledge-{workspace}/
         ├── instructions/      # LLM-specific (claude.md, chatgpt.md, gemini.md)
         ├── knowledge/         # Individual knowledge files
         └── vectors/           # Chunked for RAG
+```
+
+Quick compilation examples:
+
+```bash
+# Baseline (single repo content only)
+ragbot compile --repo ~/ai-knowledge/ai-knowledge-{project}
+
+# With inheritance (output repo determines content)
+ragbot compile --all-with-inheritance --output-repo ~/ai-knowledge/ai-knowledge-{output}
 ```
 
 For detailed setup instructions, see the [LLM Project Setup Guide](https://github.com/rajivpant/ai-knowledge-ragbot/blob/main/source/runbooks/system-config/llm-project-setup.md).

@@ -124,27 +124,40 @@ def create_compile_parser(subparsers):
         description='Compile AI Knowledge repositories into optimized outputs for various LLM platforms.'
     )
 
-    # Project selection
+    # Project selection - what to compile
     project_group = compile_parser.add_mutually_exclusive_group()
     project_group.add_argument(
         '--project', '-p',
-        help='Project name to compile (e.g., my-project, my-client)'
+        help='Project name to compile (e.g., company, client)'
     )
     project_group.add_argument(
         '--repo', '-r',
-        help='Path to ai-knowledge-* repository to compile'
+        help='Path to ai-knowledge-* repository to compile (baseline only)'
     )
     project_group.add_argument(
         '--all', '-a',
         action='store_true',
-        help='Compile all projects'
+        help='Compile all projects (baseline only, no inheritance)'
+    )
+    project_group.add_argument(
+        '--all-with-inheritance',
+        action='store_true',
+        help='Compile ALL projects with inheritance into your private repo. '
+             'Output goes to ai-knowledge-{user}/compiled/{project}/ for each project.'
+    )
+
+    # Output destination - where to put compiled output
+    compile_parser.add_argument(
+        '--output-repo', '-o',
+        help='Path to repo where compiled output should go. Required with --project when using --with-inheritance. '
+             'Example: --project {client} --with-inheritance --output-repo ~/ai-knowledge-{person}'
     )
 
     # Compilation options
     compile_parser.add_argument(
-        '--personalized',
+        '--with-inheritance',
         action='store_true',
-        help='Include inherited content from parent repos'
+        help='Include inherited content from parent repos (per my-projects.yaml)'
     )
     compile_parser.add_argument(
         '--llm',
@@ -412,8 +425,14 @@ def run_compile(args):
     """Run the compile command."""
     import time
     from compiler.config import load_compile_config, validate_config, get_project_name
-    from compiler import compile_project
+    from compiler import compile_project, compile_all_with_inheritance
     from compiler.manifest import format_manifest_summary
+    from ragbot.keystore import get_user_config
+
+    def get_personal_repo_path(base_path):
+        """Get the path to the user's personal ai-knowledge repo."""
+        user_workspace = get_user_config('user_workspace', 'rajiv')
+        return os.path.join(base_path, f'ai-knowledge-{user_workspace}')
 
     def find_project_repo(project_name, base_path):
         """Find the repository path for a project name."""
@@ -469,17 +488,28 @@ def run_compile(args):
         }
         target_platforms = llm_map.get(args.llm)
 
+        # Determine output repo path
+        output_repo = None
+        with_inheritance = getattr(args, 'with_inheritance', False)
+        if hasattr(args, 'output_repo') and args.output_repo:
+            output_repo = os.path.expanduser(args.output_repo)
+        elif with_inheritance:
+            # Inheritance compilations MUST go to user's private repo
+            output_repo = get_personal_repo_path(args.base_path)
+
         try:
             result = compile_project(
                 config=config,
                 platforms=target_platforms,
-                personalized=args.personalized,
+                personalized=with_inheritance,  # Internal param still called personalized
                 context=args.context,
                 force=args.force,
                 use_llm=not args.no_llm,
                 instructions_only=args.instructions_only,
                 verbose=args.verbose,
-                personal_repo_path=args.personal_repo
+                personal_repo_path=args.personal_repo,
+                base_path=args.base_path,
+                output_repo_path=output_repo
             )
         except Exception as e:
             print(f"Compilation error: {e}", file=sys.stderr)
@@ -545,20 +575,89 @@ def run_compile(args):
         return 0
 
     # Determine what to compile
-    if args.all:
+    if hasattr(args, 'all_with_inheritance') and args.all_with_inheritance:
+        # ==================================================================
+        # --all-with-inheritance: Compile ALL projects with inheritance
+        # into the personal repo. This is the SAFE and RECOMMENDED way
+        # to compile everything for personal use.
+        #
+        # See: projects/active/ai-knowledge-architecture/architecture.md
+        # ==================================================================
+        personal_repo = get_personal_repo_path(args.base_path)
+
+        if not os.path.exists(personal_repo):
+            print(f"Error: Personal repo not found: {personal_repo}", file=sys.stderr)
+            return 1
+
+        if not args.quiet:
+            print("=" * 70)
+            print("COMPILING ALL PROJECTS WITH INHERITANCE")
+            print("=" * 70)
+            print(f"Output repo: {personal_repo}")
+            print(f"All output will go to: {personal_repo}/compiled/")
+            print("=" * 70)
+
+        llm_map = {
+            'claude': ['anthropic'],
+            'chatgpt': ['openai'],
+            'gemini': ['google'],
+            'all': None
+        }
+        target_platforms = llm_map.get(args.llm)
+
+        result = compile_all_with_inheritance(
+            output_repo_path=personal_repo,
+            base_path=args.base_path,
+            verbose=args.verbose,
+            platforms=target_platforms,
+            force=args.force,
+            use_llm=not args.no_llm,
+            instructions_only=args.instructions_only,
+            context=args.context
+        )
+
+        # Report results
+        if result['errors']:
+            print("\nErrors:", file=sys.stderr)
+            for error in result['errors']:
+                print(f"  - {error}", file=sys.stderr)
+
+        print(f"\n{'='*70}")
+        print(f"COMPILATION COMPLETE")
+        print(f"{'='*70}")
+        print(f"Projects compiled: {result['total_compiled']}")
+        print(f"Output location: {personal_repo}/compiled/")
+
+        # List compiled projects
+        print("\nCompiled projects:")
+        for name, proj_result in result['projects'].items():
+            if 'error' in proj_result:
+                print(f"  ✗ {name}: {proj_result['error']}")
+            else:
+                chain = proj_result.get('inheritance_chain', [])
+                chain_str = ' → '.join(chain) if chain else 'baseline'
+                print(f"  ✓ {name} ({chain_str})")
+
+        return 1 if result['errors'] else 0
+
+    elif args.all:
+        # ==================================================================
+        # --all: Compile all projects with BASELINE only (no inheritance)
+        # Each repo gets its own compiled/ folder with only its own content.
+        # ==================================================================
         projects = list_projects(args.base_path)
         if not projects:
             print(f"No projects found in {args.base_path}", file=sys.stderr)
             return 1
 
         if not args.quiet:
-            print(f"Found {len(projects)} projects to compile")
+            print(f"Found {len(projects)} projects to compile (baseline only)")
 
         failed = []
         for project in projects:
             if not args.quiet:
                 print(f"\n{'='*60}")
-                print(f"Compiling: {project['name']}")
+                print(f"Compiling: {project['name']} (baseline)")
                 print('='*60)
 
             result = compile_repo(project['repo_path'])
@@ -569,7 +668,7 @@ def run_compile(args):
             print(f"\nFailed projects: {', '.join(failed)}", file=sys.stderr)
             return 1
 
-        print(f"\nAll {len(projects)} projects compiled successfully")
+        print(f"\nAll {len(projects)} projects compiled successfully (baseline only)")
         return 0
 
     elif args.project:
