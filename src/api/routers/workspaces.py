@@ -65,11 +65,11 @@ async def get_index_status(name: str):
         try:
             from rag import is_rag_available, get_index_status as rag_get_index_status
             if is_rag_available():
-                indexed, doc_count = rag_get_index_status(workspace['dir_name'])
+                indexed, chunk_count = rag_get_index_status(workspace['dir_name'])
                 return IndexStatus(
                     workspace=workspace['dir_name'],
                     indexed=indexed,
-                    document_count=doc_count,
+                    chunk_count=chunk_count,
                 )
         except ImportError:
             pass
@@ -77,7 +77,7 @@ async def get_index_status(name: str):
         return IndexStatus(
             workspace=workspace['dir_name'],
             indexed=False,
-            document_count=0,
+            chunk_count=0,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -105,12 +105,12 @@ async def index_workspace(name: str, request: IndexRequest = None):
                 raise HTTPException(status_code=503, detail="RAG not available")
 
             force = request.force if request else False
-            doc_count = index_workspace_by_name(workspace['dir_name'], force=force)
+            chunk_count = index_workspace_by_name(workspace['dir_name'], force=force)
 
             return IndexStatus(
                 workspace=workspace['dir_name'],
                 indexed=True,
-                document_count=doc_count,
+                chunk_count=chunk_count,
             )
         except ImportError:
             raise HTTPException(status_code=503, detail="RAG not available")

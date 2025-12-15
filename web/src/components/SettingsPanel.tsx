@@ -429,7 +429,7 @@ export function SettingsPanel({
             {workspace && (
               <div className="flex items-center gap-2">
                 {indexStatus?.indexed ? (
-                  <span className="text-xs text-green-600">✅ {indexStatus.chunks || 0} chunks</span>
+                  <span className="text-xs text-green-600">✅ {indexStatus.chunk_count || 0} chunks</span>
                 ) : (
                   <span className="text-xs text-amber-600">⚠️ Not indexed</span>
                 )}

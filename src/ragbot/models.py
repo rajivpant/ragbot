@@ -63,7 +63,7 @@ class IndexStatus(BaseModel):
     """RAG index status for a workspace."""
     workspace: str
     indexed: bool
-    document_count: int = 0
+    chunk_count: int = 0
     last_indexed: Optional[str] = None
 
 

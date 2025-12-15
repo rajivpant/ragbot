@@ -118,8 +118,9 @@ export async function getTemperatureSettings(): Promise<Record<string, number>> 
 
 export interface IndexStatus {
   indexed: boolean;
-  collection_name?: string;
-  chunks?: number;
+  workspace?: string;
+  chunk_count?: number;
+  last_indexed?: string | null;
   error?: string;
 }
 

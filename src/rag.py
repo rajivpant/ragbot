@@ -381,7 +381,8 @@ def get_index_status(workspace_name: str) -> tuple[bool, int]:
         workspace_name: Name of the workspace
 
     Returns:
-        Tuple of (is_indexed, document_count)
+        Tuple of (is_indexed, chunk_count) where chunk_count is the number of
+        vector points in the Qdrant collection.
     """
     client = _get_qdrant_client()
     if not client:

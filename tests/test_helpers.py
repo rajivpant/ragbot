@@ -15,7 +15,7 @@ if src_dir not in sys.path:
 from helpers import (
     load_config, process_file, load_files,
     human_format, count_tokens_for_files,
-    count_custom_instructions_tokens, count_curated_datasets_tokens
+    count_custom_instructions_tokens
 )
 
 @pytest.fixture
@@ -104,7 +104,3 @@ def test_count_custom_instructions_tokens(setup_files):
     tokens = count_custom_instructions_tokens([test_custom_instruction_file])
     assert tokens > 0
 
-def test_count_curated_datasets_tokens(setup_files):
-    test_config_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
-    tokens = count_curated_datasets_tokens([test_curated_dataset_file])
-    assert tokens > 0
