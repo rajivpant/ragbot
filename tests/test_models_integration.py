@@ -89,10 +89,14 @@ class TestModelsIntegration:
             if not os.environ.get('TEST_EXPENSIVE_MODELS'):
                 pytest.skip(f"Skipping expensive model {model_id} (set TEST_EXPENSIVE_MODELS=1 to test)")
 
+        # Use model's default_max_tokens or a reasonable default
+        # Some models (like gpt-5-mini) need more tokens to respond properly
+        max_tokens = model_info.get('default_max_tokens', 1000)
+
         response = chat(
             prompt=TEST_PROMPT,
             model=model_id,
-            max_tokens=100,
+            max_tokens=max_tokens,
             stream=False
         )
 
@@ -109,11 +113,14 @@ class TestModelsIntegration:
             if not os.environ.get('TEST_EXPENSIVE_MODELS'):
                 pytest.skip(f"Skipping expensive model {model_id}")
 
+        # Use model's default_max_tokens or a reasonable default
+        max_tokens = model_info.get('default_max_tokens', 1000)
+
         chunks = []
         for chunk in chat_stream(
             prompt=TEST_PROMPT,
             model=model_id,
-            max_tokens=100
+            max_tokens=max_tokens
         ):
             chunks.append(chunk)
 
@@ -137,12 +144,13 @@ class TestModelParameters:
             pytest.skip("No OpenAI models configured")
 
         model = openai_models[0]
+        max_tokens = model.get('default_max_tokens', 1000)
 
         # OpenAI GPT-5 models only support temperature=1
         response = chat(
             prompt=TEST_PROMPT,
             model=model['id'],
-            max_tokens=50,
+            max_tokens=max_tokens,
             temperature=1.0,
             stream=False
         )
@@ -191,7 +199,7 @@ class TestErrorHandling:
             )
 
     def test_empty_prompt_handled(self):
-        """Empty prompt should be handled gracefully."""
+        """Empty prompt should be handled gracefully (rejected by API)."""
         default_model = get_default_model()
         api_keys = check_api_keys()
         provider = default_model.split('/')[0] if '/' in default_model else 'anthropic'
@@ -199,15 +207,15 @@ class TestErrorHandling:
         if not api_keys.get(provider, False):
             pytest.skip("No API key for default model")
 
-        # Most models will still respond to empty prompt
-        response = chat(
-            prompt="",
-            model=default_model,
-            max_tokens=50,
-            stream=False
-        )
-        # Should either return something or raise an error, not hang
-        assert response is not None or response == ""
+        # Modern LLMs (Anthropic Claude, etc.) correctly reject empty prompts
+        # This is expected behavior - empty messages are invalid
+        with pytest.raises(Exception):
+            chat(
+                prompt="",
+                model=default_model,
+                max_tokens=50,
+                stream=False
+            )
 
 
 # Marker for expensive tests

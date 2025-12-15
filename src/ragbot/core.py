@@ -340,9 +340,9 @@ def chat(
             "api_key": api_key
         }
 
-        # GPT-5 models (not 5.2) use max_completion_tokens instead of max_tokens
+        # All GPT-5.x models use max_completion_tokens instead of max_tokens
         model_lower = model.lower()
-        if 'gpt-5-mini' in model_lower or ('gpt-5' in model_lower and '5.2' not in model_lower and '5.1' not in model_lower):
+        if 'gpt-5' in model_lower or 'gpt5' in model_lower:
             completion_kwargs["max_completion_tokens"] = max_tokens
         else:
             completion_kwargs["max_tokens"] = max_tokens
@@ -499,9 +499,9 @@ def chat_stream(
         "api_key": api_key
     }
 
-    # GPT-5 models (not 5.2) use max_completion_tokens instead of max_tokens
+    # All GPT-5.x models use max_completion_tokens instead of max_tokens
     model_lower = model.lower()
-    if 'gpt-5-mini' in model_lower or ('gpt-5' in model_lower and '5.2' not in model_lower and '5.1' not in model_lower):
+    if 'gpt-5' in model_lower or 'gpt5' in model_lower:
         completion_kwargs["max_completion_tokens"] = max_tokens
     else:
         completion_kwargs["max_tokens"] = max_tokens
