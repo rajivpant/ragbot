@@ -297,24 +297,38 @@ def assemble_inherited_content(
     return merge_assembled_content(assembled_list)
 
 
-def write_knowledge_full(assembled: Dict, output_dir: str, verbose: bool = False) -> List[str]:
+def write_knowledge_files(assembled: Dict, output_dir: str, verbose: bool = False) -> List[str]:
     """
-    Write individual knowledge files to knowledge/full/ directory.
+    Write individual knowledge files to knowledge/ directory (flat structure).
 
-    This creates individual files suitable for GitHub sync to Claude Projects.
+    Output structure:
+        compiled/{project}/
+        ├── knowledge/                # Individual files
+        │   ├── runbooks-*.md
+        │   └── datasets-*.md
+        └── all-knowledge.md          # Consolidated (same level as knowledge/)
+
+    This creates individual files suitable for:
+    - Claude Projects: GitHub sync to compiled/{project}/knowledge/
+    - ChatGPT GPTs: Upload all files from knowledge/
+    - LLMs with file limits: Use all-knowledge.md (consolidated)
+
+    The consolidated file is placed at the same level as knowledge/ (not inside it)
+    so that Claude's GitHub sync doesn't include it when syncing knowledge/.
 
     Args:
         assembled: Assembled content dict
-        output_dir: Base output directory (compiled/)
+        output_dir: Project output directory (compiled/{project}/)
         verbose: Print verbose output
 
     Returns:
         List of written file paths
     """
-    full_dir = os.path.join(output_dir, 'knowledge', 'full')
-    os.makedirs(full_dir, exist_ok=True)
+    knowledge_dir = os.path.join(output_dir, 'knowledge')
+    os.makedirs(knowledge_dir, exist_ok=True)
 
     written_files = []
+    all_content_parts = []
 
     # Write runbooks and datasets as individual files
     for category in ['runbooks', 'datasets']:
@@ -327,28 +341,48 @@ def write_knowledge_full(assembled: Dict, output_dir: str, verbose: bool = False
             if not content.strip():
                 continue
 
-            # Create output path preserving directory structure
-            # Remove the category prefix from path for cleaner structure
-            path_parts = Path(rel_path).parts
-            if path_parts and path_parts[0] == category:
-                clean_path = os.path.join(*path_parts[1:]) if len(path_parts) > 1 else path_parts[0]
-            else:
-                clean_path = rel_path
+            # Get just the filename (flat structure, no subdirectories)
+            filename = os.path.basename(rel_path)
 
-            output_path = os.path.join(full_dir, category, clean_path)
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            # Prefix with category to avoid collisions and provide context
+            # e.g., runbooks-anti-watermarking.md, datasets-about-me.md
+            prefixed_filename = f"{category}-{filename}"
+
+            output_path = os.path.join(knowledge_dir, prefixed_filename)
 
             with open(output_path, 'w') as f:
                 f.write(content)
 
             written_files.append(output_path)
 
+            # Collect content for consolidated file
+            title = filename.replace('.md', '').replace('-', ' ').title()
+            all_content_parts.append(f"## {category.title()}: {title}\n\n{content}")
+
             if verbose:
                 print(f"    Wrote: {output_path}")
+
+    # Generate consolidated file for LLMs with file count limits (Gemini: 10 files, etc.)
+    # Place at same level as knowledge/ (not inside it) to:
+    # - Prevent it from being included in Claude's GitHub sync of knowledge/
+    # - Make it obvious this is an alternative to the folder
+    # - Avoid accidental duplication when uploading to ChatGPT
+    if all_content_parts:
+        consolidated_path = os.path.join(output_dir, 'all-knowledge.md')
+        consolidated_content = "# Knowledge Base\n\n" + "\n\n---\n\n".join(all_content_parts)
+
+        with open(consolidated_path, 'w') as f:
+            f.write(consolidated_content)
+
+        written_files.append(consolidated_path)
+
+        if verbose:
+            print(f"    Wrote consolidated: {consolidated_path}")
 
     return written_files
 
 
+# Deprecated: by-context compilation removed - RAG handles context filtering
 def write_knowledge_by_context(
     assembled: Dict,
     output_dir: str,
@@ -356,86 +390,16 @@ def write_knowledge_by_context(
     verbose: bool = False
 ) -> Dict[str, List[str]]:
     """
-    Write context-filtered knowledge files to knowledge/by-context/ directory.
+    DEPRECATED: This function is no longer used.
 
-    Args:
-        assembled: Assembled content dict
-        output_dir: Base output directory (compiled/)
-        source_path: Path to source directory (to find context definitions)
-        verbose: Print verbose output
+    Context filtering is now handled by RAG at query time, not at compile time.
+    Pre-generating by-context folders was wasteful since there are dozens of contexts.
 
-    Returns:
-        Dict mapping context name to list of written file paths
+    Kept for backwards compatibility but returns empty dict.
     """
-    contexts_dir = os.path.join(source_path, 'contexts')
-    if not os.path.exists(contexts_dir):
-        if verbose:
-            print("  No contexts directory found, skipping context compilation")
-        return {}
-
-    written_by_context = {}
-
-    # Find all context definition files
-    for filename in os.listdir(contexts_dir):
-        if not filename.endswith(('.yaml', '.yml')):
-            continue
-
-        context_name = filename.rsplit('.', 1)[0]
-        context_path = os.path.join(contexts_dir, filename)
-
-        try:
-            with open(context_path, 'r') as f:
-                context_def = yaml.safe_load(f)
-        except Exception as e:
-            if verbose:
-                print(f"  Warning: Could not load context {context_name}: {e}")
-            continue
-
-        if not context_def:
-            continue
-
-        if verbose:
-            print(f"  Compiling context: {context_name}")
-
-        # Apply context filter
-        filtered = apply_context_to_assembled(assembled, context_def, source_path)
-
-        if verbose:
-            print(f"    Filtered to {len(filtered['files'])} files, {filtered['total_tokens']:,} tokens")
-
-        # Create context output directory
-        context_output_dir = os.path.join(output_dir, 'knowledge', 'by-context', context_name)
-        os.makedirs(context_output_dir, exist_ok=True)
-
-        written_files = []
-
-        # Write consolidated knowledge file for this context
-        knowledge_content = format_knowledge_file(
-            filtered,
-            categories=['instructions', 'runbooks', 'datasets'],
-            include_headers=True
-        )
-
-        if knowledge_content.strip():
-            # Use context display name if available
-            display_name = context_def.get('name', context_name)
-            safe_name = context_name.replace(' ', '-').lower()
-            knowledge_path = os.path.join(context_output_dir, f'{safe_name}-knowledge.md')
-
-            with open(knowledge_path, 'w') as f:
-                f.write(f"# {display_name}\n\n")
-                f.write(f"{context_def.get('description', '')}\n\n")
-                f.write("---\n\n")
-                f.write(knowledge_content)
-
-            written_files.append(knowledge_path)
-
-            if verbose:
-                print(f"    Wrote: {knowledge_path}")
-
-        written_by_context[context_name] = written_files
-
-    return written_by_context
+    if verbose:
+        print("  Note: by-context compilation deprecated, RAG handles filtering")
+    return {}
 
 
 def compile_project(config: dict,
@@ -451,12 +415,25 @@ def compile_project(config: dict,
     """
     Compile an AI Knowledge project.
 
+    Output structure:
+        compiled/{project}/
+        ├── instructions/
+        │   ├── claude.md
+        │   ├── chatgpt.md
+        │   └── gemini.md
+        ├── knowledge/
+        │   ├── runbooks-*.md      (individual files)
+        │   ├── datasets-*.md      (individual files)
+        │   └── gemini-knowledge.md (consolidated for Gemini's 10-file limit)
+        └── vectors/
+            └── chunks.jsonl
+
     This is the main compilation function. It:
     1. Assembles content from source directories
     2. Optionally merges inherited content (if personalized)
     3. Applies context filtering (if specified)
-    4. Compiles instructions using each target LLM
-    5. Generates knowledge files (full and by-context)
+    4. Compiles instructions for each target LLM (claude.md, chatgpt.md, gemini.md)
+    5. Generates individual knowledge files + consolidated for Gemini
     6. Optionally generates vector store chunks
     7. Creates a manifest
 
@@ -479,7 +456,6 @@ def compile_project(config: dict,
         - compiled_files: List of output file paths
         - errors: List of any errors encountered
         - inheritance_chain: List of repos in inheritance order (if personalized)
-        - contexts_compiled: Dict of context names to file lists
     """
     start_time = time.time()
 
@@ -491,21 +467,17 @@ def compile_project(config: dict,
     if not base_path:
         base_path = os.path.expanduser('~/projects/my-projects/ai-knowledge')
 
-    # Determine output directory based on compilation mode
-    if personalized and personal_repo_path:
-        # Personalized compilation outputs to personal repo's compiled/projects/{project}/
-        output_dir = os.path.join(personal_repo_path, 'compiled', 'projects', project_name)
-    else:
-        # Shared baseline compilation outputs to the repo's own compiled/
-        output_dir = get_output_dir(config)
+    # Determine output directory: compiled/{project}/
+    # All compilations go to compiled/{project}/ at same level
+    base_output = get_output_dir(config)  # Gets the repo's compiled/ directory
+    output_dir = os.path.join(base_output, project_name)
 
     result = {
         'manifest': {},
         'output_dir': output_dir,
         'compiled_files': [],
         'errors': [],
-        'inheritance_chain': [],
-        'contexts_compiled': {}
+        'inheritance_chain': []
     }
 
     # Load engines config for model resolution
@@ -593,7 +565,7 @@ def compile_project(config: dict,
             f"Token budget exceeded: {assembled['total_tokens']:,} > {budget:,}"
         )
 
-    # Create output directories
+    # Create output directory: compiled/{project}/
     os.makedirs(output_dir, exist_ok=True)
 
     compiled_files = []
@@ -603,7 +575,19 @@ def compile_project(config: dict,
     if platforms:
         targets = [t for t in targets if t.get('platform') in platforms]
 
-    # Compile instructions for each target
+    # Map platform names to output filenames
+    platform_to_filename = {
+        'anthropic': 'claude.md',
+        'openai': 'chatgpt.md',
+        'google': 'gemini.md',
+        'grok': 'grok.md'
+    }
+
+    # Create instructions directory: compiled/{project}/instructions/
+    instructions_dir = os.path.join(output_dir, 'instructions')
+    os.makedirs(instructions_dir, exist_ok=True)
+
+    # Compile instructions for each target LLM
     instructions_files = assembled['by_category'].get('instructions', [])
 
     for target in targets:
@@ -612,7 +596,7 @@ def compile_project(config: dict,
         model_category = target.get('model_category', 'flagship')
 
         if verbose:
-            print(f"Compiling for target: {target_name} ({platform})")
+            print(f"Compiling instructions for: {platform}")
 
         # Resolve model
         try:
@@ -620,10 +604,6 @@ def compile_project(config: dict,
         except ValueError:
             model = None
             result['errors'].append(f"Could not resolve model for {platform}")
-
-        # Create target output directory
-        target_output = os.path.join(output_dir, target_name)
-        os.makedirs(target_output, exist_ok=True)
 
         # Compile instructions
         if instructions_files:
@@ -635,15 +615,15 @@ def compile_project(config: dict,
                         instructions_content, platform, model
                     )
                 except Exception as e:
-                    result['errors'].append(f"LLM compilation failed for {target_name}: {e}")
+                    result['errors'].append(f"LLM compilation failed for {platform}: {e}")
                     compiled = passthrough_instructions(instructions_content, platform)
             else:
                 compiled = passthrough_instructions(instructions_content, platform)
 
-            # Save compiled instructions
-            instructions_dir = os.path.join(target_output, 'instructions')
-            os.makedirs(instructions_dir, exist_ok=True)
-            instructions_path = os.path.join(instructions_dir, f'{project_name}.md')
+            # Save compiled instructions as {platform}.md
+            # e.g., compiled/{project}/instructions/claude.md
+            filename = platform_to_filename.get(platform, f'{platform}.md')
+            instructions_path = os.path.join(instructions_dir, filename)
 
             with open(instructions_path, 'w') as f:
                 f.write(compiled)
@@ -651,51 +631,18 @@ def compile_project(config: dict,
             compiled_files.append(instructions_path)
 
             if verbose:
-                print(f"  Wrote instructions: {instructions_path}")
+                print(f"  Wrote: {instructions_path}")
 
-        # Compile knowledge (if not instructions-only)
-        if not instructions_only:
-            # Write consolidated knowledge file for this target
-            knowledge_content = format_knowledge_file(
-                assembled,
-                categories=['runbooks', 'datasets']
-            )
-
-            if knowledge_content.strip():
-                knowledge_dir = os.path.join(target_output, 'knowledge')
-                os.makedirs(knowledge_dir, exist_ok=True)
-                knowledge_path = os.path.join(knowledge_dir, 'knowledge.md')
-
-                with open(knowledge_path, 'w') as f:
-                    f.write(knowledge_content)
-
-                compiled_files.append(knowledge_path)
-
-                if verbose:
-                    print(f"  Wrote knowledge: {knowledge_path}")
-
-    # Write knowledge/full/ for GitHub sync (if not instructions-only)
+    # Write knowledge files (if not instructions-only)
+    # Output: compiled/{project}/knowledge/
     if not instructions_only:
         if verbose:
-            print("Writing knowledge/full/ for GitHub sync")
-        full_files = write_knowledge_full(assembled, output_dir, verbose)
-        compiled_files.extend(full_files)
-
-    # Write knowledge/by-context/ for each context (if not instructions-only)
-    if not instructions_only:
-        if verbose:
-            print("Writing knowledge/by-context/")
-        # Use the source path from the main repo (or personal repo for personalized)
-        context_source = source_path
-        if personalized and personal_repo_path:
-            context_source = os.path.join(personal_repo_path, 'source')
-
-        contexts_result = write_knowledge_by_context(assembled, output_dir, context_source, verbose)
-        result['contexts_compiled'] = contexts_result
-        for context_files in contexts_result.values():
-            compiled_files.extend(context_files)
+            print("Writing knowledge files")
+        knowledge_files = write_knowledge_files(assembled, output_dir, verbose)
+        compiled_files.extend(knowledge_files)
 
     # Generate vector store chunks (if enabled and not instructions-only)
+    # Output: compiled/{project}/vectors/
     vector_config = get_vector_store_config(config)
     if vector_config.get('enabled') and not instructions_only:
         if verbose:
@@ -727,18 +674,14 @@ def compile_project(config: dict,
             'personalized': True
         }
 
-    # Add context info to manifest
-    if result['contexts_compiled']:
-        manifest['contexts'] = list(result['contexts_compiled'].keys())
-
     # Add target info to manifest
     for target in targets:
-        target_name = target.get('name', 'unknown')
         platform = target.get('platform', 'anthropic')
-        target_files = [f for f in compiled_files if target_name in f]
+        filename = platform_to_filename.get(platform, f'{platform}.md')
+        target_files = [f for f in compiled_files if filename in f]
 
         add_target_to_manifest(
-            manifest, target_name, platform,
+            manifest, platform, platform,
             target_files, assembled['total_tokens'],
             compiled_with_llm=use_llm
         )
