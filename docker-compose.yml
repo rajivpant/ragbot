@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # API service (FastAPI) - Primary service
   ragbot-api:
     build:
       context: .
@@ -9,29 +6,15 @@ services:
     container_name: ragbot-api
     ports:
       - "8000:8000"
-    environment:
-      # AI Provider API Keys
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
-
-      # AWS Configuration (optional)
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_REGION_NAME=${AWS_REGION_NAME:-us-east-1}
-
-      # CORS Configuration
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:8501}
-
-      # Ragbot Data Root
-      - RAGBOT_DATA_ROOT=/app
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions
 
-      # Mount ai-knowledge repositories
-      - ./ai-knowledge:/app/ai-knowledge:ro
+      # Mount user config for API keys
+      - ~/.config/ragbot:/root/.config/ragbot:ro
+
+      # Mount ai-knowledge repos for workspace discovery
+      - ~/projects/my-projects/ai-knowledge:/app/ai-knowledge:ro
 
       # Mount engines.yaml to use latest model configurations
       - ./engines.yaml:/app/engines.yaml:ro
@@ -52,46 +35,33 @@ services:
       - ragbot-network
     command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-  # Web interface service (Streamlit) - During migration period
   ragbot-web:
     build:
-      context: .
+      context: ./web
       dockerfile: Dockerfile
+      target: dev
     container_name: ragbot-web
     ports:
-      - "8501:8501"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      - AWS_REGION_NAME=${AWS_REGION_NAME:-us-east-1}
-      - RAGBOT_DATA_ROOT=/app
+      - "3000:3000"
     volumes:
-      - ragbot-sessions:/root/.local/share/ragbot/sessions
-      - ./ai-knowledge:/app/ai-knowledge:ro
-      - ./engines.yaml:/app/engines.yaml:ro
-      - ./src:/app/src:ro
-      - ragbot-qdrant:/app/qdrant_data
+      # Mount source for hot reload in development
+      - ./web:/app
+      # Named volume to preserve node_modules from image
+      - ragbot-web-node-modules:/app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+    depends_on:
+      - ragbot-api
     networks:
       - ragbot-network
-    command: ["streamlit", "run", "src/ragbot_streamlit.py", "--server.address", "0.0.0.0"]
-    profiles:
-      - streamlit
 
 volumes:
   ragbot-sessions:
     driver: local
   ragbot-qdrant:
+    driver: local
+  ragbot-web-node-modules:
     driver: local
 
 networks:

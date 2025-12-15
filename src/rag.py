@@ -10,11 +10,39 @@ import logging
 from typing import Optional
 from pathlib import Path
 
-# Import from shared chunking library
-from .chunking import chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id
-
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Lazy import for chunking - handle both relative and absolute imports
+_chunking_loaded = False
+chunk_file = None
+chunk_files = None
+ChunkConfig = None
+Chunk = None
+get_qdrant_point_id = None
+
+
+def _load_chunking():
+    """Lazy load chunking module."""
+    global _chunking_loaded, chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id
+    if _chunking_loaded:
+        return True
+    try:
+        # Try relative import (when used as part of a package)
+        from .chunking import chunk_file as cf, chunk_files as cfs, ChunkConfig as CC, Chunk as C, get_qdrant_point_id as gpi
+        chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id = cf, cfs, CC, C, gpi
+        _chunking_loaded = True
+        return True
+    except ImportError:
+        try:
+            # Try absolute import (when used standalone)
+            from chunking import chunk_file as cf, chunk_files as cfs, ChunkConfig as CC, Chunk as C, get_qdrant_point_id as gpi
+            chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id = cf, cfs, CC, C, gpi
+            _chunking_loaded = True
+            return True
+        except ImportError:
+            logger.warning("chunking module not available. Some RAG features may be limited.")
+            return False
 
 # Lazy imports - only load heavy dependencies when needed
 _qdrant_client = None
@@ -140,6 +168,10 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     Returns:
         Dictionary with indexing stats
     """
+    # Load chunking module
+    if not _load_chunking():
+        return {'error': 'Chunking module not available', 'indexed': 0}
+
     client = _get_qdrant_client()
     model = _get_embedding_model()
 
@@ -339,6 +371,87 @@ def index_workspace(workspace_name: str, ai_knowledge_paths: dict) -> dict:
     # Runbooks could be indexed if they exist in a separate path
 
     return stats
+
+
+def get_index_status(workspace_name: str) -> tuple[bool, int]:
+    """
+    Get the index status for a workspace.
+
+    Args:
+        workspace_name: Name of the workspace
+
+    Returns:
+        Tuple of (is_indexed, document_count)
+    """
+    client = _get_qdrant_client()
+    if not client:
+        return False, 0
+
+    try:
+        collection_name = get_collection_name(workspace_name)
+
+        # Check if collection exists
+        collections = client.get_collections().collections
+        collection_names = [c.name for c in collections]
+
+        if collection_name not in collection_names:
+            return False, 0
+
+        # Get collection info
+        collection_info = client.get_collection(collection_name)
+        doc_count = collection_info.points_count
+
+        return doc_count > 0, doc_count
+    except Exception as e:
+        logger.error(f"Failed to get index status: {e}")
+        return False, 0
+
+
+def index_workspace_by_name(workspace_name: str, force: bool = False) -> int:
+    """
+    Index a workspace by name, automatically discovering its paths.
+
+    This is a convenience wrapper that discovers workspace paths from
+    the ai-knowledge repository structure.
+
+    Args:
+        workspace_name: Name/dir_name of the workspace
+        force: If True, clear existing index first
+
+    Returns:
+        Number of documents indexed
+    """
+    # Import here to avoid circular imports
+    import sys
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+
+    try:
+        from ragbot import get_workspace
+        workspace = get_workspace(workspace_name)
+    except Exception as e:
+        logger.error(f"Failed to get workspace {workspace_name}: {e}")
+        return 0
+
+    if force:
+        clear_collection(workspace_name)
+
+    # Get datasets paths (may be a list or a single path)
+    datasets = workspace.get('datasets', [])
+    if isinstance(datasets, str):
+        datasets = [datasets]
+
+    # Filter to existing paths
+    datasets = [p for p in datasets if p and os.path.exists(p)]
+
+    if not datasets:
+        logger.warning(f"No dataset paths found for workspace {workspace_name}")
+        return 0
+
+    # Index the content directly
+    result = index_content(workspace_name, datasets, 'datasets')
+    return result.get('indexed', 0)
 
 
 def clear_collection(workspace_name: str) -> bool:

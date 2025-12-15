@@ -15,9 +15,7 @@ openai>=2.0.0
 pathlib
 pytest
 pytest-mock
-python-dotenv
 pyyaml
-streamlit
 tiktoken
 watchdog
 

@@ -1,55 +1,69 @@
 # engines.yaml is a YAML file that contains the configuration for the AI engines and models.
 # Note: The default max tokens is used when the max tokens is not specified in the request.
-# Updated: November 2025 with latest models
+# Updated: December 2025 with latest models
 # max_input_tokens: Maximum tokens for input (context window)
 # max_output_tokens: Maximum tokens the model can generate in response
 # default_max_tokens: Recommended default with safety margin (typically 80% of max_output_tokens)
+#
+# Sources:
+# - Anthropic: https://docs.anthropic.com/en/docs/about-claude/models/overview
+# - OpenAI: https://platform.openai.com/docs/models
+# - Google: https://ai.google.dev/gemini-api/docs/models
 engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     models:
-      # GPT-5.1 Series - Latest flagship (November 2025)
+      # GPT-5 Mini - Fast and cost-effective (December 2025)
+      - name: gpt-5-mini
+        category: small
+        supports_system_role: true
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 128000
+        max_output_tokens: 16384
+        default_max_tokens: 4096
+      # GPT-5.1 - Balanced performance (August 2025)
       - name: gpt-5.1
+        category: medium
+        supports_system_role: true
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 400000
+        max_output_tokens: 128000
+        default_max_tokens: 8192
+      # GPT-5.2 - Latest and most capable (December 2025)
+      - name: gpt-5.2
         category: large
         is_flagship: true
         supports_system_role: true
         max_temperature: 2
         temperature: 0.75
-        max_input_tokens: 1000000
-        max_output_tokens: 32768
+        max_input_tokens: 400000
+        max_output_tokens: 128000
         default_max_tokens: 8192
-      # GPT-5 Mini - Fast reasoning model
-      - name: gpt-5-mini
-        category: medium
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 1000000
-        max_output_tokens: 32768
-        default_max_tokens: 8192
-      # GPT-5 Nano - Fastest and most affordable
-      - name: gpt-5-nano
-        category: small
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      # o4-mini - Fast reasoning for math/coding
-      - name: o4-mini
+      # GPT-5.2 Thinking - Advanced reasoning model (December 2025)
+      - name: gpt-5.2-thinking
         category: reasoning
         supports_system_role: true
-        max_temperature: 1
-        temperature: 1
-        max_input_tokens: 200000
-        max_output_tokens: 100000
+        max_temperature: 2
+        temperature: 0.75
+        max_input_tokens: 400000
+        max_output_tokens: 128000
         default_max_tokens: 8192
-    default_model: gpt-5-mini
+    default_model: gpt-5.1
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:
-      # Claude Sonnet 4.5 - Latest and most capable (Sep 2025)
+      # Claude Haiku 4.5 - Fast and cost-effective (October 2025)
+      - name: claude-haiku-4-5-20251001
+        category: small
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 200000
+        max_output_tokens: 64000
+        default_max_tokens: 8192
+      # Claude Sonnet 4.5 - Best balance of intelligence and speed (September 2025)
       - name: claude-sonnet-4-5-20250929
         category: medium
         supports_system_role: true
@@ -58,7 +72,7 @@ engines:
         max_input_tokens: 200000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      # Claude Opus 4.5 - Most powerful reasoning (Nov 2025)
+      # Claude Opus 4.5 - Most intelligent model (November 2025)
       - name: claude-opus-4-5-20251101
         category: large
         is_flagship: true
@@ -68,48 +82,20 @@ engines:
         max_input_tokens: 200000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      # Claude Haiku 4.5 - Fast and cost-effective (Oct 2025)
-      - name: claude-haiku-4-5
-        category: small
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 64000
-        default_max_tokens: 8192
-      # Claude 3.5 Haiku - Previous generation (Oct 2024)
-      - name: claude-3-5-haiku-20241022
-        category: small
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 8192
-        default_max_tokens: 8192
     default_model: claude-sonnet-4-5-20250929
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
-      # Gemini 3 Pro - Most advanced multimodal reasoning (November 2025)
-      - name: gemini/gemini-3-pro-preview
-        category: large
-        is_flagship: true
+      # Gemini 2.5 Flash Lite - Ultra-fast responses (stable)
+      - name: gemini/gemini-2.5-flash-lite
+        category: small
         supports_system_role: true
         max_temperature: 2
         temperature: 0.75
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-      # Gemini 3 Pro Image - Image generation capable (November 2025)
-      - name: gemini/gemini-3-pro-image-preview
-        category: large
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 65536
-        max_output_tokens: 32768
-        default_max_tokens: 8192
-      # Gemini 2.5 Flash - Balanced speed and capability (latest Flash)
+      # Gemini 2.5 Flash - Balanced speed and capability (stable)
       - name: gemini/gemini-2.5-flash
         category: medium
         supports_system_role: true
@@ -118,9 +104,10 @@ engines:
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-      # Gemini 2.5 Flash Lite - Ultra-fast responses (latest Lite)
-      - name: gemini/gemini-2.5-flash-lite
-        category: small
+      # Gemini 3 Pro Preview - Most intelligent model (November 2025)
+      - name: gemini/gemini-3-pro-preview
+        category: large
+        is_flagship: true
         supports_system_role: true
         max_temperature: 2
         temperature: 0.75

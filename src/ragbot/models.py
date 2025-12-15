@@ -88,6 +88,13 @@ class ModelsResponse(BaseModel):
     default_model: str
 
 
+class ApiKeyStatus(BaseModel):
+    """API key configuration status."""
+    provider: str
+    configured: bool
+    source: str = Field("default", description="Where the key comes from: 'default', 'workspace', or 'none'")
+
+
 class ConfigResponse(BaseModel):
     """Configuration response."""
     version: str
@@ -95,6 +102,9 @@ class ConfigResponse(BaseModel):
     workspace_count: int = 0
     rag_available: bool = False
     default_model: str = "anthropic/claude-sonnet-4-20250514"
+    default_workspace: Optional[str] = None
+    api_keys: Dict[str, bool] = Field(default_factory=dict, description="Provider to configured status")
+    workspaces_with_keys: List[str] = Field(default_factory=list, description="Workspaces with custom API keys")
 
 
 class HealthResponse(BaseModel):

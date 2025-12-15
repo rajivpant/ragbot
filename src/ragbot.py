@@ -3,7 +3,6 @@
 
 import os
 import sys
-from dotenv import load_dotenv
 import argparse
 import re
 import json
@@ -12,14 +11,13 @@ import openai
 import anthropic
 import litellm
 from helpers import load_files, load_config, print_saved_files, chat, load_profiles, load_workspaces_as_profiles
+from ragbot.keystore import get_api_key
 
 appname = "ragbot"
 appauthor = "Rajiv Pant"
 
 data_dir = appdirs.user_data_dir(appname, appauthor)
 sessions_data_dir = os.path.join(data_dir, "sessions")
-
-load_dotenv()  # Load environment variables from .env file
 
 # Load configuration from engines.yaml
 config = load_config('engines.yaml')
@@ -218,10 +216,9 @@ def main():
             print(f"Warning: No flagship model defined for engine '{args.engine}'. Using default.")
             model = default_models[args.engine]
 
-    # Get the engine API key from environment variable
-    api_key_name = engines_config[args.engine].get('api_key_name')
-    if api_key_name:
-        api_key = os.getenv(api_key_name)
+    # Get the engine API key from keystore
+    api_key = get_api_key(args.engine)
+    if api_key:
         engines_config[args.engine]['api_key'] = api_key
 
         # Set API keys for specific providers

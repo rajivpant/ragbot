@@ -112,3 +112,31 @@ Each repo in the ecosystem has its own git history. Don't run git commands from 
 - Uses LiteLLM for multi-provider LLM support
 - Engines configured in `engines.yaml`
 - Profiles/workspaces configured in `profiles.yaml`
+
+## Model Configuration Rules - CRITICAL
+
+**NEVER DOWNGRADE MODEL VERSIONS. EVER.**
+
+**DO NOT RELY ON TRAINING DATA FOR MODEL INFORMATION.** Training data is outdated. Use the current date (provided in system context) and web search to find the latest models.
+
+When the codebase or `engines.yaml` specifies a model version, DO NOT:
+- Revert to older model IDs
+- Change model versions to "safer" or "more familiar" versions from training data
+- Downgrade because a model "doesn't seem to work"
+- Assume models from training data are current - THEY ARE NOT
+- Replace newer models with older ones you "know" from training
+
+If `engines.yaml` has a model configured, it was added intentionally by the user who knows what models are currently available. DO NOT TOUCH IT unless explicitly asked.
+
+**If you need to update models:**
+1. Check the current date from system context
+2. Web search for the latest released models
+3. Never rely on training data cutoff knowledge
+4. The user knows what models exist better than your training data
+
+**Always check the current date** and use web search for the latest released model versions:
+- Anthropic: https://www.anthropic.com/claude
+- OpenAI: https://platform.openai.com/docs/models
+- Google: https://ai.google.dev/models
+
+If a model doesn't work, investigate the code/API issues rather than downgrading.

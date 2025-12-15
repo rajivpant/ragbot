@@ -14,12 +14,22 @@ from ragbot import (
     get_available_models,
     get_default_model,
     get_model_info,
+    get_providers,
+    get_temperature_settings,
     check_api_keys,
     ModelInfo,
     ModelsResponse,
 )
 
 router = APIRouter(prefix="/api/models", tags=["models"])
+
+
+# Provider display labels - loaded dynamically from engines.yaml
+PROVIDER_LABELS = {
+    "openai": "OpenAI",
+    "anthropic": "Anthropic",
+    "google": "Google",
+}
 
 
 @router.get("", response_model=ModelsResponse)
@@ -62,6 +72,10 @@ async def list_all_models():
                 "supports_streaming": model.get("supports_streaming", True),
                 "supports_system_role": model.get("supports_system_role", True),
                 "available": api_keys.get(provider, False),
+                "category": model.get("category", "medium"),
+                "max_output_tokens": model.get("max_output_tokens"),
+                "temperature": model.get("temperature"),
+                "max_temperature": model.get("max_temperature", 2),
             })
 
     return {
@@ -69,6 +83,27 @@ async def list_all_models():
         "default_model": get_default_model(),
         "api_keys_configured": api_keys,
     }
+
+
+@router.get("/providers")
+async def list_providers():
+    """List all configured providers from engines.yaml."""
+    providers = get_providers()
+    return {
+        "providers": [
+            {
+                "id": p,
+                "name": PROVIDER_LABELS.get(p, p.title()),
+            }
+            for p in providers
+        ]
+    }
+
+
+@router.get("/temperature-settings")
+async def get_temp_settings():
+    """Get temperature preset settings from engines.yaml."""
+    return get_temperature_settings()
 
 
 @router.get("/{model_id:path}")

@@ -63,9 +63,9 @@ async def get_index_status(name: str):
 
         # Check index status
         try:
-            from rag import is_rag_available, get_index_status
+            from rag import is_rag_available, get_index_status as rag_get_index_status
             if is_rag_available():
-                indexed, doc_count = get_index_status(workspace['dir_name'])
+                indexed, doc_count = rag_get_index_status(workspace['dir_name'])
                 return IndexStatus(
                     workspace=workspace['dir_name'],
                     indexed=indexed,
@@ -100,12 +100,12 @@ async def index_workspace(name: str, request: IndexRequest = None):
 
         # Perform indexing
         try:
-            from rag import is_rag_available, index_workspace as do_index
+            from rag import is_rag_available, index_workspace_by_name
             if not is_rag_available():
                 raise HTTPException(status_code=503, detail="RAG not available")
 
             force = request.force if request else False
-            doc_count = do_index(workspace['dir_name'], force=force)
+            doc_count = index_workspace_by_name(workspace['dir_name'], force=force)
 
             return IndexStatus(
                 workspace=workspace['dir_name'],

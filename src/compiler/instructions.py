@@ -11,7 +11,16 @@ Library API:
 """
 
 import os
+import sys
 from typing import Optional
+
+# Add parent directory to path for ragbot imports
+_parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+from ragbot.keystore import get_api_key
+from .config import load_engines_config, resolve_model
 
 # Import LLM clients
 try:
@@ -297,8 +306,15 @@ def compile_instructions(content: str, platform: str, model: str,
     if platform in fallback_platforms:
         # Use Claude to generate instructions optimized for the target platform
         fallback_platform = fallback_platform or 'anthropic'
-        fallback_model = fallback_model or 'claude-sonnet-4-20250514'
-        fallback_key = os.environ.get('ANTHROPIC_API_KEY')
+        # Get default model from engines.yaml instead of hardcoding
+        if not fallback_model:
+            try:
+                engines_config = load_engines_config()
+                fallback_model = resolve_model(engines_config, fallback_platform, 'medium')
+            except Exception:
+                # If we can't load engines.yaml, use a reasonable default
+                fallback_model = 'claude-sonnet-4-5-20250929'
+        fallback_key = get_api_key('anthropic')
 
         if not fallback_key:
             raise ValueError(f"No API key for fallback platform (anthropic) to compile {platform} instructions")
@@ -306,16 +322,9 @@ def compile_instructions(content: str, platform: str, model: str,
         # Custom prompt for generating instructions for unsupported platforms
         return compile_for_unsupported_platform(content, platform, fallback_model, fallback_key)
 
-    # Get API key from environment if not provided
+    # Get API key from keystore if not provided
     if api_key is None:
-        key_names = {
-            'anthropic': 'ANTHROPIC_API_KEY',
-            'openai': 'OPENAI_API_KEY',
-            'google': 'GOOGLE_API_KEY'
-        }
-        key_name = key_names.get(platform)
-        if key_name:
-            api_key = os.environ.get(key_name)
+        api_key = get_api_key(platform)
 
     if not api_key:
         raise ValueError(f"No API key provided for {platform}")

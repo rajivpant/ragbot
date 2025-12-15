@@ -9,6 +9,51 @@ from litellm import completion
 import tiktoken
 
 from .exceptions import ChatError
+from .keystore import get_api_key
+from .config import get_default_model, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_MAX_INPUT_TOKENS
+
+
+def _get_api_key_for_model(model: str, workspace: Optional[str] = None) -> Optional[str]:
+    """Get the appropriate API key for a model based on its provider.
+
+    Args:
+        model: Model identifier (e.g., "anthropic/claude-sonnet-4-20250514")
+        workspace: Optional workspace for workspace-specific keys
+
+    Returns:
+        API key string or None
+    """
+    model_lower = model.lower()
+
+    if model_lower.startswith("anthropic/") or "claude" in model_lower:
+        return get_api_key("anthropic", workspace)
+    elif model_lower.startswith("openai/") or model_lower.startswith("gpt") or model_lower.startswith("o1"):
+        return get_api_key("openai", workspace)
+    elif model_lower.startswith("gemini/") or "gemini" in model_lower:
+        return get_api_key("google", workspace)
+    elif model_lower.startswith("bedrock/"):
+        # AWS Bedrock uses AWS credentials, not API keys
+        return None
+
+    return None
+
+
+def _get_api_key_param_name(model: str) -> Optional[str]:
+    """Get the litellm parameter name for the API key based on model provider.
+
+    Args:
+        model: Model identifier
+
+    Returns:
+        Parameter name (e.g., "api_key") or None if not applicable
+    """
+    model_lower = model.lower()
+
+    # LiteLLM uses 'api_key' for most providers
+    if any(x in model_lower for x in ["anthropic", "claude", "openai", "gpt", "o1", "gemini"]):
+        return "api_key"
+
+    return None
 
 
 # Token counting utilities
@@ -89,11 +134,11 @@ def chat(
     *,
     curated_datasets: str = "",
     custom_instructions: str = "",
-    model: str = "anthropic/claude-sonnet-4-20250514",
-    max_tokens: int = 4096,
-    max_input_tokens: int = 128000,
+    model: Optional[str] = None,
+    max_tokens: Optional[int] = None,
+    max_input_tokens: Optional[int] = None,
     stream: bool = True,
-    temperature: float = 0.75,
+    temperature: Optional[float] = None,
     history: Optional[List[Dict[str, str]]] = None,
     supports_system_role: bool = True,
     stream_callback: Optional[Callable[[str], None]] = None,
@@ -128,6 +173,16 @@ def chat(
     Raises:
         ChatError: If the LLM call fails
     """
+    # Apply defaults from engines.yaml configuration
+    if model is None:
+        model = get_default_model()
+    if max_tokens is None:
+        max_tokens = DEFAULT_MAX_TOKENS
+    if max_input_tokens is None:
+        max_input_tokens = DEFAULT_MAX_INPUT_TOKENS
+    if temperature is None:
+        temperature = DEFAULT_TEMPERATURE
+
     try:
         # Build system content
         system_content = ""
@@ -194,6 +249,9 @@ def chat(
             messages.extend(compacted_history)
             messages.append({"role": "user", "content": prompt})
 
+        # Get API key for the model
+        api_key = _get_api_key_for_model(model, workspace_name)
+
         # Make API call
         if stream and stream_callback:
             response_chunks = []
@@ -202,7 +260,8 @@ def chat(
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                stream=True
+                stream=True,
+                api_key=api_key
             )
 
             for chunk in llm_response:
@@ -218,7 +277,8 @@ def chat(
                 model=model,
                 messages=messages,
                 max_tokens=max_tokens,
-                temperature=temperature
+                temperature=temperature,
+                api_key=api_key
             )
             return llm_response.get('choices', [{}])[0].get('message', {}).get('content', '')
 
@@ -246,13 +306,13 @@ def chat_stream(
     kwargs.pop('stream', None)
     kwargs.pop('stream_callback', None)
 
-    # Build same context as chat()
+    # Build same context as chat() - get defaults from engines.yaml configuration
     curated_datasets = kwargs.get('curated_datasets', '')
     custom_instructions = kwargs.get('custom_instructions', '')
-    model = kwargs.get('model', 'anthropic/claude-sonnet-4-20250514')
-    max_tokens = kwargs.get('max_tokens', 4096)
-    max_input_tokens = kwargs.get('max_input_tokens', 128000)
-    temperature = kwargs.get('temperature', 0.75)
+    model = kwargs.get('model') or get_default_model()
+    max_tokens = kwargs.get('max_tokens') or DEFAULT_MAX_TOKENS
+    max_input_tokens = kwargs.get('max_input_tokens') or DEFAULT_MAX_INPUT_TOKENS
+    temperature = kwargs.get('temperature') if kwargs.get('temperature') is not None else DEFAULT_TEMPERATURE
     history = kwargs.get('history')
     supports_system_role = kwargs.get('supports_system_role', True)
     workspace_name = kwargs.get('workspace_name')
@@ -321,13 +381,17 @@ def chat_stream(
         messages.extend(compacted_history)
         messages.append({"role": "user", "content": prompt})
 
+    # Get API key for the model
+    api_key = _get_api_key_for_model(model, workspace_name)
+
     # Stream response
     llm_response = completion(
         model=model,
         messages=messages,
         max_tokens=max_tokens,
         temperature=temperature,
-        stream=True
+        stream=True,
+        api_key=api_key
     )
 
     for chunk in llm_response:

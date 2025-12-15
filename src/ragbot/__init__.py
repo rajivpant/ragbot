@@ -25,16 +25,31 @@ Example usage:
 
 from .config import (
     VERSION,
-    DEFAULT_MODEL,
     DEFAULT_MAX_TOKENS,
     DEFAULT_TEMPERATURE,
+    load_engines_config,
+    get_providers,
+    get_provider_config,
     get_all_models,
     get_model_info,
     get_default_model,
     get_available_models,
+    get_temperature_settings,
     check_api_keys,
     load_yaml_config,
     load_data_config,
+)
+
+from .keystore import (
+    get_api_key,
+    get_keystore,
+    Keystore,
+    KEYSTORE_PATH,
+    CONFIG_DIR,
+    USER_CONFIG_PATH,
+    get_default_workspace,
+    get_user_config,
+    check_api_keys as keystore_check_api_keys,
 )
 
 from .core import (
@@ -87,17 +102,29 @@ __all__ = [
     # Version
     "VERSION",
     "__version__",
-    # Config
-    "DEFAULT_MODEL",
+    # Config (all from engines.yaml - the single source of truth)
     "DEFAULT_MAX_TOKENS",
     "DEFAULT_TEMPERATURE",
+    "load_engines_config",
+    "get_providers",
+    "get_provider_config",
     "get_all_models",
     "get_model_info",
     "get_default_model",
     "get_available_models",
+    "get_temperature_settings",
     "check_api_keys",
     "load_yaml_config",
     "load_data_config",
+    # Keystore & User Config
+    "get_api_key",
+    "get_keystore",
+    "Keystore",
+    "KEYSTORE_PATH",
+    "CONFIG_DIR",
+    "USER_CONFIG_PATH",
+    "get_default_workspace",
+    "get_user_config",
     # Core
     "chat",
     "chat_stream",

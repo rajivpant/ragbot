@@ -14,6 +14,9 @@ from ragbot import (
     discover_workspaces,
     find_ai_knowledge_root,
     get_default_model,
+    get_default_workspace,
+    get_keystore,
+    check_api_keys,
     ConfigResponse,
 )
 
@@ -26,6 +29,7 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 async def get_config(settings: Settings = Depends(get_settings)):
     """Get application configuration."""
     workspaces = discover_workspaces()
+    keystore = get_keystore()
 
     return ConfigResponse(
         version=VERSION,
@@ -33,4 +37,7 @@ async def get_config(settings: Settings = Depends(get_settings)):
         workspace_count=len(workspaces),
         rag_available=check_rag_available(),
         default_model=get_default_model(),
+        default_workspace=get_default_workspace(),
+        api_keys=check_api_keys(),
+        workspaces_with_keys=keystore.list_workspaces_with_keys(),
     )

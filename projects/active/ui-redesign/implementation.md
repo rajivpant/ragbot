@@ -87,32 +87,75 @@
 
 ---
 
-## Phase 3: React Frontend (Pending)
+## Phase 3: React Frontend ✅ COMPLETE
 
 **Goal**: Modern web UI to replace Streamlit
 
+**Status**: Implemented (2025-12-14)
+
+### Completed
+
+1. **Next.js Project Setup** (`web/`)
+   - Next.js 16 with App Router
+   - TypeScript configuration
+   - Tailwind CSS styling
+
+2. **API Client** (`web/src/lib/api.ts`)
+   - Full API client with TypeScript types
+   - SSE streaming with async generator
+   - All endpoints: workspaces, models, config, chat
+
+3. **Components** (`web/src/components/`)
+   - `Chat.tsx` - Main chat interface with streaming
+   - `ChatMessage.tsx` - Message display (user/assistant)
+   - `ChatInput.tsx` - Input with Enter key support
+   - `WorkspaceSelector.tsx` - Workspace dropdown with status
+   - `ModelSelector.tsx` - Model dropdown grouped by provider
+
+4. **Features**
+   - Workspace selector with status indicators
+   - Model selector with provider grouping
+   - Settings panel (collapsible)
+   - RAG toggle
+   - Clear chat button
+   - Auto-scroll to new messages
+   - Responsive design
+
+### Files Created
+
+- `web/` - Next.js project root
+- `web/src/lib/api.ts` - API client
+- `web/src/components/Chat.tsx`
+- `web/src/components/ChatInput.tsx`
+- `web/src/components/ChatMessage.tsx`
+- `web/src/components/WorkspaceSelector.tsx`
+- `web/src/components/ModelSelector.tsx`
+- `web/src/components/index.ts`
+- `web/src/app/page.tsx` - Updated
+- `web/src/app/layout.tsx` - Updated
+
+---
+
+## Phase 4: Cleanup (Pending)
+
+**Goal**: Remove deprecated code and finalize migration
+
 ### Planned
 
-1. **React/Next.js Frontend**
-   - Connect to FastAPI backend at `/api/*`
-   - SSE handling for streaming chat responses
-   - Responsive design for desktop and mobile
+1. **Remove Streamlit**
+   - Delete `src/ragbot_streamlit.py`
+   - Remove Streamlit from `requirements.txt`
+   - Remove `ragbot-web` service from `docker-compose.yml`
+   - Update documentation
 
-2. **Core Features**
-   - Workspace selector dropdown
-   - Model selector with provider grouping
-   - Chat interface with streaming
-   - Index status indicator and management
+2. **Remove Legacy Code**
+   - Clean up `src/helpers.py` (now just re-exports from `src/ragbot/`)
+   - Remove `RAGBOT_DATA_ROOT` references from legacy files
+   - Remove Pinecone references (replaced by Qdrant)
 
-3. **Technical Stack**
-   - Next.js 14+ with App Router
-   - TypeScript
-   - Tailwind CSS
-   - SSE client for streaming
-
-### Files to Create
-
-- `ragbot-web/` or `web/` directory with Next.js project
+3. **Docker Optimization**
+   - Single-service `docker-compose.yml`
+   - Add Next.js build to Dockerfile (optional)
 
 ---
 
