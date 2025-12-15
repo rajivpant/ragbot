@@ -191,7 +191,7 @@ The instruction selection happens in the shared library, ensuring consistent beh
 
 When adding a new LLM provider to `engines.yaml`:
 
-1. **Create instruction template** in the compiler's instruction generator
+1. **Add the provider to `engines.yaml`** with its models (this is the single source of truth)
 2. **Add mapping** in `ragbot/workspaces.py`:
    ```python
    ENGINE_TO_INSTRUCTION_FILE = {
@@ -201,12 +201,10 @@ When adding a new LLM provider to `engines.yaml`:
        'new_provider': 'new_provider.md',  # Add new mapping
    }
    ```
-3. **Update model detection** in `ragbot/core.py`:
-   ```python
-   if "new_model_pattern" in model_lower:
-       return "new_provider"
-   ```
+3. **Create instruction template** in the compiler's instruction generator
 4. **Recompile** all projects to generate the new instruction files
+
+Note: Model-to-provider detection uses `engines.yaml` lookup via `get_provider_for_model()` in `ragbot/config.py`. No pattern matching on model names is used, ensuring future models (like "opengpt") route correctly.
 
 ## CLI Reference
 

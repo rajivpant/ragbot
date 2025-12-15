@@ -135,7 +135,10 @@ def compact_history(
 
 
 def _get_engine_from_model(model: str) -> str:
-    """Determine the engine/provider from a model name.
+    """Determine the engine/provider from a model by looking it up in engines.yaml.
+
+    Uses engines.yaml as the single source of truth rather than pattern matching
+    on model names (which would be fragile for future models like "opengpt").
 
     Args:
         model: Model identifier (e.g., "anthropic/claude-sonnet-4", "gpt-5.2")
@@ -143,17 +146,8 @@ def _get_engine_from_model(model: str) -> str:
     Returns:
         Engine name ('anthropic', 'openai', or 'google')
     """
-    model_lower = model.lower() if model else ""
-
-    if model_lower.startswith("anthropic/") or "claude" in model_lower:
-        return "anthropic"
-    elif model_lower.startswith("openai/") or model_lower.startswith("gpt") or model_lower.startswith("o1") or model_lower.startswith("o3"):
-        return "openai"
-    elif model_lower.startswith("gemini/") or "gemini" in model_lower:
-        return "google"
-
-    # Default to anthropic
-    return "anthropic"
+    from .config import get_provider_for_model
+    return get_provider_for_model(model or "")
 
 
 def _load_llm_specific_instructions(workspace_name: str, model: str) -> str:

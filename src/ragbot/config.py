@@ -232,6 +232,61 @@ def get_model_info(model_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def get_provider_for_model(model_id: str) -> str:
+    """Get the provider name for a model by looking it up in engines.yaml.
+
+    This is the authoritative way to determine which provider a model belongs to.
+    Uses engines.yaml as the single source of truth rather than pattern matching
+    on model names (which would be fragile for future models like "opengpt").
+
+    Args:
+        model_id: Model identifier in any format:
+            - Full litellm format: 'anthropic/claude-sonnet-4-5-20250929'
+            - Just model name: 'claude-sonnet-4-5-20250929'
+            - With provider prefix: 'openai/gpt-5.2'
+
+    Returns:
+        Provider name ('anthropic', 'openai', 'google') or 'anthropic' as fallback
+    """
+    config = load_engines_config()
+
+    # Normalize: strip any provider prefix to get the raw model name
+    raw_model = model_id
+    for prefix in ['anthropic/', 'openai/', 'gemini/', 'google/']:
+        if model_id.lower().startswith(prefix):
+            raw_model = model_id[len(prefix):]
+            break
+
+    # Search engines.yaml for this model
+    for engine in config.get('engines', []):
+        provider = engine['name']
+        for model in engine.get('models', []):
+            model_name = model['name']
+            # Handle Google models which have gemini/ prefix in engines.yaml
+            if model_name.startswith('gemini/'):
+                model_name_stripped = model_name[7:]  # Remove 'gemini/' prefix
+            else:
+                model_name_stripped = model_name
+
+            # Match against raw model name or full model name
+            if raw_model == model_name or raw_model == model_name_stripped:
+                return provider
+            # Also check if the input was the full litellm format
+            if model_id == _normalize_model_id(provider, model['name']):
+                return provider
+
+    # Fallback: check if the original model_id had a provider prefix we can trust
+    if model_id.lower().startswith('anthropic/'):
+        return 'anthropic'
+    if model_id.lower().startswith('openai/'):
+        return 'openai'
+    if model_id.lower().startswith('gemini/') or model_id.lower().startswith('google/'):
+        return 'google'
+
+    # Ultimate fallback to default provider from config
+    return config.get('default', 'anthropic')
+
+
 def get_default_model() -> str:
     """Get the default model ID.
 
