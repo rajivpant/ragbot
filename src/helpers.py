@@ -149,12 +149,6 @@ def count_custom_instructions_tokens(custom_instruction_path):
     return count_tokens_for_files(custom_instruction_files)
 
 
-def count_curated_datasets_tokens(curated_dataset_path):
-    """Count tokens in curated datasets files."""
-    _, curated_dataset_files = load_files(file_paths=curated_dataset_path, file_type="curated_datasets")
-    return count_tokens_for_files(curated_dataset_files)
-
-
 def print_saved_files(directory):
     """Print the list of saved JSON files in the sessions directory."""
     sessions_directory = os.path.join(directory, "sessions")

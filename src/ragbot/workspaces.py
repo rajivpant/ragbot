@@ -329,3 +329,64 @@ def list_workspace_info(ai_knowledge_root: Optional[str] = None) -> List[Workspa
     """
     workspaces = discover_workspaces(ai_knowledge_root)
     return [get_workspace_info(ws) for ws in workspaces]
+
+
+# Mapping from engine name to instruction file
+ENGINE_TO_INSTRUCTION_FILE = {
+    'anthropic': 'claude.md',
+    'openai': 'chatgpt.md',
+    'google': 'gemini.md',
+}
+
+# Fallback order if preferred file doesn't exist
+INSTRUCTION_FALLBACK_ORDER = ['claude.md', 'chatgpt.md', 'gemini.md']
+
+
+def get_llm_specific_instruction_path(
+    workspace_name: str,
+    engine: str = 'anthropic',
+    ai_knowledge_root: Optional[str] = None
+) -> Optional[str]:
+    """
+    Get the path to the LLM-specific compiled instruction file for a workspace.
+
+    The compiler generates separate instruction files for each LLM platform:
+    - claude.md for Anthropic models
+    - chatgpt.md for OpenAI models
+    - gemini.md for Google Gemini models
+
+    Args:
+        workspace_name: Name of the workspace (e.g., 'personal', 'flatiron')
+        engine: LLM engine name ('anthropic', 'openai', 'google')
+        ai_knowledge_root: Optional root directory for ai-knowledge repos
+
+    Returns:
+        Path to the instruction file, or None if not found
+    """
+    if ai_knowledge_root is None:
+        ai_knowledge_root = find_ai_knowledge_root()
+
+    if not ai_knowledge_root:
+        return None
+
+    # Build path to compiled instructions
+    repo_path = os.path.join(ai_knowledge_root, f'ai-knowledge-{workspace_name}')
+    instructions_dir = os.path.join(repo_path, 'compiled', workspace_name, 'instructions')
+
+    if not os.path.isdir(instructions_dir):
+        return None
+
+    # Get preferred instruction file for this engine
+    preferred_file = ENGINE_TO_INSTRUCTION_FILE.get(engine, 'claude.md')
+    preferred_path = os.path.join(instructions_dir, preferred_file)
+
+    if os.path.isfile(preferred_path):
+        return preferred_path
+
+    # Try fallbacks
+    for fallback in INSTRUCTION_FALLBACK_ORDER:
+        fallback_path = os.path.join(instructions_dir, fallback)
+        if os.path.isfile(fallback_path):
+            return fallback_path
+
+    return None

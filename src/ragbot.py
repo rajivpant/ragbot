@@ -12,6 +12,7 @@ import anthropic
 import litellm
 from helpers import load_files, load_config, print_saved_files, chat, load_workspaces_as_profiles
 from ragbot.keystore import get_api_key
+from ragbot.workspaces import get_llm_specific_instruction_path, ENGINE_TO_INSTRUCTION_FILE
 
 appname = "ragbot"
 appauthor = "Rajiv Pant"
@@ -78,14 +79,15 @@ def create_chat_parser(subparsers):
         help="Ignore all prompt custom instructions even if they are specified."
     )
     chat_parser.add_argument(
-        "-d", "--curated_dataset",
-        nargs='*', default=[],
-        help="Path to the prompt context curated dataset file or folder. Can accept multiple values."
+        "--rag",
+        action="store_true",
+        default=True,
+        help="Enable RAG (Retrieval-Augmented Generation) for knowledge retrieval. Default: enabled."
     )
     chat_parser.add_argument(
-        "-nd", "--nocurated_dataset",
+        "--no-rag",
         action="store_true",
-        help="Ignore all prompt context curated dataset even if they are specified."
+        help="Disable RAG - use instructions only, no knowledge retrieval."
     )
     chat_parser.add_argument(
         "-e", "--engine",
@@ -223,16 +225,7 @@ def run_chat(args):
         print_saved_files(data_dir)
         return
 
-    new_session = False
-
-    if args.load:
-        args.interactive = True
-        args.nocurated_dataset = True
-    else:
-        new_session = True
-
-    curated_datasets = []
-    curated_dataset_files = []
+    new_session = True if not args.load else False
 
     # Load workspaces from ragbot-data directory
     data_root = os.getenv('RAGBOT_DATA_ROOT')
@@ -249,42 +242,59 @@ def run_chat(args):
 
     profiles = load_workspaces_as_profiles(data_root)
 
+    workspace_name = None
+    workspace_dir_name = None
+
     if args.profile:
-        selected_profile_data = next((profile for profile in profiles if profile['name'] == args.profile), None)
+        selected_profile_data = next((profile for profile in profiles if profile['name'] == args.profile or profile.get('dir_name') == args.profile), None)
         if not selected_profile_data:
-            available_workspaces = [p['name'] for p in profiles]
+            available_workspaces = [p['name'] for p in profiles if p['name'] != '(none - no workspace)']
             print(f"Error: Workspace '{args.profile}' not found.")
             print(f"Available workspaces: {', '.join(available_workspaces)}")
             sys.exit(1)
-        custom_instruction_paths = selected_profile_data.get('instructions', [])
-        curated_dataset_paths = selected_profile_data.get('datasets', [])
+        workspace_name = args.profile
+        workspace_dir_name = selected_profile_data.get('dir_name', args.profile)
+
+    # Handle custom instructions
+    # If user provides explicit -c paths, load them manually
+    # Otherwise, let core.py auto-load LLM-specific instructions based on model
+    custom_instructions = ""
+    auto_load_instructions = True  # Let core.py handle it
+
+    if not args.nocustom_instructions:
+        if args.custom_instructions:
+            # User provided explicit instruction paths - use them instead of auto-loading
+            custom_instruction_paths = [p for p in args.custom_instructions if p.strip() != '']
+            if custom_instruction_paths:
+                custom_instructions, custom_instructions_files = load_files(
+                    file_paths=custom_instruction_paths, file_type="custom_instructions"
+                )
+                auto_load_instructions = False  # Don't auto-load, user provided explicit instructions
+                print("Custom instructions being used:")
+                for file in custom_instructions_files:
+                    print(f" - {file}")
+
+    # Show what will be auto-loaded if no explicit instructions provided
+    if auto_load_instructions and workspace_dir_name:
+        llm_instruction_file = get_llm_specific_instruction_path(workspace_dir_name, args.engine)
+        if llm_instruction_file:
+            llm_name = ENGINE_TO_INSTRUCTION_FILE.get(args.engine, 'claude.md').replace('.md', '')
+            print(f"LLM-specific instructions will be auto-loaded for {args.engine} engine")
+            print(f" - {llm_instruction_file}")
+        else:
+            print("No custom instructions files available.")
+    elif auto_load_instructions:
+        print("No custom instructions files available.")
+
+    # Determine RAG usage
+    use_rag = args.rag and not args.no_rag
+    if use_rag and workspace_dir_name:
+        print(f"RAG enabled for workspace: {workspace_dir_name}")
+    elif use_rag:
+        print("RAG enabled (no workspace selected - RAG requires a workspace)")
+        use_rag = False
     else:
-        custom_instruction_paths = []
-        curated_dataset_paths = []
-
-    if not args.custom_instructions:
-        default_custom_instructions_paths = custom_instruction_paths
-        default_custom_instructions_paths = [path for path in default_custom_instructions_paths if path.strip() != '']
-        custom_instructions, custom_instructions_files = load_files(file_paths=default_custom_instructions_paths + args.curated_dataset, file_type="custom_instructions")
-
-    if custom_instructions_files:
-        print("Custom instructions being used:")
-        for file in custom_instructions_files:
-            print(f" - {file}")
-    else:
-        print("No custom instructions files are being used.")
-
-    if not args.nocurated_dataset:
-        default_curated_dataset_paths = curated_dataset_paths
-        default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
-        curated_datasets, curated_dataset_files = load_files(file_paths=default_curated_dataset_paths + args.curated_dataset, file_type="curated_datasets")
-
-    if curated_dataset_files:
-        print("Curated datasets being used:")
-        for file in curated_dataset_files:
-            print(f" - {file}")
-    else:
-        print("No curated_dataset files are being used.")
+        print("RAG disabled - using instructions only")
 
     history = []
 
@@ -352,6 +362,22 @@ def run_chat(args):
     print(f"Creativity temperature setting: {temperature}")
     print(f"Max tokens setting: {max_tokens} (model max output: {max_output_tokens})")
 
+    # Convert engine/model to litellm format
+    litellm_model = model
+    if args.engine == 'anthropic':
+        if not model.startswith('anthropic/'):
+            litellm_model = f"anthropic/{model}"
+    elif args.engine == 'openai':
+        if not model.startswith('openai/') and not model.startswith('gpt') and not model.startswith('o1'):
+            litellm_model = f"openai/{model}"
+    elif args.engine == 'google':
+        if not model.startswith('gemini/'):
+            litellm_model = f"gemini/{model}"
+
+    # Stream callback for interactive mode
+    def print_chunk(chunk):
+        print(chunk, end='', flush=True)
+
     if args.interactive:
         print("Entering interactive mode. Conversation history is maintained between turns.")
         while True:
@@ -371,17 +397,19 @@ def run_chat(args):
             reply = chat(
                 prompt=prompt,
                 custom_instructions=custom_instructions,
-                curated_datasets=curated_datasets,
-                history=history,
-                engine=args.engine,
-                model=model,
+                model=litellm_model,
                 max_tokens=max_tokens,
                 max_input_tokens=max_input_tokens,
                 temperature=temperature,
-                interactive=args.interactive,
-                new_session=new_session,
-                supports_system_role=supports_system_role
+                history=history,
+                supports_system_role=supports_system_role,
+                stream=True,
+                stream_callback=print_chunk,
+                workspace_name=workspace_dir_name,
+                use_rag=use_rag,
+                auto_load_instructions=auto_load_instructions
             )
+            print()  # Newline after streaming
             history.append({"role": "assistant", "content": reply})
     else:
         prompt = None
@@ -403,16 +431,16 @@ def run_chat(args):
         reply = chat(
             prompt=prompt,
             custom_instructions=custom_instructions,
-            curated_datasets=curated_datasets,
-            history=history,
-            engine=args.engine,
-            model=model,
+            model=litellm_model,
             max_tokens=max_tokens,
             max_input_tokens=max_input_tokens,
             temperature=temperature,
-            interactive=args.interactive,
-            new_session=new_session,
-            supports_system_role=supports_system_role
+            history=history,
+            supports_system_role=supports_system_role,
+            stream=False,
+            workspace_name=workspace_dir_name,
+            use_rag=use_rag,
+            auto_load_instructions=auto_load_instructions
         )
         pattern = re.compile(r"OUTPUT ?= ?\"\"\"((\n|.)*?)\"\"\"", re.MULTILINE)
         is_structured = pattern.search(reply)

@@ -371,60 +371,128 @@ Using the Web version
 Using the command line interface
 --------------------------------
 
-### Command line usage: Getting help
+The CLI uses workspaces with RAG (Retrieval-Augmented Generation) and automatically loads LLM-specific instructions based on the model you're using.
+
+### Key CLI Options
+
+```
+ragbot chat [options]
+
+Input Options:
+  -p, --prompt PROMPT          Prompt text
+  -f, --prompt_file FILE       Read prompt from file
+  -i, --interactive            Interactive mode with history
+  --stdin                      Read prompt from stdin
+
+Workspace & Knowledge:
+  -profile NAME                Workspace to use (auto-loads instructions and enables RAG)
+  --rag / --no-rag            Enable/disable RAG retrieval (default: enabled)
+
+Model Selection:
+  -e {openai,anthropic,google} Engine/provider
+  -m MODEL                     Model name (or 'flagship' for best)
+
+Custom Instructions:
+  -c PATH [PATH ...]           Explicit instruction files (overrides auto-loading)
+  -nc                          Disable all instructions
+```
+
+### Using Workspaces with RAG
+
+The recommended way to use the CLI is with workspaces:
+
+```bash
+# Chat with a workspace - instructions auto-loaded, RAG enabled
+ragbot chat -profile personal -p "What are my travel preferences?"
+
+# Use Anthropic Claude (loads claude.md instructions)
+ragbot chat -profile personal -e anthropic -p "Summarize my work history"
+
+# Use OpenAI GPT (loads chatgpt.md instructions)
+ragbot chat -profile personal -e openai -m gpt-4o -p "Summarize my work history"
+
+# Use Google Gemini (loads gemini.md instructions)
+ragbot chat -profile personal -e google -p "Summarize my work history"
+```
+
+### LLM-Specific Instructions
+
+The system automatically loads the correct instruction file based on the LLM:
+
+| Engine | Instruction File |
+|--------|------------------|
+| anthropic | `compiled/{workspace}/instructions/claude.md` |
+| openai | `compiled/{workspace}/instructions/chatgpt.md` |
+| google | `compiled/{workspace}/instructions/gemini.md` |
+
+### Interactive Mode
+
+Maintain conversation history across multiple prompts:
+
+```bash
+ragbot chat -profile personal -i
+
+> Tell me about my professional background
+Ragbot.AI: [response based on RAG-retrieved knowledge]
+
+> Summarize it in 3 bullet points
+Ragbot.AI: [continues with context]
+
+> /save session.json
+Conversation saved to ...
+
+> /quit
+```
+
+### Legacy CLI Usage
+
+The following options show the full help output for reference. Note that dataset files (`-d`) are no longer supported - use workspaces with RAG instead.
 
 ```console
-rajivpant@rp-2023-mac-mini ragbot % ./ragbot --help
-usage: ragbot.py [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
+$ ragbot chat --help
+usage: ragbot chat [-h] [-ls] [-p PROMPT | -f PROMPT_FILE | -i | --stdin]
                  [-profile PROFILE] [-c [CUSTOM_INSTRUCTIONS ...]] [-nc]
-                 [-d [CURATED_DATASET ...]] [-nd]
+                 [--rag] [--no-rag]
                  [-e {openai,anthropic,google}] [-m MODEL] [-t TEMPERATURE]
                  [-mt MAX_TOKENS] [-l LOAD]
 
-Ragbot.AI is an augmented brain and asistant. Learn more at https://ragbot.ai
+Ragbot.AI is an augmented brain and assistant. Learn more at https://ragbot.ai
 
 options:
   -h, --help            show this help message and exit
   -ls, --list-saved     List all the currently saved JSON files.
-  -p PROMPT, --prompt PROMPT
-                        The user's input to generate a response for.
-  -f PROMPT_FILE, --prompt_file PROMPT_FILE
-                        The file containing the user's input to generate a
-                        response for.
-  -i, --interactive     Enable interactive assistant chatbot mode.
-  --stdin               Read the user's input from stdin.
-  -profile PROFILE, --profile PROFILE
-                        Name of the profile to use.
-  -c [CUSTOM_INSTRUCTIONS ...], --custom_instructions [CUSTOM_INSTRUCTIONS ...]
-                        Path to the prompt custom instructions file or folder.
-                        Can accept multiple values.
-  -nc, --nocusom_instructions
-                        Ignore all prompt custom instructions even if they are
-                        specified.
-  -d [CURATED_DATASET ...], --curated_dataset [CURATED_DATASET ...]
-                        Path to the prompt context dataset file or
-                        folder. Can accept multiple values.
-  -nd, --nocurated_dataset
-                        Ignore all prompt context dataset even if they
-                        are specified.
-  -e {openai,anthropic,google}, --engine {openai,anthropic,google}
-                        The engine to use for the chat.
-  -m MODEL, --model MODEL
-                        The model to use for the chat. Defaults to engine's
-                        default model.
-  -t TEMPERATURE, --temperature TEMPERATURE
-                        The creativity of the response, with higher values
-                        being more creative.
-  -mt MAX_TOKENS, --max_tokens MAX_TOKENS
-                        The maximum number of tokens to generate in the
-                        response.
-  -l LOAD, --load LOAD  Load a previous interactive session from a file.
-rajivpant@rp-2023-mac-mini ragbot % 
+  -p, --prompt          The user's input prompt
+  -f, --prompt_file     Read prompt from a file
+  -i, --interactive     Enable interactive mode with conversation history
+  --stdin               Read prompt from stdin
+  -profile              Workspace name (enables RAG and auto-loads instructions)
+  -c                    Custom instruction file paths (overrides auto-loading)
+  -nc                   Disable custom instructions
+  --rag                 Enable RAG retrieval (default)
+  --no-rag              Disable RAG - instructions only
+  -e {openai,anthropic,google}  LLM engine/provider
+  -m MODEL              Model name or 'flagship'
+  -t TEMPERATURE        Creativity (0-2)
+  -mt MAX_TOKENS        Max response tokens
+  -l LOAD               Load previous session from file
 ```
 
-### Using dataset files
+### Knowledge Retrieval (RAG)
 
-To use Ragbot.AI, you can provide dataset files and/or folders containing multiple dataset files. You can view examples of dataset files at <https://github.com/rajivpant/ragbot/tree/main/examples/templates/datasets>
+Knowledge is retrieved via RAG (Retrieval-Augmented Generation) from indexed workspace content:
+
+```bash
+ragbot chat -profile personal -p "What are my travel preferences?"
+# RAG enabled for workspace: personal
+# [Response based on retrieved knowledge]
+```
+
+---
+
+**Note:** The legacy `-d` (dataset) flag has been removed. Use workspaces with RAG instead.
+
+<details>
+<summary>Legacy examples (deprecated)</summary>
 
 Example 1:
 
@@ -547,6 +615,8 @@ In the given docker-compose.yml file, the following services are exposed on thei
 3. "scribe-redis" service: - Exposed on port 6379 (mapped to internal port 6379)
 alexredmon@ar-macbook ~/s/scribe >
 ```
+
+</details>
 
 ### Just for fun
 

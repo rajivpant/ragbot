@@ -130,9 +130,9 @@ Each compiled project produces:
 ```
 compiled/{project}/
 ├── instructions/           # LLM-specific custom instructions
-│   ├── claude.md
-│   ├── chatgpt.md
-│   └── gemini.md
+│   ├── claude.md           # For Anthropic models (Claude)
+│   ├── chatgpt.md          # For OpenAI models (GPT, o1, o3)
+│   └── gemini.md           # For Google models (Gemini)
 ├── knowledge/              # Individual knowledge files
 │   ├── runbooks-*.md
 │   └── datasets-*.md
@@ -140,6 +140,73 @@ compiled/{project}/
 └── vectors/                # RAG chunks
     └── chunks.jsonl
 ```
+
+## LLM-Specific Instructions
+
+The compiler generates separate instruction files for each major LLM platform. Each file is optimized for that platform's capabilities and conventions.
+
+### Automatic Instruction Selection
+
+When using Ragbot (CLI or Web UI), the correct instruction file is **automatically loaded based on the model being used**:
+
+| Model Type | Instruction File |
+|------------|------------------|
+| Anthropic models (Claude, claude-sonnet, claude-opus, etc.) | `instructions/claude.md` |
+| OpenAI models (GPT-4o, o1, o3, etc.) | `instructions/chatgpt.md` |
+| Google models (Gemini, gemini-2.5-pro, etc.) | `instructions/gemini.md` |
+
+### Mid-Conversation Model Switching
+
+When users switch models mid-conversation in the Web UI, the system automatically loads the appropriate instructions for the new model. This happens transparently on each request.
+
+**Example flow:**
+1. User selects workspace "personal" and Claude model
+2. System loads `claude.md` instructions
+3. User switches to GPT-4o mid-conversation
+4. On next message, system automatically loads `chatgpt.md` instructions
+5. Conversation continues with GPT-4o-optimized instructions
+
+### Implementation Details
+
+This behavior is centralized in `ragbot/core.py`:
+
+```python
+# core.py automatically determines which instructions to load
+chat(
+    prompt="Hello",
+    model="anthropic/claude-sonnet-4",  # → loads claude.md
+    workspace_name="personal"
+)
+
+chat(
+    prompt="Hello",
+    model="gpt-4o",  # → loads chatgpt.md
+    workspace_name="personal"
+)
+```
+
+The instruction selection happens in the shared library, ensuring consistent behavior between CLI, API, and Web UI.
+
+### Adding Support for New LLM Providers
+
+When adding a new LLM provider to `engines.yaml`:
+
+1. **Create instruction template** in the compiler's instruction generator
+2. **Add mapping** in `ragbot/workspaces.py`:
+   ```python
+   ENGINE_TO_INSTRUCTION_FILE = {
+       'anthropic': 'claude.md',
+       'openai': 'chatgpt.md',
+       'google': 'gemini.md',
+       'new_provider': 'new_provider.md',  # Add new mapping
+   }
+   ```
+3. **Update model detection** in `ragbot/core.py`:
+   ```python
+   if "new_model_pattern" in model_lower:
+       return "new_provider"
+   ```
+4. **Recompile** all projects to generate the new instruction files
 
 ## CLI Reference
 

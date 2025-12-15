@@ -73,6 +73,8 @@ from .workspaces import (
     get_workspace,
     get_workspace_info,
     list_workspace_info,
+    get_llm_specific_instruction_path,
+    ENGINE_TO_INSTRUCTION_FILE,
 )
 
 from .exceptions import (
@@ -145,6 +147,8 @@ __all__ = [
     "get_workspace",
     "get_workspace_info",
     "list_workspace_info",
+    "get_llm_specific_instruction_path",
+    "ENGINE_TO_INSTRUCTION_FILE",
     # Exceptions
     "RagbotError",
     "ConfigurationError",

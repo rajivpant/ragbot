@@ -1,4 +1,16 @@
-"""Chat API endpoints."""
+"""Chat API endpoints.
+
+LLM-Specific Instructions:
+The chat functions in core.py automatically load the appropriate LLM-specific
+instructions based on the model being used:
+- Anthropic models (Claude) → compiled/{workspace}/instructions/claude.md
+- OpenAI models (GPT, o1, o3) → compiled/{workspace}/instructions/chatgpt.md
+- Google models (Gemini) → compiled/{workspace}/instructions/gemini.md
+
+When users switch models mid-conversation, the correct instructions are
+automatically loaded for each request. This is handled centrally in core.py
+to avoid code duplication between CLI and API.
+"""
 
 import os
 import sys
@@ -21,58 +33,54 @@ from ragbot import (
     get_workspace,
     WorkspaceNotFoundError,
 )
-from helpers import load_files
 
 from ..dependencies import get_settings
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
-def load_workspace_context(workspace_name: str) -> tuple[str, str]:
-    """Load instructions and datasets for a workspace.
+def _get_workspace_dir_name(workspace_name: Optional[str]) -> Optional[str]:
+    """Get the directory name for a workspace.
+
+    Args:
+        workspace_name: Display name or dir_name of workspace
 
     Returns:
-        Tuple of (custom_instructions, curated_datasets)
+        The dir_name used for file paths, or None if not found
     """
     if not workspace_name:
-        return "", ""
+        return None
 
     try:
         workspace = get_workspace(workspace_name)
-        instructions_content = ""
-        datasets_content = ""
-
-        if workspace.get("instructions"):
-            instructions_content, _ = load_files(
-                workspace["instructions"], "custom_instructions"
-            )
-        if workspace.get("datasets"):
-            datasets_content, _ = load_files(
-                workspace["datasets"], "curated_datasets"
-            )
-
-        return instructions_content, datasets_content
+        return workspace.get("dir_name", workspace_name)
     except WorkspaceNotFoundError:
-        return "", ""
+        return None
 
 
 async def generate_chat_stream(request: ChatRequest):
-    """Generate SSE events for streaming chat response."""
-    custom_instructions, curated_datasets = load_workspace_context(request.workspace)
+    """Generate SSE events for streaming chat response.
 
+    LLM-specific instructions are automatically loaded by core.py based on
+    the model being used. When users switch models mid-conversation, the
+    correct instructions (claude.md, chatgpt.md, or gemini.md) are loaded
+    for each request.
+    """
     # Convert history to dict format
     history = [{"role": msg.role.value, "content": msg.content} for msg in request.history]
 
+    # Get workspace dir_name for file path resolution
+    workspace_dir_name = _get_workspace_dir_name(request.workspace)
+
     try:
+        # core.py automatically loads LLM-specific instructions based on model
         for chunk in chat_stream(
             request.prompt,
-            curated_datasets=curated_datasets,
-            custom_instructions=custom_instructions,
             model=request.model,
             max_tokens=request.max_tokens,
             temperature=request.temperature,
             history=history,
-            workspace_name=request.workspace,
+            workspace_name=workspace_dir_name,
             use_rag=request.use_rag,
             rag_max_tokens=request.rag_max_tokens,
         ):
@@ -96,6 +104,11 @@ async def generate_chat_stream(request: ChatRequest):
 async def chat_endpoint(request: ChatRequest):
     """Send a chat message and receive a response.
 
+    LLM-specific instructions are automatically loaded based on the model:
+    - Claude models use claude.md
+    - GPT/o1/o3 models use chatgpt.md
+    - Gemini models use gemini.md
+
     If stream=True (default), returns Server-Sent Events.
     If stream=False, returns a JSON response.
     """
@@ -103,20 +116,19 @@ async def chat_endpoint(request: ChatRequest):
         return EventSourceResponse(generate_chat_stream(request))
 
     # Non-streaming response
-    custom_instructions, curated_datasets = load_workspace_context(request.workspace)
     history = [{"role": msg.role.value, "content": msg.content} for msg in request.history]
+    workspace_dir_name = _get_workspace_dir_name(request.workspace)
 
     try:
+        # core.py automatically loads LLM-specific instructions based on model
         response_text = chat(
             request.prompt,
-            curated_datasets=curated_datasets,
-            custom_instructions=custom_instructions,
             model=request.model,
             max_tokens=request.max_tokens,
             temperature=request.temperature,
             history=history,
             stream=False,
-            workspace_name=request.workspace,
+            workspace_name=workspace_dir_name,
             use_rag=request.use_rag,
             rag_max_tokens=request.rag_max_tokens,
         )

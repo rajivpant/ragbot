@@ -134,6 +134,62 @@ def compact_history(
     return compacted
 
 
+def _get_engine_from_model(model: str) -> str:
+    """Determine the engine/provider from a model name.
+
+    Args:
+        model: Model identifier (e.g., "anthropic/claude-sonnet-4", "gpt-4o")
+
+    Returns:
+        Engine name ('anthropic', 'openai', or 'google')
+    """
+    model_lower = model.lower() if model else ""
+
+    if model_lower.startswith("anthropic/") or "claude" in model_lower:
+        return "anthropic"
+    elif model_lower.startswith("openai/") or model_lower.startswith("gpt") or model_lower.startswith("o1") or model_lower.startswith("o3"):
+        return "openai"
+    elif model_lower.startswith("gemini/") or "gemini" in model_lower:
+        return "google"
+
+    # Default to anthropic
+    return "anthropic"
+
+
+def _load_llm_specific_instructions(workspace_name: str, model: str) -> str:
+    """Load LLM-specific compiled instructions for a workspace.
+
+    The compiler generates separate instruction files for each LLM platform:
+    - claude.md for Anthropic models (Claude)
+    - chatgpt.md for OpenAI models (GPT, o1, o3)
+    - gemini.md for Google Gemini models
+
+    When a user switches models mid-conversation, this function ensures the
+    correct instructions are loaded for that specific LLM.
+
+    Args:
+        workspace_name: Name of the workspace (e.g., 'personal', 'company')
+        model: Model identifier to determine which instructions to load
+
+    Returns:
+        Instructions content as string, or empty string if not found
+    """
+    try:
+        from .workspaces import get_llm_specific_instruction_path
+        import os
+
+        engine = _get_engine_from_model(model)
+        instruction_path = get_llm_specific_instruction_path(workspace_name, engine)
+
+        if instruction_path and os.path.isfile(instruction_path):
+            with open(instruction_path, 'r') as f:
+                return f.read()
+    except Exception:
+        pass
+
+    return ""
+
+
 def chat(
     prompt: str,
     *,
@@ -149,18 +205,30 @@ def chat(
     stream_callback: Optional[Callable[[str], None]] = None,
     workspace_name: Optional[str] = None,
     use_rag: bool = True,
-    rag_max_tokens: int = 2000
+    rag_max_tokens: int = 2000,
+    auto_load_instructions: bool = True
 ) -> str:
     """
     Send a request to the LLM API with the provided prompt and context.
 
     This is the core chat function that can be used by CLI, Streamlit, or API.
 
+    **LLM-Specific Instructions:**
+    When workspace_name is provided and custom_instructions is empty, this function
+    automatically loads the appropriate LLM-specific instructions based on the model:
+    - Anthropic models (Claude) → compiled/{workspace}/instructions/claude.md
+    - OpenAI models (GPT, o1, o3) → compiled/{workspace}/instructions/chatgpt.md
+    - Google models (Gemini) → compiled/{workspace}/instructions/gemini.md
+
+    This ensures that when users switch models mid-conversation, the correct
+    instructions are always used for that specific LLM platform.
+
     Args:
         prompt: The user's input message
-        curated_datasets: Context documents as a string
-        custom_instructions: Custom instructions as a string
-        model: LLM model identifier (litellm format)
+        curated_datasets: Context documents as a string (legacy, use RAG instead)
+        custom_instructions: Custom instructions as a string (if empty and workspace
+            provided, LLM-specific instructions are auto-loaded)
+        model: LLM model identifier (litellm format, e.g., "anthropic/claude-sonnet-4")
         max_tokens: Maximum tokens in the response
         max_input_tokens: Model's context window size (for history compaction)
         stream: Whether to stream the response
@@ -168,9 +236,11 @@ def chat(
         history: Previous conversation messages
         supports_system_role: Whether the model supports system role
         stream_callback: Callback for streaming chunks
-        workspace_name: Workspace name for RAG retrieval
+        workspace_name: Workspace name for instruction loading and RAG retrieval
         use_rag: Whether to use RAG for context retrieval
         rag_max_tokens: Maximum tokens for RAG context
+        auto_load_instructions: If True and workspace_name provided, auto-load
+            LLM-specific instructions (default: True)
 
     Returns:
         The generated response text
@@ -194,10 +264,16 @@ def chat(
             temperature = DEFAULT_TEMPERATURE
 
     try:
-        # Build system content
+        # Build system content - auto-load LLM-specific instructions if available
         system_content = ""
+
         if custom_instructions:
+            # User provided explicit instructions - use them
             system_content = custom_instructions
+        elif auto_load_instructions and workspace_name:
+            # Auto-load LLM-specific instructions based on model
+            # This ensures correct instructions when user switches models mid-conversation
+            system_content = _load_llm_specific_instructions(workspace_name, model)
 
         # RAG retrieval
         rag_context = ""
@@ -310,6 +386,11 @@ def chat_stream(
 
     Useful for SSE streaming in FastAPI.
 
+    **LLM-Specific Instructions:**
+    Like chat(), when workspace_name is provided and custom_instructions is empty,
+    this function automatically loads the appropriate LLM-specific instructions
+    based on the model. This ensures correct instructions when users switch models.
+
     Args:
         prompt: The user's input message
         **kwargs: Same arguments as chat() except stream and stream_callback
@@ -342,11 +423,18 @@ def chat_stream(
     workspace_name = kwargs.get('workspace_name')
     use_rag = kwargs.get('use_rag', True)
     rag_max_tokens = kwargs.get('rag_max_tokens', 2000)
+    auto_load_instructions = kwargs.get('auto_load_instructions', True)
 
-    # Build system content
+    # Build system content - auto-load LLM-specific instructions if available
     system_content = ""
+
     if custom_instructions:
+        # User provided explicit instructions - use them
         system_content = custom_instructions
+    elif auto_load_instructions and workspace_name:
+        # Auto-load LLM-specific instructions based on model
+        # This ensures correct instructions when user switches models mid-conversation
+        system_content = _load_llm_specific_instructions(workspace_name, model)
 
     # RAG retrieval
     rag_context = ""
