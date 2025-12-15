@@ -16,7 +16,11 @@ from typing import Optional
 from pathlib import Path
 
 # Import from shared chunking library
-from ..chunking import chunk_text, chunk_for_compiler, ChunkConfig, Chunk
+# Use try/except to handle both package import (from src/) and direct import scenarios
+try:
+    from chunking import chunk_text, chunk_for_compiler, ChunkConfig, Chunk
+except ImportError:
+    from ..chunking import chunk_text, chunk_for_compiler, ChunkConfig, Chunk
 
 
 def chunk_content(content: str, chunk_size: int = 1000,

@@ -26,6 +26,7 @@ Public API:
 """
 
 import os
+import shutil
 import time
 import fnmatch
 from pathlib import Path
@@ -565,7 +566,13 @@ def compile_project(config: dict,
             f"Token budget exceeded: {assembled['total_tokens']:,} > {budget:,}"
         )
 
-    # Create output directory: compiled/{project}/
+    # Clean up and create output directory: compiled/{project}/
+    # Remove the project's output directory if it exists to ensure clean output
+    if os.path.exists(output_dir):
+        import shutil
+        shutil.rmtree(output_dir)
+        if verbose:
+            print(f"Cleaned existing output directory: {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
 
     compiled_files = []

@@ -25,134 +25,218 @@ engines_config = {engine['name']: engine for engine in config['engines']}
 engine_choices = list(engines_config.keys())
 default_models = {engine: engines_config[engine]['default_model'] for engine in engine_choices}
 
-model_cost_map = litellm.model_cost 
+model_cost_map = litellm.model_cost
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Ragbot.AI is an augmented brain and asistant. Learn more at https://ragbot.ai"
+
+def create_chat_parser(subparsers):
+    """Create the chat subcommand parser."""
+    chat_parser = subparsers.add_parser(
+        'chat',
+        help='Chat with an AI assistant (default command)',
+        description='Chat with an AI assistant using various models and configurations.'
     )
-    input_group = parser.add_mutually_exclusive_group()
+
+    input_group = chat_parser.add_mutually_exclusive_group()
     input_group.add_argument(
-        "-ls",
-        "--list-saved",
+        "-ls", "--list-saved",
         action="store_true",
         help="List all the currently saved JSON files."
     )
-    input_group2 = parser.add_mutually_exclusive_group()
+
+    input_group2 = chat_parser.add_mutually_exclusive_group()
     input_group2.add_argument(
-        "-p", "--prompt", help="The user's input to generate a response for."
+        "-p", "--prompt",
+        help="The user's input to generate a response for."
     )
     input_group2.add_argument(
-        "-f",
-        "--prompt_file",
-        help="The file containing the user's input to generate a response for.",
+        "-f", "--prompt_file",
+        help="The file containing the user's input to generate a response for."
     )
     input_group2.add_argument(
-        "-i",
-        "--interactive",
+        "-i", "--interactive",
         action="store_true",
-        help="Enable interactive assistant chatbot mode.",
+        help="Enable interactive assistant chatbot mode."
     )
     input_group2.add_argument(
         "--stdin",
         action="store_true",
         help="Read the user's input from stdin."
     )
-    parser.add_argument(
-        "-profile",
-        "--profile",
-        help="Name of the profile to use.",
+
+    chat_parser.add_argument(
+        "-profile", "--profile",
+        help="Name of the profile to use."
     )
-    parser.add_argument(
-        "-c", "--custom_instructions", nargs='*', default=[],
+    chat_parser.add_argument(
+        "-c", "--custom_instructions",
+        nargs='*', default=[],
         help="Path to the prompt custom instructions file or folder. Can accept multiple values."
     )
-    parser.add_argument(
+    chat_parser.add_argument(
         "-nc", "--nocustom_instructions",
         action="store_true",
         help="Ignore all prompt custom instructions even if they are specified."
     )
-    parser.add_argument(
-        "-d", "--curated_dataset", nargs='*', default=[],
+    chat_parser.add_argument(
+        "-d", "--curated_dataset",
+        nargs='*', default=[],
         help="Path to the prompt context curated dataset file or folder. Can accept multiple values."
     )
-    parser.add_argument(
+    chat_parser.add_argument(
         "-nd", "--nocurated_dataset",
         action="store_true",
         help="Ignore all prompt context curated dataset even if they are specified."
     )
-    parser.add_argument(
-        "-e",
-        "--engine",
+    chat_parser.add_argument(
+        "-e", "--engine",
         default=config.get('default', 'openai'),
         choices=engine_choices,
-        help="The engine to use for the chat.",
+        help="The engine to use for the chat."
     )
-    parser.add_argument(
-        "-m",
-        "--model",
-        help="The model to use for the chat. Defaults to engine's default model. Use 'flagship' to select the engine's most powerful model.",
+    chat_parser.add_argument(
+        "-m", "--model",
+        help="The model to use for the chat. Defaults to engine's default model. Use 'flagship' to select the engine's most powerful model."
     )
-    parser.add_argument(
-        "-t",
-        "--temperature",
-        type=float,
-        default=None,
-        help="The creativity of the response, with higher values being more creative.",
+    chat_parser.add_argument(
+        "-t", "--temperature",
+        type=float, default=None,
+        help="The creativity of the response, with higher values being more creative."
     )
-    parser.add_argument(
-    "-mt", "--max_tokens",
-    type=int,
-    default=None,
-    help="The maximum number of tokens to generate in the response.",
+    chat_parser.add_argument(
+        "-mt", "--max_tokens",
+        type=int, default=None,
+        help="The maximum number of tokens to generate in the response."
     )
-    parser.add_argument(
-        "-l",
-        "--load",
-        help="Load a previous interactive session from a file.",
+    chat_parser.add_argument(
+        "-l", "--load",
+        help="Load a previous interactive session from a file."
     )
 
-    known_args = parser.parse_known_args()
-    args = known_args[0]
+    chat_parser.set_defaults(func=run_chat)
+    return chat_parser
 
+
+def create_compile_parser(subparsers):
+    """Create the compile subcommand parser."""
+    compile_parser = subparsers.add_parser(
+        'compile',
+        help='Compile AI Knowledge repositories for LLM consumption',
+        description='Compile AI Knowledge repositories into optimized outputs for various LLM platforms.'
+    )
+
+    # Project selection
+    project_group = compile_parser.add_mutually_exclusive_group()
+    project_group.add_argument(
+        '--project', '-p',
+        help='Project name to compile (e.g., my-project, my-client)'
+    )
+    project_group.add_argument(
+        '--repo', '-r',
+        help='Path to ai-knowledge-* repository to compile'
+    )
+    project_group.add_argument(
+        '--all', '-a',
+        action='store_true',
+        help='Compile all projects'
+    )
+
+    # Compilation options
+    compile_parser.add_argument(
+        '--personalized',
+        action='store_true',
+        help='Include inherited content from parent repos'
+    )
+    compile_parser.add_argument(
+        '--llm',
+        choices=['claude', 'chatgpt', 'gemini', 'all'],
+        default='all',
+        help='Target LLM platform (default: all)'
+    )
+    compile_parser.add_argument(
+        '--context',
+        help='Context filter to apply (e.g., writing-mode, coding-mode)'
+    )
+    compile_parser.add_argument(
+        '--instructions-only',
+        action='store_true',
+        help='Only compile instructions, skip knowledge assembly'
+    )
+
+    # Behavior options
+    compile_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be compiled without writing files'
+    )
+    compile_parser.add_argument(
+        '--force', '-f',
+        action='store_true',
+        help='Force recompilation, ignore cache'
+    )
+    compile_parser.add_argument(
+        '--no-llm',
+        action='store_true',
+        help='Skip LLM compilation, just assemble content'
+    )
+    compile_parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Verbose output with token counts'
+    )
+    compile_parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Minimal output'
+    )
+
+    # Path options
+    compile_parser.add_argument(
+        '--base-path',
+        default=os.path.expanduser('~/projects/my-projects/ai-knowledge'),
+        help='Base path containing ai-knowledge-* repositories'
+    )
+    compile_parser.add_argument(
+        '--personal-repo',
+        help='Path to personal ai-knowledge repo (for inheritance config)'
+    )
+
+    compile_parser.set_defaults(func=run_compile)
+    return compile_parser
+
+
+def run_chat(args):
+    """Run the chat command."""
     if args.list_saved:
         print_saved_files(data_dir)
         return
 
-    new_session = False  # Variable to track if this is a new session
+    new_session = False
 
     if args.load:
-        args.interactive = True  # Automatically enable interactive mode when loading a session
-        args.nocurated_dataset = True  # Do not load curated_dataset files when loading a session
+        args.interactive = True
+        args.nocurated_dataset = True
     else:
-        new_session = True  # This is a new session
+        new_session = True
 
     curated_datasets = []
-    curated_dataset_files = []  # to store file names of curated_datasets
+    curated_dataset_files = []
 
     # Load workspaces from ragbot-data directory
-    # Priority: 1) RAGBOT_DATA_ROOT env var, 2) Docker /app, 3) local workspaces/, 4) sibling ragbot-data/
     data_root = os.getenv('RAGBOT_DATA_ROOT')
 
     if data_root is None:
-        # Check common locations in order of priority
         if os.path.isdir('/app/workspaces'):
-            # Docker deployment
             data_root = '/app'
         elif os.path.isdir('workspaces'):
-            # Local workspaces directory (current working directory)
             data_root = '.'
         elif os.path.isdir('../ragbot-data/workspaces'):
-            # Sibling ragbot-data directory (common development setup)
             data_root = '../ragbot-data'
         else:
-            # Fallback - will result in empty workspaces list
             data_root = '.'
 
     profiles = load_workspaces_as_profiles(data_root)
 
     if args.profile:
-        # Get instruction and dataset paths from selected workspace
         selected_profile_data = next((profile for profile in profiles if profile['name'] == args.profile), None)
         if not selected_profile_data:
             available_workspaces = [p['name'] for p in profiles]
@@ -165,9 +249,7 @@ def main():
         custom_instruction_paths = []
         curated_dataset_paths = []
 
-
     if not args.custom_instructions:
-        # Load default custom_instructions for profile
         default_custom_instructions_paths = custom_instruction_paths
         default_custom_instructions_paths = [path for path in default_custom_instructions_paths if path.strip() != '']
         custom_instructions, custom_instructions_files = load_files(file_paths=default_custom_instructions_paths + args.curated_dataset, file_type="custom_instructions")
@@ -180,7 +262,6 @@ def main():
         print("No custom instructions files are being used.")
 
     if not args.nocurated_dataset:
-        # Load default curated_datasets profile
         default_curated_dataset_paths = curated_dataset_paths
         default_curated_dataset_paths = [path for path in default_curated_dataset_paths if path.strip() != '']
         curated_datasets, curated_dataset_files = load_files(file_paths=default_curated_dataset_paths + args.curated_dataset, file_type="curated_datasets")
@@ -192,10 +273,10 @@ def main():
     else:
         print("No curated_dataset files are being used.")
 
-    history = []  # Will contain user/assistant messages from conversation
+    history = []
 
     if args.load:
-        filename = args.load.strip()  # Remove leading and trailing spaces
+        filename = args.load.strip()
         full_path = os.path.join(sessions_data_dir, filename)
         with open(full_path, 'r') as f:
             history = json.load(f)
@@ -205,7 +286,6 @@ def main():
     if model is None:
         model = default_models[args.engine]
     elif model == "flagship":
-        # Find the flagship model for this engine
         flagship_model = next(
             (m for m in engines_config[args.engine]['models'] if m.get('is_flagship')),
             None
@@ -216,22 +296,17 @@ def main():
             print(f"Warning: No flagship model defined for engine '{args.engine}'. Using default.")
             model = default_models[args.engine]
 
-    # Get the engine API key from keystore
     api_key = get_api_key(args.engine)
     if api_key:
         engines_config[args.engine]['api_key'] = api_key
 
-        # Set API keys for specific providers
         if args.engine == 'openai':
             openai.api_key = api_key
         elif args.engine == 'anthropic':
             anthropic.api_key = api_key
         elif args.engine == 'google':
-            # LiteLLM looks for GEMINI_API_KEY environment variable
             os.environ['GEMINI_API_KEY'] = api_key
 
-
-    # Get the default max_tokens and temperature from the engines.yaml configuration
     selected_model = next((item for item in engines_config[args.engine]['models'] if item['name'] == model), None)
 
     if model in model_cost_map:
@@ -241,10 +316,8 @@ def main():
 
     if selected_model:
         default_temperature = selected_model.get("temperature", 0.75)
-        # Prefer max_output_tokens from config, fall back to model_cost_map, then to default_max_tokens, then to 4096
         max_output_tokens = selected_model.get("max_output_tokens") or model_data.get("max_output_tokens") or selected_model.get("default_max_tokens") or 4096
         default_max_tokens = selected_model.get("default_max_tokens", min(max_output_tokens, 4096))
-        # Get max_input_tokens for history compaction
         max_input_tokens = selected_model.get("max_input_tokens") or model_data.get("max_input_tokens") or 128000
     else:
         default_temperature = 0.75
@@ -252,11 +325,9 @@ def main():
         default_max_tokens = 4096
         max_input_tokens = 128000
 
-    # Use the default values if not provided by the user
     max_tokens = args.max_tokens or default_max_tokens
     temperature = args.temperature or default_temperature
 
-    # Validate max_tokens doesn't exceed model's maximum output limit
     if max_tokens > max_output_tokens:
         print(f"Warning: Requested max_tokens ({max_tokens}) exceeds model's maximum output limit ({max_output_tokens})")
         print(f"Setting max_tokens to {max_output_tokens}")
@@ -275,7 +346,7 @@ def main():
             if prompt.lower() == "/quit":
                 break
             elif prompt.lower().startswith("/save "):
-                filename = prompt[6:].strip()  # Remove leading '/save ' and spaces
+                filename = prompt[6:].strip()
                 full_path = os.path.join(sessions_data_dir, filename)
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 with open(full_path, 'w') as f:
@@ -283,7 +354,7 @@ def main():
                 print(f"Conversation saved to {full_path}")
                 continue
             history.append({"role": "user", "content": prompt})
-            print("Ragbot.AI: ", end='', flush=True)  # Print prefix before streaming starts
+            print("Ragbot.AI: ", end='', flush=True)
             reply = chat(
                 prompt=prompt,
                 custom_instructions=custom_instructions,
@@ -299,7 +370,6 @@ def main():
                 supports_system_role=supports_system_role
             )
             history.append({"role": "assistant", "content": reply})
-
     else:
         prompt = None
         if args.prompt:
@@ -337,5 +407,228 @@ def main():
             reply = is_structured[1].strip()
         print(reply)
 
+
+def run_compile(args):
+    """Run the compile command."""
+    import time
+    from compiler.config import load_compile_config, validate_config, get_project_name
+    from compiler import compile_project
+    from compiler.manifest import format_manifest_summary
+
+    def find_project_repo(project_name, base_path):
+        """Find the repository path for a project name."""
+        repo_name = f'ai-knowledge-{project_name}'
+        repo_path = os.path.join(base_path, repo_name)
+        if os.path.exists(repo_path):
+            return repo_path
+        raise FileNotFoundError(f"Repository not found: {repo_path}")
+
+    def list_projects(base_path):
+        """List all ai-knowledge projects in the base path."""
+        projects = []
+        if not os.path.exists(base_path):
+            return projects
+        for name in os.listdir(base_path):
+            if name.startswith('ai-knowledge-'):
+                project_name = name.replace('ai-knowledge-', '')
+                repo_path = os.path.join(base_path, name)
+                config_path = os.path.join(repo_path, 'compile-config.yaml')
+                if os.path.exists(config_path):
+                    projects.append({'name': project_name, 'repo_path': repo_path})
+        return projects
+
+    def compile_repo(repo_path):
+        """Compile a single repository."""
+        start_time = time.time()
+
+        if not args.quiet:
+            print(f"Compiling: {repo_path}")
+
+        try:
+            config = load_compile_config(repo_path)
+            errors = validate_config(config)
+            if errors:
+                print("Configuration errors:", file=sys.stderr)
+                for error in errors:
+                    print(f"  - {error}", file=sys.stderr)
+                return 1
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
+        project_name = get_project_name(config)
+
+        if args.dry_run:
+            return dry_run(config)
+
+        llm_map = {
+            'claude': ['anthropic'],
+            'chatgpt': ['openai'],
+            'gemini': ['google'],
+            'all': None
+        }
+        target_platforms = llm_map.get(args.llm)
+
+        try:
+            result = compile_project(
+                config=config,
+                platforms=target_platforms,
+                personalized=args.personalized,
+                context=args.context,
+                force=args.force,
+                use_llm=not args.no_llm,
+                instructions_only=args.instructions_only,
+                verbose=args.verbose,
+                personal_repo_path=args.personal_repo
+            )
+        except Exception as e:
+            print(f"Compilation error: {e}", file=sys.stderr)
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+            return 1
+
+        elapsed = time.time() - start_time
+
+        if args.quiet:
+            print(f"Compiled {project_name} in {elapsed:.2f}s")
+        else:
+            print(format_manifest_summary(result.get('manifest', {})))
+            print(f"\nCompleted in {elapsed:.2f}s")
+
+        return 0
+
+    def dry_run(config):
+        """Show what would be compiled without actually compiling."""
+        from compiler.config import get_source_path, get_include_patterns, get_exclude_patterns, get_targets, get_token_budget
+        from compiler.assembler import assemble_content, check_token_budget
+
+        print("=== DRY RUN ===\n")
+
+        project_name = get_project_name(config)
+        print(f"Project: {project_name}")
+
+        source_path = get_source_path(config)
+        print(f"Source path: {source_path}")
+
+        if not os.path.exists(source_path):
+            print(f"Warning: Source path does not exist", file=sys.stderr)
+            return 1
+
+        include = get_include_patterns(config)
+        exclude = get_exclude_patterns(config)
+
+        assembled = assemble_content(source_path, include, exclude)
+
+        print(f"\nFiles to compile: {len(assembled['files'])}")
+        print(f"Total tokens: {assembled['total_tokens']:,}")
+
+        print("\nBy category:")
+        for cat, files in assembled['by_category'].items():
+            if files:
+                tokens = sum(f['tokens'] for f in files)
+                print(f"  {cat}: {len(files)} files, {tokens:,} tokens")
+
+        budget = get_token_budget(config)
+        budget_check = check_token_budget(assembled, budget)
+        status = "✓" if budget_check['within_budget'] else "⚠ OVER"
+        print(f"\nToken budget: {assembled['total_tokens']:,} / {budget:,} {status}")
+
+        targets = get_targets(config)
+        print(f"\nTargets: {', '.join(t['name'] for t in targets)}")
+
+        if args.verbose:
+            print("\n=== Files ===")
+            for f in assembled['files']:
+                print(f"  {f['relative_path']} ({f['tokens']:,} tokens)")
+
+        return 0
+
+    # Determine what to compile
+    if args.all:
+        projects = list_projects(args.base_path)
+        if not projects:
+            print(f"No projects found in {args.base_path}", file=sys.stderr)
+            return 1
+
+        if not args.quiet:
+            print(f"Found {len(projects)} projects to compile")
+
+        failed = []
+        for project in projects:
+            if not args.quiet:
+                print(f"\n{'='*60}")
+                print(f"Compiling: {project['name']}")
+                print('='*60)
+
+            result = compile_repo(project['repo_path'])
+            if result != 0:
+                failed.append(project['name'])
+
+        if failed:
+            print(f"\nFailed projects: {', '.join(failed)}", file=sys.stderr)
+            return 1
+
+        print(f"\nAll {len(projects)} projects compiled successfully")
+        return 0
+
+    elif args.project:
+        try:
+            repo_path = find_project_repo(args.project, args.base_path)
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        return compile_repo(repo_path)
+
+    elif args.repo:
+        return compile_repo(args.repo)
+
+    else:
+        # Default: compile current directory if it's a repo
+        cwd = os.getcwd()
+        if os.path.exists(os.path.join(cwd, 'compile-config.yaml')):
+            return compile_repo(cwd)
+        else:
+            print("Error: No project specified. Use --project, --repo, or --all.")
+            print("       Or run from an ai-knowledge-* directory with compile-config.yaml")
+            return 1
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='ragbot',
+        description="Ragbot.AI - An augmented brain and AI assistant. Learn more at https://ragbot.ai"
+    )
+
+    subparsers = parser.add_subparsers(
+        title='commands',
+        description='Available commands',
+        dest='command'
+    )
+
+    # Create subcommand parsers
+    create_chat_parser(subparsers)
+    create_compile_parser(subparsers)
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # If no command specified, default to chat behavior for backward compatibility
+    if args.command is None:
+        # Re-parse with 'chat' as the default command
+        # This maintains backward compatibility with existing usage like:
+        #   ragbot -p "prompt"
+        #   ragbot -i
+        sys.argv.insert(1, 'chat')
+        args = parser.parse_args()
+
+    # Run the appropriate command
+    if hasattr(args, 'func'):
+        return args.func(args)
+    else:
+        parser.print_help()
+        return 1
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)
