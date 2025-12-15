@@ -259,6 +259,64 @@ projects/work-logs/ai-knowledge-architecture/
 └── 2025-12-14-rag-integration-and-docs-reorg.md
 ```
 
+## Completing and Reactivating Projects
+
+### Completing a Project
+
+When a project reaches a stable, functional state:
+
+1. **Move the folder** from `active/` to `completed/`:
+   ```bash
+   git mv projects/active/{project-name} projects/completed/{project-name}
+   ```
+
+2. **Update the project README** (optional):
+   - Set status to "Complete"
+   - Update "Last Updated" date
+   - Ensure "Future Considerations" captures remaining ideas
+
+3. **Update `projects/README.md`** if your repo has one:
+   - Move project from "Active Projects" table to "Completed Projects" table
+
+4. **Commit** with a descriptive message:
+   ```bash
+   git commit -m "Complete {project-name} project - move to completed/"
+   ```
+
+### Reactivating a Project
+
+If you need to resume work on a completed project:
+
+1. **Move the folder** back to `active/`:
+   ```bash
+   git mv projects/completed/{project-name} projects/active/{project-name}
+   ```
+
+2. **Update status** in the project README
+
+3. **Update `projects/README.md`** tables if applicable
+
+4. **Commit** with context:
+   ```bash
+   git commit -m "Reactivate {project-name} - {reason for reactivation}"
+   ```
+
+### Why This Works
+
+- **Git preserves full history** — Nothing is lost when moving folders
+- **No data deletion** — Completed projects remain accessible
+- **Easy reversal** — `git mv` in either direction takes seconds
+- **Clear status** — Folder location indicates project state
+
+### Future Considerations Section
+
+Before completing a project, ensure it has a "Future Considerations" section documenting:
+- Enhancements that could be future projects
+- Open questions not blocking completion
+- Ideas that emerged during implementation
+
+This prevents losing valuable context when the project moves to `completed/`.
+
 ## Adoption
 
 To adopt this convention in a repository:
