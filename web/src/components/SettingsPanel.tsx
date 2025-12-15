@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getModels, getWorkspaces, getIndexStatus, indexWorkspace, getConfig, getProviders, getTemperatureSettings, type ModelInfo, type WorkspaceInfo, type IndexStatus, type ConfigResponse, type ProviderInfo } from '@/lib/api';
+import { getModels, getWorkspaces, getIndexStatus, indexWorkspace, getConfig, getProviders, getTemperatureSettings, getKeysStatus, type ModelInfo, type WorkspaceInfo, type IndexStatus, type ProviderInfo, type KeysStatusResponse, type KeyStatus } from '@/lib/api';
 
 interface SettingsPanelProps {
   workspace: string | undefined;
@@ -56,12 +56,15 @@ export function SettingsPanel({
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [temperaturePresets, setTemperaturePresets] = useState<Record<string, number>>({});
   const [defaultModel, setDefaultModel] = useState<string>('');
-  const [apiKeys, setApiKeys] = useState<Record<string, boolean>>({});
+  const [keysStatus, setKeysStatus] = useState<KeysStatusResponse>({});
   const [workspacesWithKeys, setWorkspacesWithKeys] = useState<string[]>([]);
   const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null);
   const [indexing, setIndexing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Key source overrides - user can override workspace keys with default keys
+  const [keyOverrides, setKeyOverrides] = useState<Record<string, 'auto' | 'default'>>({});
 
   // Derived state
   const [provider, setProvider] = useState<string>('anthropic');
@@ -81,7 +84,6 @@ export function SettingsPanel({
         setWorkspaces(wsData);
         setModels(modelData.models);
         setDefaultModel(modelData.default_model);
-        setApiKeys(configData.api_keys || {});
         setWorkspacesWithKeys(configData.workspaces_with_keys || []);
         setProviders(providersData.providers);
         setTemperaturePresets(tempSettings);
@@ -110,6 +112,43 @@ export function SettingsPanel({
     load();
   }, []);
 
+  // Load keys status when workspace changes
+  useEffect(() => {
+    getKeysStatus(workspace)
+      .then(setKeysStatus)
+      .catch(() => setKeysStatus({}));
+
+    // Reset key overrides when workspace changes
+    setKeyOverrides({});
+  }, [workspace]);
+
+  // When keys status loads, ensure selected provider has a key; if not, switch to one that does
+  useEffect(() => {
+    if (Object.keys(keysStatus).length === 0) return; // Keys not loaded yet
+    if (models.length === 0) return; // Models not loaded yet
+
+    // Check if current provider has a key
+    if (!keysStatus[provider]?.has_key) {
+      // Find first provider with a key
+      const providerWithKey = providers.find(p => keysStatus[p.id]?.has_key);
+      if (providerWithKey) {
+        // Inline provider change logic (can't call handleProviderChange as it's defined later)
+        const newProvider = providerWithKey.id;
+        setProvider(newProvider);
+        const newProviderModels = models.filter(m => m.provider === newProvider);
+        const newCategories = CATEGORIES.filter(cat =>
+          newProviderModels.some(m => (m.category || 'medium') === cat)
+        );
+        const newCategory = newCategories.includes(category) ? category : newCategories[0] || 'medium';
+        setCategory(newCategory);
+        const newCategoryModels = newProviderModels.filter(m => (m.category || 'medium') === newCategory);
+        if (newCategoryModels.length > 0) {
+          onModelChange(newCategoryModels[0].id);
+        }
+      }
+    }
+  }, [keysStatus, providers, models]);
+
   // Load index status when workspace changes
   useEffect(() => {
     if (workspace) {
@@ -120,6 +159,24 @@ export function SettingsPanel({
       setIndexStatus(null);
     }
   }, [workspace]);
+
+  // Get effective key source for a provider (considering overrides)
+  const getEffectiveKeySource = (providerId: string): KeyStatus['source'] => {
+    const status = keysStatus[providerId];
+    if (!status) return null;
+
+    const override = keyOverrides[providerId];
+    if (override === 'default' && status.has_default_key) {
+      return 'default';
+    }
+    return status.source;
+  };
+
+  // Check if provider has any key available
+  const hasKey = (providerId: string): boolean => {
+    const status = keysStatus[providerId];
+    return status?.has_key ?? false;
+  };
 
   // Filter models by provider and category
   const providerModels = models.filter(m => m.provider === provider);
@@ -170,12 +227,6 @@ export function SettingsPanel({
 
   const selectedWorkspace = workspaces.find(w => w.dir_name === workspace);
   const selectedModel = models.find(m => m.id === model);
-  const hasApiKey = selectedModel ? apiKeys[selectedModel.provider] : false;
-
-  // Get temperature preset name
-  const tempPreset = Object.entries(temperaturePresets).find(
-    ([, val]) => Math.abs(val - temperature) < 0.05
-  )?.[0] || 'Custom';
 
   if (loading) {
     return (
@@ -237,7 +288,7 @@ export function SettingsPanel({
                            bg-white dark:bg-gray-800 px-2 py-2 text-sm w-28
                            focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {providers.map((p) => (
+                {providers.filter(p => hasKey(p.id)).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
@@ -268,14 +319,16 @@ export function SettingsPanel({
             >
               {categoryModels.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} {!m.available && '(no key)'}
+                  {m.name}
                 </option>
               ))}
             </select>
             {selectedModel && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 flex items-center gap-1">
                 {(selectedModel.context_window / 1000).toFixed(0)}K context
-                {!hasApiKey && <span className="text-amber-600 ml-2">• API key not configured</span>}
+                <span className={getEffectiveKeySource(selectedModel.provider) === 'workspace' ? 'text-blue-600 ml-1' : 'text-gray-400 ml-1'}>
+                  • {getEffectiveKeySource(selectedModel.provider)} key
+                </span>
               </div>
             )}
           </div>
@@ -435,42 +488,65 @@ export function SettingsPanel({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
+              {/* API Keys with detailed status */}
+              <div className="flex flex-col gap-1 md:col-span-2">
                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  API Keys (Default)
+                  API Keys for {workspace || 'default'}
                 </label>
-                <div className="text-xs space-y-0.5">
-                  {providers.map(p => (
-                    <div key={p.id} className={apiKeys[p.id] ? 'text-green-600' : 'text-gray-400'}>
-                      {apiKeys[p.id] ? '✅' : '○'} {p.name}
-                    </div>
-                  ))}
-                </div>
-              </div>
+                <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-2">
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    {providers.map(p => {
+                      const status = keysStatus[p.id];
+                      const effectiveSource = getEffectiveKeySource(p.id);
+                      const canOverride = status?.has_workspace_key && status?.has_default_key;
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Workspace Keys
-                </label>
-                <div className="text-xs text-gray-500 space-y-0.5">
-                  {workspacesWithKeys.length > 0 ? (
-                    <>
-                      <div className="text-gray-400 mb-1">Custom keys for:</div>
-                      {workspacesWithKeys.map(ws => (
-                        <div key={ws} className={ws === workspace ? 'text-blue-600 font-medium' : ''}>
-                          {ws === workspace ? '→ ' : '• '}{ws}
+                      return (
+                        <div key={p.id} className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            {status?.has_key ? (
+                              <span className="text-green-600">✅</span>
+                            ) : (
+                              <span className="text-red-500">❌</span>
+                            )}
+                            <span className={status?.has_key ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}>
+                              {p.name}
+                            </span>
+                          </div>
+
+                          {status?.has_key && (
+                            <div className="flex items-center gap-1 pl-5">
+                              <span className={`text-[10px] px-1 py-0.5 rounded ${
+                                effectiveSource === 'workspace'
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                              }`}>
+                                {effectiveSource}
+                              </span>
+
+                              {canOverride && (
+                                <button
+                                  onClick={() => setKeyOverrides(prev => ({
+                                    ...prev,
+                                    [p.id]: prev[p.id] === 'default' ? 'auto' : 'default'
+                                  }))}
+                                  className="text-[10px] text-blue-600 hover:text-blue-800 dark:text-blue-400 ml-1"
+                                  title={keyOverrides[p.id] === 'default' ? 'Use workspace key' : 'Use default key'}
+                                >
+                                  [{keyOverrides[p.id] === 'default' ? 'use workspace' : 'use default'}]
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {!status?.has_key && (
+                            <div className="text-[10px] text-gray-400 pl-5">
+                              no key configured
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      {workspace && workspacesWithKeys.includes(workspace) && (
-                        <div className="mt-1 text-green-600">Using workspace keys</div>
-                      )}
-                      {workspace && !workspacesWithKeys.includes(workspace) && (
-                        <div className="mt-1 text-gray-500">Using default keys</div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-gray-400">All workspaces use default keys</div>
-                  )}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>

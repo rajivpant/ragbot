@@ -23,7 +23,7 @@ class ChatRequest(BaseModel):
     prompt: str = Field(..., description="User's message")
     workspace: Optional[str] = Field(None, description="Workspace name for context")
     model: str = Field("anthropic/claude-sonnet-4-20250514", description="Model to use")
-    temperature: float = Field(0.75, ge=0, le=2, description="Creativity level")
+    temperature: Optional[float] = Field(None, ge=0, le=2, description="Creativity level (None uses model default from engines.yaml)")
     max_tokens: int = Field(4096, ge=1, le=8192, description="Max response tokens")
     use_rag: bool = Field(True, description="Use RAG for context retrieval")
     rag_max_tokens: int = Field(2000, ge=0, description="Max tokens for RAG context")

@@ -138,7 +138,7 @@ All model/provider configuration comes from `engines.yaml`. Use these functions:
 
 ## Model Configuration Rules - CRITICAL
 
-**NEVER DOWNGRADE MODEL VERSIONS. EVER.**
+**NEVER DOWNGRADE MODEL VERSIONS. EVER. THIS IS ABSOLUTE AND NON-NEGOTIABLE.**
 
 **DO NOT RELY ON TRAINING DATA FOR MODEL INFORMATION.** Training data is outdated. Use the current date (provided in system context) and web search to find the latest models.
 
@@ -148,18 +148,26 @@ When the codebase or `engines.yaml` specifies a model version, DO NOT:
 - Downgrade because a model "doesn't seem to work"
 - Assume models from training data are current - THEY ARE NOT
 - Replace newer models with older ones you "know" from training
+- **EVER replace a preview/beta model with an older "stable" model** - preview/beta of a new version is ALWAYS better than stable of an old version
+- Remove models that return empty responses or errors - FIX THE CODE instead
 
 If `engines.yaml` has a model configured, it was added intentionally by the user who knows what models are currently available. DO NOT TOUCH IT unless explicitly asked.
+
+**Models in engines.yaml should ONLY move forward, NEVER backward.**
+- If the user ever wants to downgrade a model, THEY will do it manually
+- Claude should NEVER downgrade models, even if they appear broken
+- When a model doesn't work, the issue is in the code/API configuration, NOT the model
 
 **If you need to update models:**
 1. Check the current date from system context
 2. Web search for the latest released models
 3. Never rely on training data cutoff knowledge
 4. The user knows what models exist better than your training data
+5. ONLY add newer models, NEVER replace with older ones
 
 **Always check the current date** and use web search for the latest released model versions:
 - Anthropic: https://www.anthropic.com/claude
 - OpenAI: https://platform.openai.com/docs/models
 - Google: https://ai.google.dev/models
 
-If a model doesn't work, investigate the code/API issues rather than downgrading.
+If a model doesn't work, investigate the code/API issues rather than downgrading. The problem is ALWAYS in the code, not in choosing the wrong model.

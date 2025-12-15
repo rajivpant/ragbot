@@ -5,12 +5,17 @@ to enable use as a library independent of the UI layer.
 """
 
 from typing import Optional, List, Dict, Callable, Iterator, Any
+import litellm
 from litellm import completion
 import tiktoken
 
+# Enable dropping of unsupported params for models that have different parameter names
+# (e.g., GPT-5 models use max_completion_tokens instead of max_tokens)
+litellm.drop_params = True
+
 from .exceptions import ChatError
 from .keystore import get_api_key
-from .config import get_default_model, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_MAX_INPUT_TOKENS
+from .config import get_default_model, get_model_info, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_MAX_INPUT_TOKENS
 
 
 def _get_api_key_for_model(model: str, workspace: Optional[str] = None) -> Optional[str]:
@@ -181,7 +186,12 @@ def chat(
     if max_input_tokens is None:
         max_input_tokens = DEFAULT_MAX_INPUT_TOKENS
     if temperature is None:
-        temperature = DEFAULT_TEMPERATURE
+        # Get model-specific temperature from engines.yaml, fall back to global default
+        model_info = get_model_info(model)
+        if model_info and 'temperature' in model_info:
+            temperature = model_info['temperature']
+        else:
+            temperature = DEFAULT_TEMPERATURE
 
     try:
         # Build system content
@@ -252,16 +262,27 @@ def chat(
         # Get API key for the model
         api_key = _get_api_key_for_model(model, workspace_name)
 
+        # Build completion kwargs - handle model-specific parameter names
+        completion_kwargs = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "api_key": api_key
+        }
+
+        # GPT-5 models (not 5.2) use max_completion_tokens instead of max_tokens
+        model_lower = model.lower()
+        if 'gpt-5-mini' in model_lower or ('gpt-5' in model_lower and '5.2' not in model_lower and '5.1' not in model_lower):
+            completion_kwargs["max_completion_tokens"] = max_tokens
+        else:
+            completion_kwargs["max_tokens"] = max_tokens
+
         # Make API call
         if stream and stream_callback:
             response_chunks = []
             llm_response = completion(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                stream=True,
-                api_key=api_key
+                **completion_kwargs,
+                stream=True
             )
 
             for chunk in llm_response:
@@ -273,13 +294,7 @@ def chat(
 
             return ''.join(response_chunks)
         else:
-            llm_response = completion(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                api_key=api_key
-            )
+            llm_response = completion(**completion_kwargs)
             return llm_response.get('choices', [{}])[0].get('message', {}).get('content', '')
 
     except Exception as e:
@@ -312,7 +327,16 @@ def chat_stream(
     model = kwargs.get('model') or get_default_model()
     max_tokens = kwargs.get('max_tokens') or DEFAULT_MAX_TOKENS
     max_input_tokens = kwargs.get('max_input_tokens') or DEFAULT_MAX_INPUT_TOKENS
-    temperature = kwargs.get('temperature') if kwargs.get('temperature') is not None else DEFAULT_TEMPERATURE
+
+    # Get model-specific temperature from engines.yaml, fall back to global default
+    temperature = kwargs.get('temperature')
+    if temperature is None:
+        model_info = get_model_info(model)
+        if model_info and 'temperature' in model_info:
+            temperature = model_info['temperature']
+        else:
+            temperature = DEFAULT_TEMPERATURE
+
     history = kwargs.get('history')
     supports_system_role = kwargs.get('supports_system_role', True)
     workspace_name = kwargs.get('workspace_name')
@@ -384,15 +408,24 @@ def chat_stream(
     # Get API key for the model
     api_key = _get_api_key_for_model(model, workspace_name)
 
+    # Build completion kwargs - handle model-specific parameter names
+    completion_kwargs = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+        "api_key": api_key
+    }
+
+    # GPT-5 models (not 5.2) use max_completion_tokens instead of max_tokens
+    model_lower = model.lower()
+    if 'gpt-5-mini' in model_lower or ('gpt-5' in model_lower and '5.2' not in model_lower and '5.1' not in model_lower):
+        completion_kwargs["max_completion_tokens"] = max_tokens
+    else:
+        completion_kwargs["max_tokens"] = max_tokens
+
     # Stream response
-    llm_response = completion(
-        model=model,
-        messages=messages,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        stream=True,
-        api_key=api_key
-    )
+    llm_response = completion(**completion_kwargs)
 
     for chunk in llm_response:
         if chunk and chunk.choices and len(chunk.choices) > 0:

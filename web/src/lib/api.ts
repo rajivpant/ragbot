@@ -60,10 +60,28 @@ export interface ConfigResponse {
   workspaces_with_keys: string[];
 }
 
+export interface KeyStatus {
+  has_key: boolean;
+  source: 'workspace' | 'default' | null;
+  has_workspace_key: boolean;
+  has_default_key: boolean;
+}
+
+export type KeysStatusResponse = Record<string, KeyStatus>;
+
 // API functions
 export async function getConfig(): Promise<ConfigResponse> {
   const res = await fetch(`${API_BASE}/api/config`);
   if (!res.ok) throw new Error('Failed to fetch config');
+  return res.json();
+}
+
+export async function getKeysStatus(workspace?: string): Promise<KeysStatusResponse> {
+  const url = workspace
+    ? `${API_BASE}/api/config/keys?workspace=${encodeURIComponent(workspace)}`
+    : `${API_BASE}/api/config/keys`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch keys status');
   return res.json();
 }
 

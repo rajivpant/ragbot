@@ -13,44 +13,35 @@ engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     models:
-      # GPT-5 Mini - Fast and cost-effective (December 2025)
+      # GPT-5 Mini - Fast and cost-effective (note: only temperature=1 supported)
       - name: gpt-5-mini
         category: small
         supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
+        max_temperature: 1
+        temperature: 1.0
         max_input_tokens: 128000
         max_output_tokens: 16384
         default_max_tokens: 4096
-      # GPT-5.1 - Balanced performance (August 2025)
-      - name: gpt-5.1
+      # GPT-5.2 Instant - Fast responses (December 2025, only temperature=1 supported)
+      - name: gpt-5.2-chat-latest
         category: medium
         supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
-        max_input_tokens: 400000
-        max_output_tokens: 128000
-        default_max_tokens: 8192
-      # GPT-5.2 - Latest and most capable (December 2025)
-      - name: gpt-5.2
-        category: large
-        is_flagship: true
-        supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
+        max_temperature: 1
+        temperature: 1.0
         max_input_tokens: 400000
         max_output_tokens: 128000
         default_max_tokens: 8192
       # GPT-5.2 Thinking - Advanced reasoning model (December 2025)
-      - name: gpt-5.2-thinking
-        category: reasoning
+      - name: gpt-5.2
+        category: large
+        is_flagship: true
         supports_system_role: true
-        max_temperature: 2
-        temperature: 0.75
+        max_temperature: 1
+        temperature: 1.0
         max_input_tokens: 400000
         max_output_tokens: 128000
         default_max_tokens: 8192
-    default_model: gpt-5.1
+    default_model: gpt-5.2-chat-latest
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:

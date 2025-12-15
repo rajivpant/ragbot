@@ -95,6 +95,54 @@ class Keystore:
         providers = ["anthropic", "openai", "google", "aws_bedrock"]
         return {p: self.has_key(p, workspace) for p in providers}
 
+    def get_key_status(self, workspace: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+        """
+        Get detailed key status per provider for a workspace.
+
+        For each provider, returns:
+        - has_key: whether any key is available
+        - source: 'workspace', 'default', or None
+        - has_workspace_key: whether workspace has its own key
+        - has_default_key: whether a default key exists
+
+        Args:
+            workspace: Workspace name to check
+
+        Returns:
+            Dict mapping provider names to status dicts
+        """
+        self._load()
+        providers = ["anthropic", "openai", "google"]
+        result = {}
+
+        for provider in providers:
+            has_workspace_key = False
+            has_default_key = self._data.get("default", {}).get(provider) is not None
+
+            if workspace:
+                workspace_keys = self._data.get("workspaces", {}).get(workspace, {})
+                has_workspace_key = provider in workspace_keys and workspace_keys[provider] is not None
+
+            # Determine effective source
+            if has_workspace_key:
+                source = "workspace"
+                has_key = True
+            elif has_default_key:
+                source = "default"
+                has_key = True
+            else:
+                source = None
+                has_key = False
+
+            result[provider] = {
+                "has_key": has_key,
+                "source": source,
+                "has_workspace_key": has_workspace_key,
+                "has_default_key": has_default_key,
+            }
+
+        return result
+
     def list_workspaces_with_keys(self) -> list[str]:
         """List workspaces that have custom keys configured."""
         self._load()

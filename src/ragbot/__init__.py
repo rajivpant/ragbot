@@ -52,6 +52,10 @@ from .keystore import (
     check_api_keys as keystore_check_api_keys,
 )
 
+def get_key_status(workspace: str = None):
+    """Get detailed key status per provider for a workspace."""
+    return get_keystore().get_key_status(workspace)
+
 from .core import (
     chat,
     chat_stream,
@@ -119,6 +123,7 @@ __all__ = [
     # Keystore & User Config
     "get_api_key",
     "get_keystore",
+    "get_key_status",
     "Keystore",
     "KEYSTORE_PATH",
     "CONFIG_DIR",

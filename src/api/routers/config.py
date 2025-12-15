@@ -2,7 +2,8 @@
 
 import os
 import sys
-from fastapi import APIRouter, Depends
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
 
 # Add src directory to path
 src_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,6 +17,7 @@ from ragbot import (
     get_default_model,
     get_default_workspace,
     get_keystore,
+    get_key_status,
     check_api_keys,
     ConfigResponse,
 )
@@ -41,3 +43,19 @@ async def get_config(settings: Settings = Depends(get_settings)):
         api_keys=check_api_keys(),
         workspaces_with_keys=keystore.list_workspaces_with_keys(),
     )
+
+
+@router.get("/keys")
+async def get_keys_status(workspace: Optional[str] = Query(None, description="Workspace name")):
+    """
+    Get detailed API key status per provider for a workspace.
+
+    Returns for each provider:
+    - has_key: whether any key is available (workspace or default)
+    - source: 'workspace', 'default', or null
+    - has_workspace_key: whether workspace has its own key
+    - has_default_key: whether a default key exists
+
+    This helps the UI show exactly which key will be used and allow overrides.
+    """
+    return get_key_status(workspace)
