@@ -10,7 +10,7 @@ import appdirs
 import openai
 import anthropic
 import litellm
-from helpers import load_files, load_config, print_saved_files, chat, load_profiles, load_workspaces_as_profiles
+from helpers import load_files, load_config, print_saved_files, chat, load_workspaces_as_profiles
 from ragbot.keystore import get_api_key
 
 appname = "ragbot"

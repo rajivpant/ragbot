@@ -64,13 +64,6 @@ def load_config(config_file):
     return load_yaml_config(config_file)
 
 
-def load_profiles(profiles_file):
-    """Load profiles from YAML."""
-    with open(profiles_file, 'r') as stream:
-        profiles = yaml.safe_load(stream)
-    return profiles['profiles']
-
-
 def process_file(filepath, file_type, index):
     """
     Helper function to read and format the content of a file using standard document block format.

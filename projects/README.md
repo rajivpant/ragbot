@@ -17,8 +17,8 @@ projects/
 
 | Project | Description | Status |
 |---------|-------------|--------|
-| [AI Knowledge Compiler](active/ai-knowledge-compiler/) | Build compilation pipeline for AI Knowledge repos | In Progress |
-| [UI Redesign](active/ui-redesign/) | Ragbot UI/UX improvements | Planning |
+| [AI Knowledge Compiler](active/ai-knowledge-compiler/) | Compilation pipeline for AI Knowledge repos | Complete (Core) |
+| [UI Redesign](active/ui-redesign/) | Ragbot UI/UX improvements | Complete (Phase 6) |
 
 ## Related Projects
 

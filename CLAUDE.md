@@ -44,8 +44,11 @@ ragbot/
 │   └── Dockerfile             # Frontend container
 ├── docker-compose.yml         # Full stack deployment
 ├── requirements.txt
-├── engines.yaml               # LLM engine configurations (SINGLE SOURCE OF TRUTH)
-└── profiles.yaml              # User profiles
+└── engines.yaml               # LLM engine configurations (SINGLE SOURCE OF TRUTH)
+
+~/.config/ragbot/
+├── keys.yaml                  # API keys (per-user, never in repo)
+└── config.yaml                # User preferences (default_workspace)
 ```
 
 **Running the stack:**
@@ -57,11 +60,18 @@ docker compose up -d
 
 ## Data Location
 
-Ragbot reads data from `~/ragbot-data/workspaces/`:
+Ragbot uses **convention-based discovery** to find AI Knowledge repositories:
 
-- **instructions/** - WHO: Identity/persona files
-- **runbooks/** - HOW: Procedure guides
-- **datasets/** - WHAT: Reference knowledge
+1. **Primary source:** `~/projects/my-projects/ai-knowledge/ai-knowledge-*/`
+2. **Legacy source:** `~/ragbot-data/workspaces/` (deprecated)
+
+Each ai-knowledge repo contains:
+- **source/instructions/** - WHO: Identity/persona files
+- **source/runbooks/** - HOW: Procedure guides
+- **source/datasets/** - WHAT: Reference knowledge
+- **compiled/** - AI-optimized output (auto-generated)
+
+**Note:** `ragbot-data` is deprecated. Content has been migrated to individual `ai-knowledge-*` repositories.
 
 ## Privacy Guidelines for This Public Repo
 
@@ -123,7 +133,8 @@ Each repo in the ecosystem has its own git history. Don't run git commands from 
 - Python CLI with FastAPI backend + React/Next.js frontend
 - Uses LiteLLM for multi-provider LLM support
 - Engines configured in `engines.yaml` (SINGLE SOURCE OF TRUTH for all model config)
-- Profiles/workspaces configured in `profiles.yaml`
+- API keys stored in `~/.config/ragbot/keys.yaml`
+- Workspaces discovered automatically from ai-knowledge-* repositories
 
 ### Configuration Functions (from engines.yaml)
 

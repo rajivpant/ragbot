@@ -10,24 +10,23 @@ This guide explains how to run Ragbot.AI using Docker and Docker Compose for eas
 
 ## Quick Start
 
-### 1. Set Up Environment Variables
+### 1. Set Up API Keys
 
-Create a `.env` file in the project root:
+Create the keys configuration file:
 
 ```bash
-# Copy the example environment file
-cp .env.docker .env
-
-# Edit with your API keys
-nano .env  # or use your preferred editor
+mkdir -p ~/.config/ragbot
+cat > ~/.config/ragbot/keys.yaml << 'EOF'
+# Ragbot API Keys
+default:
+  anthropic: "sk-ant-your-key-here"
+  openai: "sk-your-key-here"
+  google: "your-gemini-key-here"
+EOF
+chmod 600 ~/.config/ragbot/keys.yaml
 ```
 
-Add at least one of these API keys:
-```env
-OPENAI_API_KEY=your-openai-key-here
-ANTHROPIC_API_KEY=your-anthropic-key-here
-GEMINI_API_KEY=your-google-gemini-key-here
-```
+Edit with your actual API keys.
 
 ### 2. Build and Start the Web Interface
 
@@ -103,117 +102,45 @@ docker-compose run --rm ragbot-cli -p "Analyze this data" -d /app/datasets
 
 ## Configuration
 
-### Environment Variables
+### API Keys
 
-All configuration is done through environment variables in the `.env` file:
+API keys are stored in `~/.config/ragbot/keys.yaml`:
 
-```env
-# Required: At least one AI provider
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GEMINI_API_KEY=...
+```yaml
+# Ragbot API Keys
+default:
+  anthropic: "sk-ant-..."
+  openai: "sk-..."
+  google: "..."
 
-# Optional: AWS configuration
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION_NAME=us-east-1
-
-# Optional: Pinecone vector database
-PINECONE_API_KEY=...
-PINECONE_INDEX_NAME=...
+# Optional: workspace-specific key overrides
+workspaces:
+  example-client:
+    anthropic: "sk-ant-client-specific-key..."
 ```
 
-### Using Your Own Data
+This file should have restrictive permissions (`chmod 600`).
 
-Ragbot supports multiple methods for accessing your custom datasets and instructions:
+### AI Knowledge Repositories
 
-#### Method 1: docker-compose.override.yml (Recommended for Separate Data Repos)
+Ragbot automatically discovers workspaces from `ai-knowledge-*` repositories. For Docker:
 
-If you keep your data in a separate directory (like a private `ragbot-data/` git repository):
+**Mount your ai-knowledge directory:**
 
-**Step 1:** Copy the example file:
-```bash
-cp docker-compose.override.example.yml docker-compose.override.yml
-```
-
-**Step 2:** Edit `docker-compose.override.yml` with your actual paths:
+Create `docker-compose.override.yml`:
 ```yaml
 version: '3.8'
 
 services:
   ragbot-web:
     volumes:
-      # Mount your private ragbot-data directory
-      - /path/to/your/ragbot-data/datasets:/app/datasets:ro
-      - /path/to/your/ragbot-data/instructions:/app/instructions:ro
-      - /path/to/your/ragbot-data/profiles.yaml:/app/profiles.yaml:ro
+      # Mount ai-knowledge repos
+      - /path/to/ai-knowledge:/app/ai-knowledge:ro
+      # Mount keys configuration
+      - ~/.config/ragbot:/root/.config/ragbot:ro
 ```
 
-**Step 3:** Restart Docker:
-```bash
-docker-compose down
-docker-compose up -d
-```
-
-**Note:** `docker-compose.override.yml` is gitignored, so your private paths won't be committed.
-
-#### Method 2: Local Directories (Quick Start)
-
-Place your files directly in the ragbot directory:
-
-```
-ragbot/
-├── datasets/        # Your knowledge base files
-├── instructions/     # Custom instruction files
-└── profiles.yaml           # User profiles (optional)
-```
-
-These directories are automatically mounted into the container at `/app/datasets` and `/app/instructions`.
-
-#### Method 3: Symlinks (Convenient for Local Development)
-
-Create symlinks from your ragbot directory to your data repository:
-
-```bash
-cd /path/to/ragbot
-ln -s /path/to/your/ragbot-data/datasets ./datasets
-ln -s /path/to/your/ragbot-data/instructions ./instructions
-ln -s /path/to/your/ragbot-data/profiles.yaml ./profiles.yaml
-```
-
-#### Method 4: Environment Variable (Advanced)
-
-Set `RAGBOT_DATA_DIR` in your `.env` file:
-
-```bash
-RAGBOT_DATA_DIR=/path/to/your/ragbot-data
-```
-
-Then update `docker-compose.yml` volumes to use this variable:
-```yaml
-volumes:
-  - ${RAGBOT_DATA_DIR:-./datasets}/datasets:/app/datasets:ro
-```
-
-### Updating profiles.yaml for Docker
-
-If you use profiles with absolute paths, update them to container paths:
-
-**Before (local paths):**
-```yaml
-profiles:
-  - name: "My Profile"
-    curated_datasets:
-      - "/Users/myname/ragbot-data/datasets/my-data/"
-```
-
-**After (container paths):**
-```yaml
-profiles:
-  - name: "My Profile"
-    curated_datasets:
-      - "/app/datasets/my-data/"
-```
+The workspaces are discovered automatically based on the `ai-knowledge-*` naming convention.
 
 ### Engines Configuration
 
@@ -284,7 +211,7 @@ USER ragbot
 3. **Mount sensitive files as read-only:**
 ```yaml
 volumes:
-  - ./profiles.yaml:/app/profiles.yaml:ro
+  - ~/.config/ragbot:/root/.config/ragbot:ro
 ```
 
 ### Resource Limits

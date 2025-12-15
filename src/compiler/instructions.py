@@ -2,7 +2,16 @@
 LLM Instruction Compiler for AI Knowledge Compiler
 
 Compiles instructions using each target platform's flagship model.
-Each LLM compiles its own optimized instructions.
+Each LLM compiles its own optimized instructions for best results:
+- Claude compiles Claude instructions
+- GPT compiles ChatGPT instructions
+- Gemini compiles Gemini instructions
+
+This ensures each platform's instructions are optimized by a model that
+understands that platform's conventions and capabilities.
+
+Model names are NEVER hardcoded here - they come from engines.yaml.
+This module only knows about platform names (anthropic, openai, google).
 
 Library API:
 - compile_instructions(content, platform, model, api_key) -> str
@@ -159,7 +168,7 @@ def compile_with_openai(content: str, model: str, api_key: str) -> str:
 
     Args:
         content: Source instructions content
-        model: Model ID (e.g., 'gpt-5.1')
+        model: Model ID from engines.yaml
         api_key: OpenAI API key
 
     Returns:
@@ -194,7 +203,7 @@ def compile_with_google(content: str, model: str, api_key: str) -> str:
 
     Args:
         content: Source instructions content
-        model: Model ID (e.g., 'gemini/gemini-3-pro-preview')
+        model: Model ID from engines.yaml (may have 'gemini/' prefix)
         api_key: Google API key
 
     Returns:
@@ -306,14 +315,10 @@ def compile_instructions(content: str, platform: str, model: str,
     if platform in fallback_platforms:
         # Use Claude to generate instructions optimized for the target platform
         fallback_platform = fallback_platform or 'anthropic'
-        # Get default model from engines.yaml instead of hardcoding
+        # Get default model from engines.yaml - never hardcode model names
         if not fallback_model:
-            try:
-                engines_config = load_engines_config()
-                fallback_model = resolve_model(engines_config, fallback_platform, 'medium')
-            except Exception:
-                # If we can't load engines.yaml, use a reasonable default
-                fallback_model = 'claude-sonnet-4-5-20250929'
+            engines_config = load_engines_config()
+            fallback_model = resolve_model(engines_config, fallback_platform, 'medium')
         fallback_key = get_api_key('anthropic')
 
         if not fallback_key:

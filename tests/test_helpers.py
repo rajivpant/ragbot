@@ -13,7 +13,7 @@ if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
 from helpers import (
-    load_config, load_profiles, process_file, load_files,
+    load_config, process_file, load_files,
     human_format, count_tokens_for_files,
     count_custom_instructions_tokens, count_curated_datasets_tokens
 )
@@ -21,7 +21,6 @@ from helpers import (
 @pytest.fixture
 def setup_files():
     test_config_file = 'test_engines.yaml'
-    test_profiles_file = 'test_profiles.yaml'
     test_custom_instruction_file = 'test_custom_instructions.md'
     test_curated_dataset_file = 'test_curated_dataset.md'
 
@@ -48,17 +47,6 @@ def setup_files():
           creative: 0.75
         """)
 
-    # Create test profiles file
-    with open(test_profiles_file, 'w') as f:
-        f.write("""
-        profiles:
-          - name: "Test Profile"
-            custom_instructions:
-              - "{}"
-            curated_datasets:
-              - "{}"
-        """.format(test_custom_instruction_file, test_curated_dataset_file))
-
     # Create test custom instruction file
     with open(test_custom_instruction_file, 'w') as f:
         f.write("This is a test custom instruction.")
@@ -67,10 +55,9 @@ def setup_files():
     with open(test_curated_dataset_file, 'w') as f:
         f.write("This is a test curated dataset.")
 
-    yield test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file
+    yield test_config_file, test_custom_instruction_file, test_curated_dataset_file
 
     os.remove(test_config_file)
-    os.remove(test_profiles_file)
     os.remove(test_custom_instruction_file)
     os.remove(test_curated_dataset_file)
 
@@ -80,13 +67,8 @@ def test_load_config(setup_files):
     assert 'engines' in config
     assert config['default'] == 'anthropic'
 
-def test_load_profiles(setup_files):
-    _, test_profiles_file, *_ = setup_files
-    profiles = load_profiles(test_profiles_file)
-    assert len(profiles) == 1
-
 def test_process_file(setup_files):
-    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
+    test_config_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     content, path = process_file(test_custom_instruction_file, 'custom_instructions', 1)
     # Verify new standard document block format
     assert '<document index="1">' in content
@@ -98,7 +80,7 @@ def test_process_file(setup_files):
     assert test_custom_instruction_file in content
 
 def test_load_files(setup_files):
-    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
+    test_config_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     content, files = load_files([test_custom_instruction_file], 'custom_instructions')
     # Verify documents container and document structure
     assert '<documents>' in content
@@ -113,16 +95,16 @@ def test_human_format():
     assert formatted == '1.5k'
 
 def test_count_tokens_for_files(setup_files):
-    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
+    test_config_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     tokens = count_tokens_for_files([test_custom_instruction_file])
     assert tokens > 0
 
 def test_count_custom_instructions_tokens(setup_files):
-    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
+    test_config_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     tokens = count_custom_instructions_tokens([test_custom_instruction_file])
     assert tokens > 0
 
 def test_count_curated_datasets_tokens(setup_files):
-    test_config_file, test_profiles_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
+    test_config_file, test_custom_instruction_file, test_curated_dataset_file = setup_files
     tokens = count_curated_datasets_tokens([test_curated_dataset_file])
     assert tokens > 0

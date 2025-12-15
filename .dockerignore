@@ -47,7 +47,6 @@ htmlcov/
 # Environment and secrets
 .env
 .env.local
-profiles.yaml
 
 # Documentation (will be copied separately if needed)
 *.md

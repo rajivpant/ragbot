@@ -4,27 +4,32 @@ Configuration and personalization instructions for RagBot.AI
 ### Configuring RagBot.AI
 If you haven't already downloaded and installed RagBot.AI, read the [installation guide](INSTALL.md).
 
-After successfully installing the dependencies, RagBot.AI needs to be configured using an environment file (.env). This file contains important configuration settings, such as API keys and the paths to decorator files.
+After successfully installing the dependencies, RagBot.AI needs to be configured with API keys.
 
-1.  Navigate to the rbot directory (if not already there):
-
-```bash
-cd rbot
-```
-
-2.  Make a copy of the `example.env` file and name it `.env`:
+1.  Create the configuration directory:
 
 ```bash
-cp example.env .env
+mkdir -p ~/.config/ragbot
 ```
 
-3.  Open the `.env` file in your preferred text editor. Replace `<Your-OpenAI-API-Key>` and `<Your-Anthropic-API-Key>` with your actual API keys. Also, replace the sample paths inside `DECORATORS` with the paths to your decorator files or folders.
+2.  Create the API keys file:
 
-4.  Save the `.env` file and close it.
+```bash
+cat > ~/.config/ragbot/keys.yaml << 'EOF'
+# Ragbot API Keys
+default:
+  anthropic: "sk-ant-your-key-here"
+  openai: "sk-your-key-here"
+  google: "your-gemini-key-here"
+EOF
+chmod 600 ~/.config/ragbot/keys.yaml
+```
+
+3.  Edit `~/.config/ragbot/keys.yaml` with your actual API keys.
 
 * * * * *
 
-Remember, the `.env` file contains sensitive information such as API keys, so it should never be shared or published. Make sure to add `.env` to your `.gitignore` file to prevent it from being tracked by git.
+Remember, the keys file contains sensitive information such as API keys, so it should never be shared or published. The file is stored in your home directory at `~/.config/ragbot/` and is NOT part of the ragbot repository.
 
 ### Running RagBot.AI
 

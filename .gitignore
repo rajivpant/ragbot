@@ -1,26 +1,13 @@
-# Files and folders that contain each users' own data and should not be uploaded to GitHub
-.env
-profiles.yaml
-/datasets
-/instructions
-/runbooks
-/workspaces
-/prompts
-
-# Legacy folder names (in case users still have them)
-/curated-datasets
-/custom-instructions
-
-# BUT allow examples subdirectories (they contain templates, not user data)
-!examples/datasets
-!examples/instructions
-!examples/library/prompts
-!examples/templates/
-
-# Docker user-specific configuration (contains private paths)
-docker-compose.override.yml
-
 # System files used for caching and related uses
 .streamlit
 __pycache__
 .DS_Store
+
+# Docker user-specific configuration
+docker-compose.override.yml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo

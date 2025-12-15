@@ -45,9 +45,15 @@ src/
 
 ### `instructions.py`
 - Generates LLM-specific instruction formats
-- **Claude:** XML tags, verbose OK (200K context)
-- **ChatGPT:** Markdown headers, more concise (128K context)
-- **Gemini:** Aggressive consolidation (10 file limit for Gems)
+- **Each platform's model compiles its own instructions** for best results:
+  - Claude's flagship model compiles Claude instructions
+  - OpenAI's flagship model compiles ChatGPT instructions
+  - Gemini's flagship model compiles Gemini instructions
+- Platform-specific formatting:
+  - **Claude:** XML tags, verbose OK (200K context)
+  - **ChatGPT:** Markdown headers, more concise (128K context)
+  - **Gemini:** Aggressive consolidation (10 file limit for Gems)
+- Model names come from `engines.yaml` — never hardcoded
 
 ### `vectors.py`
 - Chunks content for RAG vector search
@@ -149,6 +155,31 @@ Future feature for filtering content by context tags:
 
 - Shared baseline compilation: Only content from that repo
 - Personalized compilation: Full inheritance, output to personal repo
+
+## Configuration Principles
+
+### Single Source of Truth for Models
+
+**Model names are NEVER hardcoded in the compiler.**
+
+All model information comes from `engines.yaml`:
+- Model names, categories, and capabilities
+- Token limits and context windows
+- Cost information
+
+The compiler only knows about **platform names** (anthropic, openai, google). It uses `resolve_model(platform, category)` to get actual model IDs at runtime.
+
+**Why this matters:**
+- Models change frequently (new releases, deprecations)
+- One place to update when models change
+- Compiler code doesn't need updates for new models
+
+### Platform-Native Compilation
+
+Each platform's flagship model compiles its own instructions:
+- Ensures output matches platform conventions
+- Models understand their own strengths
+- Better optimization than cross-platform compilation
 
 ## Related
 

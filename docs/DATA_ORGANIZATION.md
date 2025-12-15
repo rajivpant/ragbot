@@ -261,13 +261,7 @@ ragbot/ (public)           ragbot-data/ (private)
 
 1. **Use .gitignore aggressively**
    ```gitignore
-   datasets/
-   instructions/
-   runbooks/
-   workspaces/
-   profiles.yaml
    docker-compose.override.yml
-   .env
    ```
 
 2. **Separate public and private**
