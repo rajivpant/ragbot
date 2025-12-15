@@ -1,6 +1,6 @@
 # RAG Relevance Improvements
 
-**Status:** Phase 1 Complete, Phase 2-4 Pending
+**Status:** Phase 2 Complete, Phase 3-4 Pending
 **Created:** 2025-12-15
 **Last Updated:** 2025-12-15
 
@@ -31,6 +31,7 @@ Current RAG has limitations compared to Claude Desktop with full compiled knowle
 | [architecture.md](architecture.md) | **Comprehensive 6-stage architecture** based on industry research |
 | [approaches.md](approaches.md) | Industry research + brainstormed approaches |
 | [implementation-phase1.md](implementation-phase1.md) | **Phase 1 implementation details** (completed) |
+| [implementation-phase2.md](implementation-phase2.md) | **Phase 2 implementation details** (completed) |
 
 ## Research Summary
 
@@ -61,8 +62,9 @@ See [architecture.md](architecture.md) for the complete design.
 | Industry Research | ✅ Complete | Perplexity, ChatGPT, Claude, Gemini patterns documented |
 | Architecture Design | ✅ Complete | 6-stage pipeline with prompt templates |
 | **Phase 1 Implementation** | ✅ **Complete** | Foundation improvements (16K context, full doc, contractions) |
-| Phase 1 Testing | ✅ Complete | 22 new tests, all passing (102 total) |
-| Phase 2 Implementation | Pending | Query intelligence (Planner, HyDE, multi-query) |
+| Phase 1 Testing | ✅ Complete | 22 new tests, all passing |
+| **Phase 2 Implementation** | ✅ **Complete** | Query intelligence (Planner, HyDE, multi-query) |
+| Phase 2 Testing | ✅ Complete | 32 new tests, all passing (148 total) |
 | Phase 3 Implementation | Pending | Advanced retrieval (BM25, RRF, reranking) |
 | Phase 4 Implementation | Pending | Verification (CRAG, confidence scoring) |
 
@@ -103,15 +105,20 @@ RAG must be selective - but current selection isn't smart enough.
 
 See [implementation-phase1.md](implementation-phase1.md) for details.
 
-### Phase 2: Query Intelligence (Next)
-- [ ] Add Planner stage using Haiku for query analysis
-- [ ] Implement multi-query expansion (5-10 variations)
-- [ ] Add HyDE (Hypothetical Document Embeddings)
+### Phase 2: Query Intelligence ✅ COMPLETE (2025-12-15)
+- [x] Add Planner stage using provider's fast model (category-based, not hardcoded)
+- [x] Implement multi-query expansion (5-7 variations)
+- [x] Add HyDE (Hypothetical Document Embeddings)
+- [x] Provider-agnostic model selection via engines.yaml categories
+- [x] Graceful fallback to Phase 1 heuristics when LLM unavailable
+- [x] Write 32 unit tests
 
-### Phase 3: Advanced Retrieval
+See [implementation-phase2.md](implementation-phase2.md) for details.
+
+### Phase 3: Advanced Retrieval (Next)
 - [ ] Implement BM25/keyword search alongside vector search
 - [ ] Add Reciprocal Rank Fusion for result merging
-- [ ] Implement LLM-based reranking with Haiku
+- [ ] Implement LLM-based reranking with provider's fast model
 
 ### Phase 4: Verification & Polish
 - [ ] Add Verifier/Critic pass for hallucination detection
@@ -130,4 +137,4 @@ Based on combined research from:
 
 **Consensus**: All sources agree on the multi-stage pipeline approach. The architecture in [architecture.md](architecture.md) represents the best practices from all research combined.
 
-**Next Step**: Test Phase 1 in production, then implement Phase 2.
+**Next Step**: Test Phase 2 in production, then implement Phase 3.

@@ -9,12 +9,19 @@
 # - Query preprocessing (contraction expansion)
 # - Enhanced filename/title matching
 #
+# Phase 2 Improvements (December 2025):
+# - Query Planner stage using provider's fast model (category="small")
+# - Multi-query expansion (5-7 variations for better recall)
+# - HyDE (Hypothetical Document Embeddings)
+# - Provider-agnostic model selection via engines.yaml categories
+#
 # Author: Rajiv Pant
 
 import os
 import re
+import json
 import logging
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Any
 from pathlib import Path
 
 # Configure logging
@@ -164,6 +171,398 @@ def preprocess_query(query: str) -> Dict[str, any]:
         'document_hint': doc_hint,
         'search_terms': search_terms,
     }
+
+
+# =============================================================================
+# Phase 2: Query Intelligence (Planner, Multi-Query, HyDE)
+# =============================================================================
+
+# Planner prompt template - generates execution plan for the query
+PLANNER_PROMPT = """You are a query planning assistant for a RAG (Retrieval-Augmented Generation) system.
+Analyze the user's query and create an execution plan.
+
+User query: "{query}"
+Workspace context: Personal knowledge base with datasets (documents, notes) and runbooks (how-to guides)
+
+Respond with JSON only (no markdown, no explanation):
+{{
+  "query_type": "document_lookup" | "factual_qa" | "procedural" | "multi_step",
+  "retrieval_strategy": "full_document" | "semantic_chunks" | "hybrid",
+  "filename_hints": ["hint1", "hint2"],
+  "answer_style": "return_content" | "synthesize" | "list_sources",
+  "complexity": "simple" | "moderate" | "complex"
+}}
+
+Query types:
+- document_lookup: User wants a specific document ("show me my biography")
+- factual_qa: User wants factual information ("what's my email address")
+- procedural: User wants to know how to do something ("how do I write a blog post")
+- multi_step: Complex query needing multiple retrievals
+
+Retrieval strategies:
+- full_document: Return entire document (for document_lookup)
+- semantic_chunks: Standard RAG with relevant chunks
+- hybrid: Combine semantic search with keyword matching"""
+
+# Multi-query expansion prompt
+MULTI_QUERY_PROMPT = """Generate search query variations to improve retrieval recall.
+
+Original query: "{query}"
+Query type: {query_type}
+
+Generate 5-7 search query variations that:
+1. Use different phrasings and synonyms
+2. Include likely document/file name patterns
+3. Extract key entities and concepts
+4. Add related terms that might appear in relevant documents
+
+Respond with JSON only (no markdown):
+{{
+  "queries": ["query1", "query2", "query3", "query4", "query5"],
+  "key_entities": ["entity1", "entity2"],
+  "filename_patterns": ["pattern1", "pattern2"]
+}}"""
+
+# HyDE (Hypothetical Document Embeddings) prompt
+HYDE_PROMPT = """Generate a hypothetical document excerpt that would answer this query.
+This will be used for semantic search - write content similar to what a matching document would contain.
+
+Query: "{query}"
+
+Write 2-3 sentences that a relevant document would contain. Be factual and specific.
+Do not include any preamble or explanation, just the hypothetical content."""
+
+
+def _get_fast_model(user_model: Optional[str] = None) -> Optional[str]:
+    """Get the fast model for the same provider as the user's model.
+
+    Uses the 'small' category from engines.yaml to get the fastest
+    model from the same provider, ensuring consistent API key usage.
+
+    Args:
+        user_model: User's selected model ID (e.g., 'anthropic/claude-opus-4-5-20251101')
+
+    Returns:
+        Fast model ID for the same provider, or None if not found
+    """
+    try:
+        # Import config functions - handle both package and standalone usage
+        try:
+            from ragbot.config import get_fast_model_for_provider, get_default_model
+        except ImportError:
+            from .ragbot.config import get_fast_model_for_provider, get_default_model
+
+        if user_model:
+            fast_model = get_fast_model_for_provider(user_model)
+            if fast_model:
+                return fast_model
+
+        # Fallback to default provider's fast model
+        default_model = get_default_model()
+        return get_fast_model_for_provider(default_model)
+
+    except Exception as e:
+        logger.warning(f"Could not determine fast model: {e}")
+        return None
+
+
+def _call_fast_llm(prompt: str, user_model: Optional[str] = None,
+                   workspace: Optional[str] = None) -> Optional[str]:
+    """Call the fast LLM (small category) for auxiliary operations.
+
+    Uses the same provider as the user's model to ensure consistent
+    API key usage and billing. Falls back gracefully if unavailable.
+
+    Args:
+        prompt: The prompt to send
+        user_model: User's selected model ID
+        workspace: Workspace name for API key resolution
+
+    Returns:
+        LLM response text, or None on failure
+    """
+    fast_model = _get_fast_model(user_model)
+    if not fast_model:
+        logger.warning("No fast model available for auxiliary LLM calls")
+        return None
+
+    try:
+        import litellm
+
+        # Get API key for the provider
+        try:
+            from ragbot.config import get_provider_for_model
+            from ragbot.keystore import get_api_key
+        except ImportError:
+            from .ragbot.config import get_provider_for_model
+            from .ragbot.keystore import get_api_key
+
+        provider = get_provider_for_model(fast_model)
+
+        # Get API key name from engines.yaml
+        try:
+            from ragbot.config import get_provider_config
+        except ImportError:
+            from .ragbot.config import get_provider_config
+
+        provider_config = get_provider_config(provider)
+        if provider_config:
+            api_key_name = provider_config.get('api_key_name')
+            api_key = get_api_key(api_key_name, workspace)
+            if api_key:
+                # Set API key for litellm
+                if provider == 'anthropic':
+                    litellm.api_key = api_key
+                elif provider == 'openai':
+                    os.environ['OPENAI_API_KEY'] = api_key
+                elif provider == 'google':
+                    os.environ['GOOGLE_API_KEY'] = api_key
+
+        # Make the LLM call with minimal tokens (fast operation)
+        response = litellm.completion(
+            model=fast_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,  # Planner responses are short
+            temperature=0.3,  # Low temperature for consistent planning
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        logger.warning(f"Fast LLM call failed: {e}")
+        return None
+
+
+def plan_query(query: str, user_model: Optional[str] = None,
+               workspace: Optional[str] = None) -> Dict[str, Any]:
+    """Plan the retrieval strategy for a query using an LLM.
+
+    This is Stage 1 of the Phase 2 pipeline. It uses a fast model
+    to analyze the query and determine the best retrieval approach.
+
+    Args:
+        query: User's query
+        user_model: User's selected model (to determine provider for fast model)
+        workspace: Workspace name for API key resolution
+
+    Returns:
+        Dict with planning results:
+        - query_type: Type of query (document_lookup, factual_qa, etc.)
+        - retrieval_strategy: How to retrieve (full_document, semantic_chunks, hybrid)
+        - filename_hints: Hints for document names
+        - answer_style: How to format the answer
+        - complexity: Query complexity
+        - used_llm: Whether LLM planning was used (vs fallback)
+    """
+    # Try LLM-based planning first
+    prompt = PLANNER_PROMPT.format(query=query)
+    response = _call_fast_llm(prompt, user_model, workspace)
+
+    if response:
+        try:
+            # Parse JSON response (handle potential markdown wrapping)
+            json_str = response
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0]
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0]
+
+            plan = json.loads(json_str.strip())
+            plan['used_llm'] = True
+            logger.info(f"Query plan (LLM): type={plan.get('query_type')}, "
+                       f"strategy={plan.get('retrieval_strategy')}")
+            return plan
+
+        except (json.JSONDecodeError, IndexError, KeyError) as e:
+            logger.warning(f"Failed to parse planner response: {e}")
+
+    # Fallback to Phase 1 heuristics if LLM fails
+    phase1_result = preprocess_query(query)
+
+    plan = {
+        'query_type': 'document_lookup' if phase1_result['is_document_request'] else 'factual_qa',
+        'retrieval_strategy': 'full_document' if phase1_result['is_document_request'] else 'semantic_chunks',
+        'filename_hints': [phase1_result['document_hint']] if phase1_result['document_hint'] else [],
+        'answer_style': 'return_content' if phase1_result['is_document_request'] else 'synthesize',
+        'complexity': 'simple',
+        'used_llm': False,
+    }
+    logger.info(f"Query plan (fallback): type={plan['query_type']}, "
+               f"strategy={plan['retrieval_strategy']}")
+    return plan
+
+
+def expand_query(query: str, query_type: str = 'factual_qa',
+                 user_model: Optional[str] = None,
+                 workspace: Optional[str] = None) -> Dict[str, Any]:
+    """Expand a query into multiple search variations for better recall.
+
+    This is Stage 2a of the Phase 2 pipeline. It generates 5-7 query
+    variations that will all be searched and results merged.
+
+    Args:
+        query: Original user query
+        query_type: Type of query from planner
+        user_model: User's selected model
+        workspace: Workspace name
+
+    Returns:
+        Dict with:
+        - queries: List of expanded query variations
+        - key_entities: Extracted entities
+        - filename_patterns: Likely filename patterns
+        - used_llm: Whether LLM expansion was used
+    """
+    # Try LLM-based expansion
+    prompt = MULTI_QUERY_PROMPT.format(query=query, query_type=query_type)
+    response = _call_fast_llm(prompt, user_model, workspace)
+
+    if response:
+        try:
+            # Parse JSON response
+            json_str = response
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0]
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0]
+
+            expansion = json.loads(json_str.strip())
+            expansion['used_llm'] = True
+            logger.info(f"Query expansion (LLM): {len(expansion.get('queries', []))} variations")
+            return expansion
+
+        except (json.JSONDecodeError, IndexError, KeyError) as e:
+            logger.warning(f"Failed to parse expansion response: {e}")
+
+    # Fallback to Phase 1 term extraction
+    phase1_result = preprocess_query(query)
+    expanded_query = phase1_result['processed_query']
+    search_terms = phase1_result['search_terms']
+
+    # Generate simple variations
+    queries = [
+        expanded_query,  # Original (contractions expanded)
+        ' '.join(search_terms),  # Just key terms
+    ]
+
+    # Add document hint as a query if present
+    if phase1_result['document_hint']:
+        queries.append(phase1_result['document_hint'])
+
+    # Add term combinations
+    if len(search_terms) >= 2:
+        queries.append(f"{search_terms[0]} {search_terms[-1]}")
+
+    return {
+        'queries': queries,
+        'key_entities': search_terms,
+        'filename_patterns': [phase1_result['document_hint']] if phase1_result['document_hint'] else [],
+        'used_llm': False,
+    }
+
+
+def generate_hyde_document(query: str, user_model: Optional[str] = None,
+                           workspace: Optional[str] = None) -> Optional[str]:
+    """Generate a hypothetical document for HyDE retrieval.
+
+    HyDE (Hypothetical Document Embeddings) generates a hypothetical
+    answer to the query, then embeds that answer for semantic search.
+    This bridges the semantic gap between questions and answers.
+
+    Args:
+        query: User's query
+        user_model: User's selected model
+        workspace: Workspace name
+
+    Returns:
+        Hypothetical document text, or None if generation fails
+    """
+    prompt = HYDE_PROMPT.format(query=query)
+    response = _call_fast_llm(prompt, user_model, workspace)
+
+    if response:
+        logger.info(f"Generated HyDE document ({len(response)} chars)")
+        return response
+
+    return None
+
+
+def enhanced_preprocess_query(query: str, user_model: Optional[str] = None,
+                              workspace: Optional[str] = None,
+                              use_planner: bool = True,
+                              use_multi_query: bool = True,
+                              use_hyde: bool = True) -> Dict[str, Any]:
+    """Enhanced query preprocessing with Phase 2 intelligence.
+
+    Combines Phase 1 preprocessing with Phase 2 LLM-powered features:
+    1. Query Planning (intent detection, strategy selection)
+    2. Multi-Query Expansion (5-7 search variations)
+    3. HyDE (hypothetical document for semantic search)
+
+    Args:
+        query: Original user query
+        user_model: User's selected model (for provider-specific fast model)
+        workspace: Workspace name for API key resolution
+        use_planner: Enable LLM-based query planning
+        use_multi_query: Enable multi-query expansion
+        use_hyde: Enable HyDE document generation
+
+    Returns:
+        Dict with all preprocessing results:
+        - (All Phase 1 fields)
+        - plan: Query plan from planner
+        - expanded_queries: List of query variations
+        - hyde_document: Hypothetical answer document
+        - phase2_enabled: Whether any Phase 2 features were used
+    """
+    # Start with Phase 1 preprocessing
+    result = preprocess_query(query)
+
+    # Add Phase 2 intelligence
+    result['phase2_enabled'] = False
+
+    # Stage 1: Query Planning
+    if use_planner:
+        plan = plan_query(query, user_model, workspace)
+        result['plan'] = plan
+        if plan.get('used_llm'):
+            result['phase2_enabled'] = True
+
+        # Use planner's hints to enrich results
+        if plan.get('filename_hints'):
+            result['search_terms'] = list(set(result['search_terms'] + plan['filename_hints']))
+
+        # Override document detection if planner says document_lookup
+        if plan.get('query_type') == 'document_lookup':
+            result['is_document_request'] = True
+            if plan.get('filename_hints') and not result['document_hint']:
+                result['document_hint'] = plan['filename_hints'][0]
+    else:
+        result['plan'] = None
+
+    # Stage 2a: Multi-Query Expansion
+    if use_multi_query:
+        query_type = result.get('plan', {}).get('query_type', 'factual_qa')
+        expansion = expand_query(query, query_type, user_model, workspace)
+        result['expanded_queries'] = expansion.get('queries', [result['processed_query']])
+        if expansion.get('key_entities'):
+            result['search_terms'] = list(set(result['search_terms'] + expansion['key_entities']))
+        if expansion.get('used_llm'):
+            result['phase2_enabled'] = True
+    else:
+        result['expanded_queries'] = [result['processed_query']]
+
+    # Stage 2b: HyDE (only for non-document-lookup queries)
+    if use_hyde and not result.get('is_document_request'):
+        hyde_doc = generate_hyde_document(query, user_model, workspace)
+        result['hyde_document'] = hyde_doc
+        if hyde_doc:
+            result['phase2_enabled'] = True
+    else:
+        result['hyde_document'] = None
+
+    return result
+
 
 # Lazy import for chunking - handle both relative and absolute imports
 _chunking_loaded = False
@@ -662,7 +1061,9 @@ def search(workspace_name: str, query: str, limit: int = 5,
 
 
 def get_relevant_context(workspace_name: str, query: str,
-                         max_tokens: int = 16000) -> str:
+                         max_tokens: int = 16000,
+                         user_model: Optional[str] = None,
+                         use_phase2: bool = True) -> str:
     """
     Get relevant context for a query, formatted for LLM consumption.
 
@@ -674,16 +1075,37 @@ def get_relevant_context(workspace_name: str, query: str,
     - Query preprocessing with contraction expansion
     - Enhanced filename/title matching
 
+    Phase 2 Improvements:
+    - LLM-powered query planning using provider's fast model
+    - Multi-query expansion (5-7 variations for better recall)
+    - HyDE (Hypothetical Document Embeddings)
+    - Provider-agnostic model selection via engines.yaml categories
+
     Args:
         workspace_name: Name of the workspace
         query: User's query
         max_tokens: Maximum tokens for retrieved context (default: 16000)
+        user_model: User's selected model (for provider-specific fast model)
+        use_phase2: Enable Phase 2 LLM-powered features (default: True)
 
     Returns:
         Formatted context string to include in the prompt
     """
-    # Step 1: Preprocess the query
-    query_info = preprocess_query(query)
+    # Step 1: Preprocess the query (Phase 1 or Phase 2)
+    if use_phase2:
+        query_info = enhanced_preprocess_query(
+            query,
+            user_model=user_model,
+            workspace=workspace_name,
+            use_planner=True,
+            use_multi_query=True,
+            use_hyde=True
+        )
+        logger.info(f"Phase 2 preprocessing: enabled={query_info.get('phase2_enabled')}")
+    else:
+        query_info = preprocess_query(query)
+        query_info['expanded_queries'] = [query_info['processed_query']]
+        query_info['hyde_document'] = None
 
     # Step 2: For document lookup requests, try full document retrieval first
     if query_info['is_document_request'] and query_info['document_hint']:
@@ -712,13 +1134,46 @@ def get_relevant_context(workspace_name: str, query: str,
             else:
                 logger.info(f"Full document too large ({doc_tokens} tokens > {max_tokens}), using chunks")
 
-    # Step 3: Fall back to semantic search with chunk retrieval
-    # Fetch more results than needed to allow re-ranking to surface keyword matches
-    # Using 100 ensures we capture documents where filename matches query terms
-    # even if semantic similarity is low
-    results = search(workspace_name, query, limit=100)
+    # Step 3: Multi-query search with result fusion
+    # Phase 2: Search with multiple query variations and merge results
+    all_results = []
+    seen_chunks = set()  # Track by (filename, char_start) to avoid duplicates
 
-    if not results:
+    expanded_queries = query_info.get('expanded_queries', [query])
+
+    # Search with each expanded query
+    for expanded_query in expanded_queries[:7]:  # Limit to 7 queries max
+        results = search(workspace_name, expanded_query, limit=50)
+        for result in results:
+            # Create a unique key for this chunk
+            filename = result['metadata'].get('filename', '')
+            char_start = result['metadata'].get('char_start', 0)
+            chunk_key = (filename, char_start)
+
+            if chunk_key not in seen_chunks:
+                seen_chunks.add(chunk_key)
+                all_results.append(result)
+
+    # Step 3b: HyDE search (if available and not document lookup)
+    hyde_doc = query_info.get('hyde_document')
+    if hyde_doc:
+        logger.info("Running HyDE search with hypothetical document")
+        hyde_results = search(workspace_name, hyde_doc, limit=30, use_preprocessing=False)
+        for result in hyde_results:
+            filename = result['metadata'].get('filename', '')
+            char_start = result['metadata'].get('char_start', 0)
+            chunk_key = (filename, char_start)
+
+            if chunk_key not in seen_chunks:
+                seen_chunks.add(chunk_key)
+                # Slightly boost HyDE results as they bridge semantic gap
+                result['score'] *= 1.1
+                all_results.append(result)
+
+    # Sort all results by score
+    all_results.sort(key=lambda x: x['score'], reverse=True)
+
+    if not all_results:
         return ""
 
     # Build context string within token budget
@@ -726,7 +1181,7 @@ def get_relevant_context(workspace_name: str, query: str,
     current_tokens = 0
     seen_files = set()
 
-    for result in results:
+    for result in all_results:
         text = result['text']
         # Rough token estimate
         text_tokens = len(text) // 4
@@ -752,10 +1207,14 @@ def get_relevant_context(workspace_name: str, query: str,
     if not context_parts:
         return ""
 
-    # Add summary of sources
+    # Add summary of sources and Phase 2 info
+    phase2_note = ""
+    if use_phase2 and query_info.get('phase2_enabled'):
+        phase2_note = f"<!-- Phase 2: {len(expanded_queries)} queries, HyDE={'yes' if hyde_doc else 'no'} -->\n"
+
     sources_note = f"<!-- Sources: {', '.join(sorted(seen_files)[:10])} -->\n"
 
-    return "<retrieved_context>\n" + sources_note + "\n---\n".join(context_parts) + "</retrieved_context>"
+    return "<retrieved_context>\n" + phase2_note + sources_note + "\n---\n".join(context_parts) + "</retrieved_context>"
 
 
 def index_workspace(workspace_name: str, ai_knowledge_paths: dict) -> dict:

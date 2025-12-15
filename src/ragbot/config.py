@@ -357,3 +357,58 @@ def get_available_models(workspace: Optional[str] = None) -> Dict[str, List[Dict
             available[provider] = models
 
     return available
+
+
+def get_model_by_category(provider: str, category: str) -> Optional[str]:
+    """Get a model ID for a specific provider and category.
+
+    This enables provider-agnostic model selection. Instead of hardcoding
+    "claude-haiku" for fast operations, request category="small" and get
+    the appropriate fast model for that provider.
+
+    Categories defined in engines.yaml:
+    - "small": Fast, cost-effective models (Haiku, GPT-5-mini, Flash Lite)
+    - "medium": Balanced models (Sonnet, GPT-5.2-chat, Flash)
+    - "large": Most capable models (Opus, GPT-5.2, Gemini 3 Pro)
+
+    Args:
+        provider: Provider name ('anthropic', 'openai', 'google')
+        category: Model category ('small', 'medium', 'large')
+
+    Returns:
+        Model ID in LiteLLM format (e.g., 'anthropic/claude-haiku-4-5-20251001'),
+        or None if no model found for that provider/category
+    """
+    all_models = get_all_models()
+    provider_models = all_models.get(provider, [])
+
+    for model in provider_models:
+        if model.get('category') == category:
+            return model['id']
+
+    return None
+
+
+def get_fast_model_for_provider(model_id: str) -> Optional[str]:
+    """Get the fast (small category) model for the same provider as model_id.
+
+    This is used for auxiliary LLM calls (planner, reranker, etc.) where we
+    want to use a fast model from the same provider as the user's selected
+    model. This ensures consistent API key usage and billing.
+
+    Example:
+        get_fast_model_for_provider("anthropic/claude-opus-4-5-20251101")
+        → "anthropic/claude-haiku-4-5-20251001"
+
+        get_fast_model_for_provider("openai/gpt-5.2")
+        → "openai/gpt-5-mini"
+
+    Args:
+        model_id: The user's selected model ID
+
+    Returns:
+        Model ID for the fast model of the same provider,
+        or None if not found
+    """
+    provider = get_provider_for_model(model_id)
+    return get_model_by_category(provider, 'small')

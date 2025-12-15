@@ -283,7 +283,8 @@ def chat(
                 from rag import is_rag_available, get_relevant_context
                 if is_rag_available():
                     rag_context = get_relevant_context(
-                        workspace_name, prompt, max_tokens=rag_max_tokens
+                        workspace_name, prompt, max_tokens=rag_max_tokens,
+                        user_model=model
                     )
             except ImportError:
                 pass
@@ -444,7 +445,8 @@ def chat_stream(
             from rag import is_rag_available, get_relevant_context
             if is_rag_available():
                 rag_context = get_relevant_context(
-                    workspace_name, prompt, max_tokens=rag_max_tokens
+                    workspace_name, prompt, max_tokens=rag_max_tokens,
+                    user_model=model
                 )
         except ImportError:
             pass
