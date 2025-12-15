@@ -10,7 +10,7 @@
 
 Implemented `assemble_inherited_content()` that:
 - Loads `my-projects.yaml` from personal repo
-- Resolves full inheritance chain (e.g., ragbot → rajiv → example-company → example-client)
+- Resolves full inheritance chain (e.g., ragbot → personal → company → client)
 - Merges content from all ancestors in correct order (parents first)
 - Deduplicates files with same relative path (child overrides parent)
 
@@ -33,11 +33,10 @@ Implemented `write_knowledge_full()` that:
 
 Created the inheritance configuration file defining:
 - ragbot: root (PUBLIC, no inheritance)
-- rajiv: inherits from ragbot
-- example-company: inherits from rajiv
-- example-client, example-client, example-client: inherit from example-company (Example-Company clients)
-- example-client: inherits from rajiv (NOT Example-Company client)
-- example-client: inherits from both rajiv and example-company
+- personal: inherits from ragbot
+- company: inherits from personal
+- clients: inherit from company or personal as appropriate
+- Some projects inherit from multiple parents
 
 ### 5. Updated default.md Instructions
 
@@ -61,10 +60,10 @@ Created `runbooks/system-config/llm-project-setup.md` documenting:
 
 All 8 projects compile successfully:
 - ragbot: 20 files, 31,241 tokens
-- rajiv: 35 files, 34,378 tokens (55 files with inheritance: 65,619 tokens)
-- example-company: 13 files, 9,157 tokens
-- example-client: 15 files, 18,484 tokens (90 files with full chain: 97,004 tokens)
-- example-client, example-client, example-client, example-client: all successful
+- personal: 35 files, 34,378 tokens (55 files with inheritance: 65,619 tokens)
+- company: 13 files, 9,157 tokens
+- client-example: 15 files, 18,484 tokens (90 files with full chain: 97,004 tokens)
+- All other projects: successful
 
 ## Key Decisions
 

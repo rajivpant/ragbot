@@ -17,7 +17,7 @@ Keys format:
         anthropic: "sk-ant-client-key..."
 
 Config format:
-    default_workspace: rajiv
+    default_workspace: personal
 """
 
 import os

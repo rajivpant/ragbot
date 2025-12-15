@@ -40,7 +40,7 @@ src/
 
 ### `inheritance.py`
 - Resolves inheritance chains
-- Example: `example-client` inherits from `example-company` inherits from `rajiv`
+- Example: `client` inherits from `company` inherits from `personal`
 - Handles circular dependency detection
 
 ### `instructions.py`
@@ -138,9 +138,9 @@ ai-knowledge-{name}/
 
 | Project | Sources |
 |---------|---------|
-| rajiv | rajiv only |
-| example-company | rajiv + example-company |
-| example-client | rajiv + example-company + example-client |
+| personal | personal only |
+| company | personal + company |
+| client | personal + company + client |
 
 ### Dimension 3: By Context (Task-Specific Filtering)
 

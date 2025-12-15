@@ -19,20 +19,16 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 
 ### AI Knowledge Repositories
 
-All located in `~/projects/my-projects/ai-knowledge/`. See `ai-knowledge-rajiv/my-projects.yaml` for the authoritative list.
+All located in `~/projects/my-projects/ai-knowledge/`. The authoritative list is in your personal repo's `my-projects.yaml`.
 
-| Repository | GitHub Org | Type | Inherits From |
-|------------|------------|------|---------------|
-| **ai-knowledge-ragbot** | rajivpant | Public | (root) |
-| **ai-knowledge-rajiv** | rajivpant | Private | ragbot |
-| **ai-knowledge-example-company** | rajivpant | Private | rajiv |
-| **ai-knowledge-example-client** | rajivpant | Private | example-company |
-| **ai-knowledge-example-client** | rajivpant | Private | example-company |
-| **ai-knowledge-example-client** | rajivpant | Private | example-company |
-| **ai-knowledge-example-client** | rajivpant | Private | rajiv |
-| **ai-knowledge-example-client** | tgorg-ai | Private | rajiv, example-company |
+| Repository | Type | Description |
+|------------|------|-------------|
+| **ai-knowledge-ragbot** | Public | Open source templates (root) |
+| **ai-knowledge-{personal}** | Private | Your identity workspace |
+| **ai-knowledge-{company}** | Private | Company workspaces |
+| **ai-knowledge-{client}** | Private | Client workspaces |
 
-**Note:** example-client is in a different GitHub org (`tgorg-ai`), not `rajivpant`.
+**Note:** Some repos may be in different GitHub orgs. Check `my-projects.yaml` for the full list.
 
 Note: Home directory varies by machine (`/Users/rajiv` vs `/Users/rajivpant`), so use `~` for paths.
 

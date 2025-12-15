@@ -49,15 +49,14 @@ From 2025-12-13 compilation:
 
 | Project | Source Files | Tokens | Vector Chunks |
 |---------|--------------|--------|---------------|
-| rajiv | 38 | 96,830 | 53 |
-| ragenie | 3 | 6,077 | 10 |
-| example-client | 15 | 18,484 | 29 |
-| example-client | 4 | 1,772 | 4 |
-| example-client | 2 | 553 | 1 |
-| example-client | 6 | 6,031 | 9 |
 | ragbot | 1 | 124 | 0 |
-| example-client | 8 | 1,832 | 7 |
-| example-company | 13 | 9,054 | 11 |
+| personal | 38 | 96,830 | 53 |
+| company | 13 | 9,054 | 11 |
+| client-a | 15 | 18,484 | 29 |
+| client-b | 4 | 1,772 | 4 |
+| client-c | 2 | 553 | 1 |
+| client-d | 6 | 6,031 | 9 |
+| client-e | 8 | 1,832 | 7 |
 
 ## Configuration
 
@@ -66,9 +65,9 @@ From 2025-12-13 compilation:
 Each repo can have a `compile-config.yaml` to customize compilation:
 
 ```yaml
-# Example: ai-knowledge-example-client/compile-config.yaml
+# Example: ai-knowledge-{client}/compile-config.yaml
 inherits_from:
-  - example-company
+  - company
 
 contexts:
   - writing
@@ -84,9 +83,9 @@ exclude_patterns:
 Workspace metadata:
 
 ```yaml
-# Example: ai-knowledge-example-company/workspace.yaml
+# Example: ai-knowledge-{company}/workspace.yaml
 name: example-company
-display_name: Example-Company Software
+display_name: Example Company
 type: company
 ```
 
