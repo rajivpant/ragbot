@@ -457,10 +457,14 @@ def run_compile(args):
     from compiler.manifest import format_manifest_summary
     from ragbot.keystore import get_user_config
 
-    def get_personal_repo_path(base_path):
-        """Get the path to the user's personal ai-knowledge repo."""
-        user_workspace = get_user_config('user_workspace', 'rajiv')
-        return os.path.join(base_path, f'ai-knowledge-{user_workspace}')
+    def get_personal_repo_path_local(base_path):
+        """Get the path to the user's personal ai-knowledge repo.
+
+        Uses the user's configured default_workspace from ~/.config/ragbot/config.yaml,
+        or falls back to searching for my-projects.yaml (per ADR-006).
+        """
+        from compiler import get_personal_repo_path
+        return get_personal_repo_path(base_path)
 
     def find_project_repo(project_name, base_path):
         """Find the repository path for a project name."""
@@ -523,7 +527,7 @@ def run_compile(args):
             output_repo = os.path.expanduser(args.output_repo)
         elif with_inheritance:
             # Inheritance compilations MUST go to user's private repo
-            output_repo = get_personal_repo_path(args.base_path)
+            output_repo = get_personal_repo_path_local(args.base_path)
 
         try:
             result = compile_project(
@@ -611,7 +615,7 @@ def run_compile(args):
         #
         # See: projects/active/ai-knowledge-architecture/architecture.md
         # ==================================================================
-        personal_repo = get_personal_repo_path(args.base_path)
+        personal_repo = get_personal_repo_path_local(args.base_path)
 
         if not os.path.exists(personal_repo):
             print(f"Error: Personal repo not found: {personal_repo}", file=sys.stderr)

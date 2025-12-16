@@ -144,3 +144,30 @@ Based on combined research from:
 **Consensus**: All sources agree on the multi-stage pipeline approach. The architecture in [architecture.md](architecture.md) represents the best practices from all research combined.
 
 **Next Step**: Test Phase 3 in production, then implement Phase 4.
+
+## Inheritance Fix (2025-12-15)
+
+During Phase 3 testing, discovered that workspace inheritance was broken - client workspaces (mcclatchy, hearst, etc.) couldn't find content from parent workspaces (ragbot, rajiv, flatiron).
+
+### Root Cause
+The RAG system was reading inheritance from individual `compile-config.yaml` files, but per ADR-006, inheritance configuration lives ONLY in the personal repo's `my-projects.yaml` to prevent revealing private repo existence in shared repos.
+
+### Fix Applied
+1. Updated `src/ragbot/workspaces.py` to load inheritance from centralized `my-projects.yaml` via the existing `compiler/inheritance.py` module
+2. Removed accidental `inherits_from` entries added to client compile-config.yaml files
+3. Fixed compiler to use `~/.config/ragbot/config.yaml` for personal repo discovery instead of hardcoding workspace names
+
+### Verification
+- All 8 workspaces now show correct inheritance chains:
+  - ragbot: `[]` (root)
+  - rajiv: `[ragbot]`
+  - flatiron: `[ragbot, rajiv]`
+  - scalepost: `[ragbot, rajiv]` (NOT flatiron - by design)
+  - mcclatchy/hearst/snapshot/trustguard: `[ragbot, rajiv, flatiron]`
+- Vector indices rebuilt with inherited content (e.g., mcclatchy: 705 chunks vs ~70 before)
+- Tested: queries about "ragbot" in mcclatchy workspace return correct results
+
+### Lessons Learned
+1. **Use existing systems** - Don't create duplicate mechanisms; the inheritance system already existed in `compiler/inheritance.py`
+2. **Respect ADRs** - ADR-006 specified centralized inheritance for privacy reasons
+3. **Use user config** - `~/.config/ragbot/config.yaml` defines the user's default workspace, not hardcoded names

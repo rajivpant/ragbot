@@ -115,6 +115,48 @@ from .vectors import (
 )
 
 
+def get_personal_repo_path(base_path: str) -> Optional[str]:
+    """
+    Get the path to the personal repo using the user's configured default workspace.
+
+    This uses the user configuration from ~/.config/ragbot/config.yaml to determine
+    the user's personal workspace, then derives the repo path from that.
+
+    Falls back to searching for my-projects.yaml if no config is set.
+
+    Args:
+        base_path: Base path containing ai-knowledge-* directories
+
+    Returns:
+        Path to the personal repo, or None if not found
+    """
+    # Import here to avoid circular imports
+    from ragbot.keystore import get_default_workspace
+
+    if not os.path.isdir(base_path):
+        return None
+
+    # First, try to get the user's configured default workspace
+    default_workspace = get_default_workspace()
+    if default_workspace:
+        personal_repo_path = os.path.join(base_path, f'ai-knowledge-{default_workspace}')
+        if os.path.isdir(personal_repo_path):
+            # Verify it has my-projects.yaml (to confirm it's the personal repo)
+            config_path = find_inheritance_config(personal_repo_path)
+            if config_path:
+                return personal_repo_path
+
+    # Fallback: search all repos to find the one with my-projects.yaml
+    for item in os.listdir(base_path):
+        if item.startswith('ai-knowledge-'):
+            repo_path = os.path.join(base_path, item)
+            if os.path.isdir(repo_path):
+                config_path = find_inheritance_config(repo_path)
+                if config_path:
+                    return repo_path
+    return None
+
+
 def load_context_definition(context_name: str, source_path: str) -> Optional[Dict]:
     """
     Load a context definition YAML file.
@@ -496,12 +538,15 @@ def compile_project(config: dict,
     if personalized and not output_repo_path:
         # If personalized but no explicit output repo, default to personal repo
         if not personal_repo_path:
-            try:
-                from ragbot.keystore import get_user_config
-            except ImportError:
-                from ..ragbot.keystore import get_user_config
-            user_workspace = get_user_config('user_workspace', 'rajiv')
-            personal_repo_path = os.path.join(base_path, f'ai-knowledge-{user_workspace}')
+            # Get personal repo path using user's configured default workspace
+            personal_repo_path = get_personal_repo_path(base_path)
+            if not personal_repo_path:
+                raise ValueError(
+                    f"Cannot find personal repo. Either:\n"
+                    f"1. Set default_workspace in ~/.config/ragbot/config.yaml, or\n"
+                    f"2. Ensure my-projects.yaml exists in one of the ai-knowledge-* "
+                    f"directories under {base_path}"
+                )
         output_repo_path = personal_repo_path
 
     # Determine output directory: compiled/{project}/
@@ -541,18 +586,13 @@ def compile_project(config: dict,
     inheritance_config = None
     if personalized:
         # Find personal repo path if not provided
-        # NOTE: The actual personal repo name is configured in ~/.config/ragbot/config.yaml
-        # This is a fallback that should be replaced with proper config lookup
         if not personal_repo_path:
-            # Try to get user_workspace from config, fallback to convention
-            try:
-                from ragbot.keystore import get_user_config
-            except ImportError:
-                from ..ragbot.keystore import get_user_config
-            user_workspace = get_user_config('user_workspace', 'rajiv')
-            personal_repo_path = os.path.join(base_path, f'ai-knowledge-{user_workspace}')
+            # Get personal repo path using user's configured default workspace
+            personal_repo_path = get_personal_repo_path(base_path)
 
-        inheritance_config_path = find_inheritance_config(personal_repo_path)
+        inheritance_config_path = None
+        if personal_repo_path:
+            inheritance_config_path = find_inheritance_config(personal_repo_path)
         if inheritance_config_path:
             try:
                 inheritance_config = load_inheritance_config(inheritance_config_path)
@@ -854,18 +894,26 @@ def compile_all_with_inheritance(
         'errors': []
     }
 
-    # Find inheritance config - look in personal repo first, then output repo
-    # The inheritance config (my-projects.yaml) lives ONLY in personal repos
-    personal_repo_path = os.path.join(base_path, 'ai-knowledge-rajiv')  # TODO: Make configurable
-    inheritance_config_path = find_inheritance_config(personal_repo_path)
+    # Find personal repo using user's config or by searching for my-projects.yaml
+    # The inheritance config (my-projects.yaml) lives ONLY in personal repos (per ADR-006)
+    personal_repo_path = get_personal_repo_path(base_path)
 
-    if not inheritance_config_path:
+    if not personal_repo_path:
         # Try output repo as fallback (in case it IS the personal repo)
-        inheritance_config_path = find_inheritance_config(output_repo_path)
+        config_path = find_inheritance_config(output_repo_path)
+        if config_path:
+            personal_repo_path = output_repo_path
 
-    if not inheritance_config_path:
-        results['errors'].append(f"No my-projects.yaml found in {personal_repo_path} or {output_repo_path}")
+    if not personal_repo_path:
+        results['errors'].append(
+            f"Cannot find personal repo. Either:\n"
+            f"1. Set default_workspace in ~/.config/ragbot/config.yaml, or\n"
+            f"2. Ensure my-projects.yaml exists in one of the ai-knowledge-* "
+            f"directories under {base_path}"
+        )
         return results
+
+    inheritance_config_path = find_inheritance_config(personal_repo_path)
 
     try:
         inheritance_config = load_inheritance_config(inheritance_config_path)

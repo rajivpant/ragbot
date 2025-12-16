@@ -1,6 +1,10 @@
 """Workspace discovery and management for Ragbot.
 
 This module handles discovering and loading workspaces from ai-knowledge repos.
+
+IMPORTANT: Inheritance configuration is centralized in my-projects.yaml in the
+personal repo (per ADR-006). Individual compile-config.yaml files do NOT contain
+inheritance information - that would reveal private repo existence in shared repos.
 """
 
 import os
@@ -10,12 +14,29 @@ import yaml
 from .exceptions import WorkspaceError, WorkspaceNotFoundError
 from .models import WorkspaceInfo
 
+# Import inheritance resolver from compiler
+import sys
+_src_path = os.path.join(os.path.dirname(__file__), '..')
+if _src_path not in sys.path:
+    sys.path.insert(0, _src_path)
+
+try:
+    from compiler.inheritance import (
+        load_inheritance_config,
+        find_inheritance_config,
+        get_inheritance_chain,
+    )
+    INHERITANCE_AVAILABLE = True
+except ImportError:
+    INHERITANCE_AVAILABLE = False
+
 
 # Default locations for ai-knowledge repos
 DEFAULT_AI_KNOWLEDGE_PATHS = [
     '/app/ai-knowledge',  # Docker
     os.path.expanduser('~/projects/my-projects/ai-knowledge'),  # Local dev
 ]
+
 
 
 def discover_ai_knowledge_repos(ai_knowledge_root: str) -> Dict[str, Dict[str, Any]]:
@@ -91,9 +112,75 @@ def find_ai_knowledge_root() -> Optional[str]:
     return None
 
 
+def _load_centralized_inheritance(ai_knowledge_root: str) -> Dict[str, Any]:
+    """
+    Load inheritance configuration from my-projects.yaml.
+
+    Per ADR-006, inheritance config lives ONLY in the personal repo. This function
+    searches all ai-knowledge repos to find the one containing my-projects.yaml.
+    This approach avoids hardcoding personal repo names in the public codebase.
+
+    Args:
+        ai_knowledge_root: Root directory containing ai-knowledge-* folders
+
+    Returns:
+        Inheritance configuration dictionary, or empty dict if not found
+    """
+    if not INHERITANCE_AVAILABLE:
+        return {}
+
+    # Search all ai-knowledge repos for my-projects.yaml
+    # The personal repo is the one that contains this file (per ADR-006)
+    if not os.path.isdir(ai_knowledge_root):
+        return {}
+
+    for item in os.listdir(ai_knowledge_root):
+        if not item.startswith('ai-knowledge-'):
+            continue
+        repo_path = os.path.join(ai_knowledge_root, item)
+        if os.path.isdir(repo_path):
+            config_path = find_inheritance_config(repo_path)
+            if config_path:
+                try:
+                    return load_inheritance_config(config_path)
+                except Exception:
+                    pass
+    return {}
+
+
+def _get_inheritance_for_workspace(
+    workspace_name: str,
+    inheritance_config: Dict[str, Any]
+) -> List[str]:
+    """
+    Get the inheritance chain for a workspace from centralized config.
+
+    Args:
+        workspace_name: Name of the workspace
+        inheritance_config: Loaded my-projects.yaml config
+
+    Returns:
+        List of parent workspace names (not including self)
+    """
+    if not inheritance_config or not INHERITANCE_AVAILABLE:
+        return []
+
+    try:
+        # Get full chain (includes self at end)
+        chain = get_inheritance_chain(workspace_name, inheritance_config)
+        # Return parents only (exclude self)
+        return [p for p in chain if p != workspace_name]
+    except (ValueError, KeyError):
+        # Workspace not in inheritance config - that's OK, just no inheritance
+        return []
+
+
 def discover_workspaces(ai_knowledge_root: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Discover all workspaces from ai-knowledge repos.
+
+    Inheritance is resolved from my-projects.yaml in the personal repo (per ADR-006),
+    NOT from individual compile-config.yaml files.
 
     Args:
         ai_knowledge_root: Optional root directory for ai-knowledge repos
@@ -105,8 +192,12 @@ def discover_workspaces(ai_knowledge_root: Optional[str] = None) -> List[Dict[st
         ai_knowledge_root = find_ai_knowledge_root()
 
     ai_knowledge_repos = {}
+    inheritance_config = {}
+
     if ai_knowledge_root:
         ai_knowledge_repos = discover_ai_knowledge_repos(ai_knowledge_root)
+        # Load centralized inheritance config from personal repo
+        inheritance_config = _load_centralized_inheritance(ai_knowledge_root)
 
     discovered = []
 
@@ -120,6 +211,10 @@ def discover_workspaces(ai_knowledge_root: Optional[str] = None) -> List[Dict[st
 
         description = project_config.get('description', f'AI Knowledge workspace: {workspace_name}')
 
+        # Get inheritance from centralized my-projects.yaml (NOT from compile-config.yaml)
+        # This respects ADR-006: inheritance config lives only in personal repo
+        inherits_from = _get_inheritance_for_workspace(workspace_name, inheritance_config)
+
         discovered.append({
             'name': display_name,
             'path': None,
@@ -129,7 +224,7 @@ def discover_workspaces(ai_knowledge_root: Optional[str] = None) -> List[Dict[st
                 'description': description,
                 'status': 'active',
                 'type': project_config.get('type', 'project'),
-                'inherits_from': compile_config.get('inherits_from', []),
+                'inherits_from': inherits_from,
             },
             'ai_knowledge': content_info
         })
@@ -356,7 +451,7 @@ def get_llm_specific_instruction_path(
     - gemini.md for Google Gemini models
 
     Args:
-        workspace_name: Name of the workspace (e.g., 'personal', 'flatiron')
+        workspace_name: Name of the workspace (e.g., 'personal', 'company')
         engine: LLM engine name ('anthropic', 'openai', 'google')
         ai_knowledge_root: Optional root directory for ai-knowledge repos
 
