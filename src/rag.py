@@ -20,6 +20,11 @@
 # - Reciprocal Rank Fusion (RRF) for result merging
 # - LLM-based reranking with provider's fast model
 #
+# Phase 4 Improvements (December 2025):
+# - Response verification (hallucination detection)
+# - Confidence scoring for responses
+# - CRAG (Corrective RAG) loop for low-confidence responses
+#
 # Author: Rajiv Pant
 
 import os
@@ -28,6 +33,8 @@ import json
 import math
 import logging
 from typing import Optional, Dict, List, Tuple, Any, Set
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from collections import Counter
 
@@ -265,6 +272,97 @@ Respond with JSON only (no markdown):
 }}
 
 Important: Return exactly {num_chunks} scores in the same order as the chunks."""
+
+
+# =============================================================================
+# Phase 4: Response Verification and CRAG
+# =============================================================================
+
+class ClaimStatus(Enum):
+    """Status of a verified claim."""
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    PARTIALLY_SUPPORTED = "partially_supported"
+
+
+@dataclass
+class VerifiedClaim:
+    """A single verified claim from a response."""
+    claim: str
+    status: ClaimStatus
+    evidence: Optional[str]
+    reasoning: str
+
+
+@dataclass
+class VerificationResult:
+    """Result of verifying a response against context."""
+    confidence: float  # 0.0 to 1.0
+    is_grounded: bool
+    claims: List[VerifiedClaim]
+    suggested_corrections: List[str]
+
+
+@dataclass
+class CRAGResult:
+    """Result of Corrective RAG loop."""
+    final_response: str
+    confidence: float
+    attempts: int
+    verification_history: List[VerificationResult]
+    additional_context_used: bool
+
+
+# Verifier prompt template - checks if response is grounded in context
+VERIFIER_PROMPT = """You are a fact-checking assistant. Your task is to verify that the response is grounded in the provided context.
+
+CONTEXT:
+{context}
+
+RESPONSE TO VERIFY:
+{response}
+
+For each factual claim in the response:
+1. Find supporting evidence in the context
+2. Mark as SUPPORTED, UNSUPPORTED, or PARTIALLY_SUPPORTED
+3. Quote the relevant evidence if found
+
+IMPORTANT:
+- Only verify FACTUAL claims (not opinions, questions, or general statements)
+- If the response says "I don't have information about X", that is NOT an unsupported claim
+- If the response correctly summarizes context, mark claims as SUPPORTED
+- Be conservative: only mark UNSUPPORTED if the claim clearly contradicts or has no basis in context
+
+Respond with JSON only (no markdown):
+{{
+  "overall_confidence": 0.0-1.0,
+  "is_grounded": true/false,
+  "claims": [
+    {{
+      "claim": "The claim text",
+      "status": "SUPPORTED" | "UNSUPPORTED" | "PARTIALLY_SUPPORTED",
+      "evidence": "Quote from context if found, or null",
+      "reasoning": "Why this is/isn't supported"
+    }}
+  ],
+  "suggested_corrections": ["Correction1", "Correction2"]
+}}"""
+
+# CRAG query generation prompt - generates targeted queries for unsupported claims
+CRAG_QUERY_PROMPT = """Generate targeted search queries to find evidence for these unsupported claims.
+
+Original query: "{query}"
+
+Unsupported claims that need evidence:
+{claims}
+
+Generate 2-3 specific search queries that would help find documents containing evidence for these claims.
+Focus on key entities, facts, and concepts mentioned in the claims.
+
+Respond with JSON only (no markdown):
+{{
+  "queries": ["query1", "query2", "query3"]
+}}"""
 
 
 def bm25_tokenize(text: str) -> List[str]:
@@ -1822,6 +1920,427 @@ def index_workspace_by_name(workspace_name: str, force: bool = False) -> int:
     # Index the content directly
     result = index_content(workspace_name, datasets, 'datasets')
     return result.get('indexed', 0)
+
+
+# =============================================================================
+# Phase 4: Response Verification Implementation
+# =============================================================================
+
+def verify_response(
+    query: str,
+    response: str,
+    context: str,
+    user_model: Optional[str] = None,
+    workspace: Optional[str] = None
+) -> Optional[VerificationResult]:
+    """
+    Verify that a response is grounded in the retrieved context.
+
+    Uses the provider's fast model to extract claims from the response
+    and check each one against the context for supporting evidence.
+
+    Args:
+        query: Original user query
+        response: Generated response to verify
+        context: Retrieved context that was used to generate the response
+        user_model: User's selected model (for provider selection)
+        workspace: Workspace name for API key resolution
+
+    Returns:
+        VerificationResult with confidence score and claim details,
+        or None if verification fails
+    """
+    if not response or not context:
+        logger.warning("Cannot verify: missing response or context")
+        return None
+
+    # Truncate context if too long (keep verification prompt manageable)
+    max_context_chars = 8000
+    truncated_context = context[:max_context_chars]
+    if len(context) > max_context_chars:
+        truncated_context += "\n... [context truncated for verification]"
+
+    # Build verification prompt
+    prompt = VERIFIER_PROMPT.format(
+        context=truncated_context,
+        response=response
+    )
+
+    # Call fast LLM for verification
+    llm_response = _call_fast_llm(prompt, user_model, workspace)
+
+    if not llm_response:
+        logger.warning("Verification skipped: no LLM response")
+        return None
+
+    try:
+        # Parse JSON response
+        json_str = llm_response
+        if '```json' in json_str:
+            json_str = json_str.split('```json')[1].split('```')[0]
+        elif '```' in json_str:
+            json_str = json_str.split('```')[1].split('```')[0]
+
+        result_data = json.loads(json_str.strip())
+
+        # Extract claims
+        claims = []
+        for claim_data in result_data.get('claims', []):
+            status_str = claim_data.get('status', 'UNSUPPORTED').upper()
+            try:
+                status = ClaimStatus(status_str.lower())
+            except ValueError:
+                status = ClaimStatus.UNSUPPORTED
+
+            claims.append(VerifiedClaim(
+                claim=claim_data.get('claim', ''),
+                status=status,
+                evidence=claim_data.get('evidence'),
+                reasoning=claim_data.get('reasoning', '')
+            ))
+
+        # Calculate confidence if not provided by LLM
+        confidence = result_data.get('overall_confidence', 0.0)
+        if not confidence and claims:
+            confidence = calculate_confidence(claims)
+
+        verification = VerificationResult(
+            confidence=confidence,
+            is_grounded=result_data.get('is_grounded', confidence >= 0.7),
+            claims=claims,
+            suggested_corrections=result_data.get('suggested_corrections', [])
+        )
+
+        logger.info(f"Verification complete: confidence={verification.confidence:.2f}, "
+                   f"grounded={verification.is_grounded}, claims={len(claims)}")
+
+        return verification
+
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        logger.warning(f"Failed to parse verification response: {e}")
+        return None
+
+
+def calculate_confidence(claims: List[VerifiedClaim]) -> float:
+    """
+    Calculate confidence score from claim verification results.
+
+    Formula:
+    - Base: (supported_claims + 0.5 * partial_claims) / total_claims
+    - Penalty: -0.1 for each UNSUPPORTED claim
+    - Bonus: +0.1 if no UNSUPPORTED claims
+
+    Args:
+        claims: List of verified claims
+
+    Returns:
+        Confidence score from 0.0 to 1.0
+    """
+    if not claims:
+        return 1.0  # No claims to verify = assume grounded
+
+    supported = sum(1 for c in claims if c.status == ClaimStatus.SUPPORTED)
+    partial = sum(1 for c in claims if c.status == ClaimStatus.PARTIALLY_SUPPORTED)
+    unsupported = sum(1 for c in claims if c.status == ClaimStatus.UNSUPPORTED)
+    total = len(claims)
+
+    # Base score
+    base = (supported + 0.5 * partial) / total
+
+    # Apply penalty for unsupported claims
+    penalty = 0.1 * unsupported
+
+    # Bonus if all claims are supported
+    bonus = 0.1 if unsupported == 0 else 0
+
+    confidence = base - penalty + bonus
+
+    # Clamp to [0.0, 1.0]
+    return max(0.0, min(1.0, confidence))
+
+
+def generate_crag_queries(
+    query: str,
+    unsupported_claims: List[VerifiedClaim],
+    user_model: Optional[str] = None,
+    workspace: Optional[str] = None
+) -> List[str]:
+    """
+    Generate targeted search queries to find evidence for unsupported claims.
+
+    Args:
+        query: Original user query
+        unsupported_claims: Claims that need additional evidence
+        user_model: User's selected model
+        workspace: Workspace name
+
+    Returns:
+        List of targeted search queries
+    """
+    if not unsupported_claims:
+        return []
+
+    # Format claims for the prompt
+    claims_text = "\n".join([f"- {c.claim}" for c in unsupported_claims])
+
+    prompt = CRAG_QUERY_PROMPT.format(
+        query=query,
+        claims=claims_text
+    )
+
+    response = _call_fast_llm(prompt, user_model, workspace)
+
+    if response:
+        try:
+            json_str = response
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0]
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0]
+
+            result_data = json.loads(json_str.strip())
+            queries = result_data.get('queries', [])
+            logger.info(f"Generated {len(queries)} CRAG queries")
+            return queries
+
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logger.warning(f"Failed to parse CRAG query response: {e}")
+
+    # Fallback: extract key terms from unsupported claims
+    fallback_queries = []
+    for claim in unsupported_claims[:3]:
+        # Simple extraction of key terms
+        words = claim.claim.split()
+        if len(words) >= 3:
+            fallback_queries.append(' '.join(words[:5]))
+
+    return fallback_queries
+
+
+def corrective_rag_loop(
+    query: str,
+    original_response: str,
+    verification: VerificationResult,
+    context: str,
+    workspace_name: str,
+    user_model: Optional[str] = None,
+    max_attempts: int = 2,
+    confidence_threshold: float = 0.7,
+    regenerate_callback=None
+) -> CRAGResult:
+    """
+    Attempt to correct a poorly grounded response through additional retrieval.
+
+    This implements CRAG (Corrective RAG):
+    1. Identify unsupported claims from verification
+    2. Generate targeted queries to find supporting evidence
+    3. Retrieve additional context
+    4. Regenerate response with enhanced context
+    5. Re-verify (up to max_attempts)
+
+    Args:
+        query: Original user query
+        original_response: The response that failed verification
+        verification: Initial verification result
+        context: Original retrieved context
+        workspace_name: Workspace for additional retrieval
+        user_model: User's selected model
+        max_attempts: Maximum correction attempts (default: 2)
+        confidence_threshold: Target confidence to stop CRAG (default: 0.7)
+        regenerate_callback: Optional callback to regenerate response
+            Signature: (query: str, context: str) -> str
+            If not provided, returns improved context without regeneration
+
+    Returns:
+        CRAGResult with final response and verification history
+    """
+    verification_history = [verification]
+    current_response = original_response
+    current_context = context
+    additional_context_used = False
+
+    for attempt in range(max_attempts):
+        logger.info(f"CRAG attempt {attempt + 1}/{max_attempts}")
+
+        # Find unsupported claims
+        unsupported = [c for c in verification.claims
+                      if c.status == ClaimStatus.UNSUPPORTED]
+
+        if not unsupported:
+            logger.info("No unsupported claims found, stopping CRAG")
+            break
+
+        # Generate targeted queries
+        crag_queries = generate_crag_queries(
+            query, unsupported, user_model, workspace_name
+        )
+
+        if not crag_queries:
+            logger.info("No CRAG queries generated, stopping")
+            break
+
+        # Retrieve additional context for each query
+        new_context_parts = []
+        for crag_query in crag_queries[:3]:  # Limit to 3 queries
+            results = hybrid_search(
+                workspace_name, crag_query, limit=5,
+                use_bm25=True, use_rrf=True
+            )
+
+            for result in results[:3]:  # Top 3 per query
+                text = result.get('text', '')
+                if text and text not in current_context:
+                    source = result.get('metadata', {}).get('filename', 'unknown')
+                    new_context_parts.append(f"[Additional: {source}]\n{text}")
+                    additional_context_used = True
+
+        if not new_context_parts:
+            logger.info("No additional context found, stopping CRAG")
+            break
+
+        # Enhance context with new findings
+        enhanced_context = current_context + "\n\n--- Additional Context ---\n" + \
+                          "\n\n".join(new_context_parts)
+
+        # Regenerate response if callback provided
+        if regenerate_callback:
+            try:
+                current_response = regenerate_callback(query, enhanced_context)
+                logger.info(f"Regenerated response ({len(current_response)} chars)")
+            except Exception as e:
+                logger.warning(f"Response regeneration failed: {e}")
+                # Continue with original response but enhanced context
+                pass
+
+        current_context = enhanced_context
+
+        # Re-verify the response
+        new_verification = verify_response(
+            query, current_response, enhanced_context,
+            user_model, workspace_name
+        )
+
+        if new_verification:
+            verification_history.append(new_verification)
+            verification = new_verification
+
+            if verification.confidence >= confidence_threshold:
+                logger.info(f"CRAG success: confidence improved to {verification.confidence:.2f}")
+                break
+        else:
+            logger.warning("Re-verification failed")
+            break
+
+    # Return final result
+    return CRAGResult(
+        final_response=current_response,
+        confidence=verification.confidence,
+        attempts=len(verification_history) - 1,  # -1 for initial verification
+        verification_history=verification_history,
+        additional_context_used=additional_context_used
+    )
+
+
+def verify_and_correct(
+    query: str,
+    response: str,
+    context: str,
+    workspace_name: str,
+    user_model: Optional[str] = None,
+    enable_verification: bool = True,
+    enable_crag: bool = True,
+    confidence_threshold: float = 0.7,
+    regenerate_callback=None
+) -> Dict[str, Any]:
+    """
+    Main entry point for Phase 4: verify a response and optionally correct it.
+
+    This is the function to call after generating a response to check
+    for hallucinations and potentially improve accuracy through CRAG.
+
+    Args:
+        query: Original user query
+        response: Generated response to verify
+        context: Retrieved context used for generation
+        workspace_name: Workspace for additional retrieval
+        user_model: User's selected model
+        enable_verification: Enable verification (default: True)
+        enable_crag: Enable CRAG correction loop (default: True)
+        confidence_threshold: Trigger CRAG below this confidence (default: 0.7)
+        regenerate_callback: Callback to regenerate response with new context
+
+    Returns:
+        Dict with:
+        - response: Final response (may be corrected)
+        - confidence: Confidence score (0.0-1.0)
+        - is_grounded: Whether response is well-grounded
+        - verification: Full verification details (if enabled)
+        - crag_used: Whether CRAG was triggered
+        - crag_attempts: Number of CRAG attempts
+    """
+    result = {
+        'response': response,
+        'confidence': 1.0,
+        'is_grounded': True,
+        'verification': None,
+        'crag_used': False,
+        'crag_attempts': 0
+    }
+
+    if not enable_verification:
+        return result
+
+    # Step 1: Verify the response
+    verification = verify_response(
+        query, response, context, user_model, workspace_name
+    )
+
+    if not verification:
+        # Verification failed - return original response
+        result['confidence'] = 0.5  # Unknown confidence
+        return result
+
+    result['verification'] = {
+        'confidence': verification.confidence,
+        'is_grounded': verification.is_grounded,
+        'claims_checked': len(verification.claims),
+        'claims_supported': sum(1 for c in verification.claims
+                               if c.status == ClaimStatus.SUPPORTED),
+        'claims_unsupported': sum(1 for c in verification.claims
+                                  if c.status == ClaimStatus.UNSUPPORTED),
+        'suggested_corrections': verification.suggested_corrections
+    }
+    result['confidence'] = verification.confidence
+    result['is_grounded'] = verification.is_grounded
+
+    # Step 2: CRAG if needed
+    if enable_crag and verification.confidence < confidence_threshold:
+        logger.info(f"Triggering CRAG: confidence {verification.confidence:.2f} < {confidence_threshold}")
+
+        crag_result = corrective_rag_loop(
+            query=query,
+            original_response=response,
+            verification=verification,
+            context=context,
+            workspace_name=workspace_name,
+            user_model=user_model,
+            max_attempts=2,
+            confidence_threshold=confidence_threshold,
+            regenerate_callback=regenerate_callback
+        )
+
+        result['response'] = crag_result.final_response
+        result['confidence'] = crag_result.confidence
+        result['crag_used'] = True
+        result['crag_attempts'] = crag_result.attempts
+        result['verification']['crag_improved'] = (
+            crag_result.confidence > verification.confidence
+        )
+
+        # Update grounded status based on final confidence
+        result['is_grounded'] = crag_result.confidence >= confidence_threshold
+
+    return result
 
 
 def clear_collection(workspace_name: str) -> bool:
