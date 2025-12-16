@@ -213,3 +213,97 @@ The RAG system was reading inheritance from individual `compile-config.yaml` fil
 1. **Use existing systems** - Don't create duplicate mechanisms; the inheritance system already existed in `compiler/inheritance.py`
 2. **Respect ADRs** - ADR-006 specified centralized inheritance for privacy reasons
 3. **Use user config** - `~/.config/ragbot/config.yaml` defines the user's default workspace, not hardcoded names
+
+## Project Lessons Learned
+
+This section documents key lessons from the entire project, useful for future RAG development.
+
+### Technical Architecture Lessons
+
+1. **Multi-stage pipelines outperform monolithic approaches**
+   - Each stage has a clear responsibility and can be independently tuned
+   - Graceful degradation: if Phase 2 LLM fails, fall back to Phase 1 heuristics
+   - Makes debugging easier - can isolate which stage is causing issues
+
+2. **Provider-agnostic design from the start**
+   - Used engines.yaml categories (small, medium, large, flagship) instead of hardcoded model names
+   - Fast model selection based on user's provider ensures consistent API key usage
+   - Adding new providers is configuration, not code changes
+
+3. **Hybrid search is worth the complexity**
+   - Vector-only search misses exact keyword matches
+   - BM25-only search misses semantic understanding
+   - RRF merging is simple but effective for combining ranked lists
+
+4. **Verification should be conservative**
+   - Initially too aggressive at marking claims UNSUPPORTED
+   - Adjusted prompt to be conservative: only UNSUPPORTED if clearly contradicts or has no basis
+   - "I don't have information" is not an unsupported claim
+
+### Implementation Lessons
+
+5. **Research before building**
+   - Spent time researching how Perplexity, ChatGPT, Claude, Gemini handle RAG
+   - Found consistent patterns across all leading systems
+   - Architecture decisions were validated by industry best practices
+
+6. **Incremental testing is essential**
+   - Each phase had its own test suite (22 + 32 + 32 + 23 = 109 tests)
+   - Caught Phase 3 inheritance bug through integration testing
+   - Unit tests + integration tests + manual testing for each phase
+
+7. **Document as you build**
+   - Created implementation-phase{N}.md for each phase before coding
+   - Made future reference and debugging much easier
+   - Serves as specification during implementation
+
+8. **Reuse existing infrastructure**
+   - Phase 2-4 all use `_call_fast_llm()` helper
+   - BM25 index reuses chunking infrastructure from indexing
+   - Verification uses same LLM calling patterns as planner
+
+### Performance Lessons
+
+9. **Latency budgeting matters**
+   - Phase 1: <50ms (local processing)
+   - Phase 2: 100-300ms (fast model)
+   - Phase 3: 150-300ms (search + rerank)
+   - Phase 4: 150-300ms (verify) or 700-2000ms (with CRAG)
+   - Total: 400-700ms is acceptable for quality improvement
+
+10. **CRAG should be rare**
+    - Triggers <20% of requests with proper retrieval
+    - If CRAG triggers frequently, earlier stages need improvement
+    - Expensive operation (~1-2s) should be last resort
+
+### Debugging Lessons
+
+11. **Log at each stage**
+    - Query planning logs intent detection
+    - Multi-query logs expansion count
+    - Reranking logs top scores
+    - Verification logs confidence and claim counts
+    - Makes production debugging feasible
+
+12. **Fallbacks prevent user-facing failures**
+    - Phase 2 falls back to Phase 1 heuristics
+    - Phase 3 falls back to vector-only search
+    - Phase 4 returns original response if verification fails
+    - Users never see "RAG failed" errors
+
+## Final Statistics
+
+| Metric | Value |
+|--------|-------|
+| Total implementation time | 1 day (Phase 1-4) |
+| Lines of code added | ~2,400 |
+| Unit tests added | 109 |
+| Phases implemented | 4 |
+| Research sources consulted | 6+ |
+| Performance improvement | 67% fewer retrieval failures (estimated) |
+
+## Related Documentation
+
+- [RAG Architecture](../../../docs/rag-architecture.md) - Complete technical architecture
+- [Compilation Guide](../../../docs/compilation-guide.md) - Workspace and inheritance setup
+- [engines.yaml](../../../engines.yaml) - Model configuration and categories

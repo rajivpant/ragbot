@@ -208,14 +208,62 @@ docker-compose up -d
 RAG (Retrieval-Augmented Generation)
 ------------------------------------
 
-Ragbot now includes built-in RAG capabilities using **Qdrant** vector database and **sentence-transformers** for semantic search. This allows Ragbot to intelligently retrieve relevant content from your knowledge base when answering questions.
+Ragbot implements a **production-grade, multi-stage RAG pipeline** based on research from leading AI systems including Perplexity, ChatGPT, Claude, and Gemini. Unlike simple RAG implementations, Ragbot uses sophisticated techniques proven to significantly improve retrieval accuracy.
 
-### How RAG Works
+### Architecture Overview
 
-1. **Indexing**: Your workspace content (datasets, knowledge files) is chunked and embedded into vectors
-2. **Storage**: Vectors are stored in a local Qdrant database (persisted in Docker volume)
-3. **Retrieval**: When you ask a question, relevant chunks are retrieved by semantic similarity
-4. **Augmentation**: Retrieved context is added to your prompt for more accurate responses
+```
+Query → Phase 1 → Phase 2 → Phase 3 → Generate → Phase 4 → Response
+        Foundation  Query     Hybrid    Response   Verify    with
+                   Intel    Retrieval             & CRAG   Confidence
+```
+
+**Four-Phase Pipeline:**
+
+| Phase | Description | Key Techniques |
+|-------|-------------|----------------|
+| **Phase 1** | Foundation | Query preprocessing, full document retrieval, 16K context budget |
+| **Phase 2** | Query Intelligence | LLM planner, multi-query expansion (5-7 variations), HyDE |
+| **Phase 3** | Hybrid Retrieval | BM25 + Vector search, Reciprocal Rank Fusion, LLM reranking |
+| **Phase 4** | Verification | Hallucination detection, confidence scoring, CRAG loop |
+
+### Research-Backed Impact
+
+Based on benchmarks from Anthropic, Microsoft, and other research:
+
+| Technique | Impact |
+|-----------|--------|
+| Contextual embeddings | **35% fewer retrieval failures** |
+| Hybrid search + reranking | **67% fewer retrieval failures** |
+| Query rewriting (multi-query) | **+21 NDCG points** |
+
+### Phase 1: Foundation Layer
+
+- **Query Preprocessing**: Expands contractions ("what's" → "what is"), extracts key terms
+- **Document Detection**: Recognizes "show me my biography" style queries
+- **Full Document Retrieval**: Returns complete documents instead of fragments when appropriate
+- **Enhanced Embeddings**: Includes filename and title in embeddings for better matching
+
+### Phase 2: Query Intelligence
+
+- **LLM Query Planner**: Analyzes intent, determines retrieval strategy
+- **Multi-Query Expansion**: Generates 5-7 query variations for better recall
+- **HyDE (Hypothetical Document Embeddings)**: Generates hypothetical answers for semantic search
+- **Provider-Agnostic**: Uses fast model from same provider as user's selection
+
+### Phase 3: Hybrid Retrieval
+
+- **Dual Search**: Combines semantic (vector) and lexical (BM25) search
+- **Reciprocal Rank Fusion**: Merges results from both search methods
+- **LLM Reranking**: Scores relevance 0-10, reorders by combined score
+- **Result**: Best of both semantic understanding and exact keyword matching
+
+### Phase 4: Response Verification
+
+- **Claim Extraction**: Identifies factual claims in generated responses
+- **Evidence Matching**: Checks each claim against retrieved context
+- **Confidence Scoring**: 0.0-1.0 score based on claim verification
+- **CRAG (Corrective RAG)**: Re-retrieves for low-confidence responses (<0.7)
 
 ### Using RAG in the Web UI
 
@@ -224,13 +272,14 @@ Ragbot now includes built-in RAG capabilities using **Qdrant** vector database a
 3. Enable **"Enable RAG"** checkbox
 4. Adjust **"RAG context tokens"** slider to control how much context is retrieved
 
-### RAG Configuration
+### Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Enable RAG | On | Toggle RAG-augmented responses |
-| RAG context tokens | 16000 | Maximum tokens for retrieved context (Phase 1: 8x increase from 2000) |
-| Embedding model | all-MiniLM-L6-v2 | 384-dimension embeddings, fast and effective |
+| RAG context tokens | 16000 | Maximum tokens for retrieved context |
+| Confidence threshold | 0.7 | CRAG triggers below this score |
+| Embedding model | all-MiniLM-L6-v2 | 384-dimension embeddings |
 
 ### Technical Details
 
@@ -238,6 +287,8 @@ Ragbot now includes built-in RAG capabilities using **Qdrant** vector database a
 - **Embedding Model**: sentence-transformers `all-MiniLM-L6-v2` (80MB, 384 dimensions)
 - **Chunking**: ~500 tokens per chunk with 50-token overlap
 - **Similarity**: Cosine distance for semantic matching
+
+For the complete technical architecture, see [docs/rag-architecture.md](docs/rag-architecture.md).
 
 AI Knowledge Integration
 ------------------------

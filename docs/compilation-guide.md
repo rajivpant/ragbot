@@ -250,6 +250,19 @@ The RAG system respects the inheritance configuration from `my-projects.yaml`. W
 3. **Indexes content from all ancestors** — The vector index includes chunks from the workspace AND all inherited workspaces
 4. **Enables cross-workspace queries** — You can ask about "ragbot" while in a client workspace because that content is inherited
 
+### RAG Pipeline Architecture
+
+Ragbot implements a production-grade, multi-stage RAG pipeline:
+
+| Phase | Description | Techniques |
+|-------|-------------|------------|
+| **Phase 1** | Foundation | Query preprocessing, full document retrieval, 16K context |
+| **Phase 2** | Query Intelligence | LLM planner, multi-query expansion, HyDE |
+| **Phase 3** | Hybrid Retrieval | BM25 + Vector search, RRF, LLM reranking |
+| **Phase 4** | Verification | Hallucination detection, confidence scoring, CRAG |
+
+For complete technical details, see [RAG Architecture](./rag-architecture.md).
+
 ### User Configuration
 
 The system determines the personal repo location from `~/.config/ragbot/config.yaml`:
@@ -295,5 +308,6 @@ Check that `local_path` in my-projects.yaml points to existing directories.
 
 ## Further Reading
 
+- [RAG Architecture](./rag-architecture.md) — Complete RAG pipeline documentation
 - [Data Organization Philosophy](./data-organization.md) — Why separate code from data
 - [Project Documentation Convention](./conventions/project-documentation.md) — Project folder structure
