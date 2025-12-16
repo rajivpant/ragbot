@@ -189,25 +189,20 @@ Based on combined research from:
 
 ## Inheritance Fix (2025-12-15)
 
-During Phase 3 testing, discovered that workspace inheritance was broken - client workspaces (mcclatchy, hearst, etc.) couldn't find content from parent workspaces (ragbot, rajiv, flatiron).
+During Phase 3 testing, discovered that workspace inheritance was broken - child workspaces couldn't find content from parent workspaces.
 
 ### Root Cause
 The RAG system was reading inheritance from individual `compile-config.yaml` files, but per ADR-006, inheritance configuration lives ONLY in the personal repo's `my-projects.yaml` to prevent revealing private repo existence in shared repos.
 
 ### Fix Applied
 1. Updated `src/ragbot/workspaces.py` to load inheritance from centralized `my-projects.yaml` via the existing `compiler/inheritance.py` module
-2. Removed accidental `inherits_from` entries added to client compile-config.yaml files
+2. Removed accidental `inherits_from` entries added to child compile-config.yaml files
 3. Fixed compiler to use `~/.config/ragbot/config.yaml` for personal repo discovery instead of hardcoding workspace names
 
 ### Verification
-- All 8 workspaces now show correct inheritance chains:
-  - ragbot: `[]` (root)
-  - rajiv: `[ragbot]`
-  - flatiron: `[ragbot, rajiv]`
-  - scalepost: `[ragbot, rajiv]` (NOT flatiron - by design)
-  - mcclatchy/hearst/snapshot/trustguard: `[ragbot, rajiv, flatiron]`
-- Vector indices rebuilt with inherited content (e.g., mcclatchy: 705 chunks vs ~70 before)
-- Tested: queries about "ragbot" in mcclatchy workspace return correct results
+- All workspaces now show correct inheritance chains
+- Vector indices rebuilt with inherited content (e.g., child workspace: 705 chunks vs ~70 before)
+- Tested: queries about "ragbot" in child workspaces return correct results
 
 ### Lessons Learned
 1. **Use existing systems** - Don't create duplicate mechanisms; the inheritance system already existed in `compiler/inheritance.py`
