@@ -14,7 +14,7 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 | **ragbot-site** | Public | Website for ragbot.ai | `~/projects/my-projects/ragbot-site/` |
 | **ragenie** | Public | Next-gen RAG platform | `~/projects/my-projects/ragenie/` |
 | **ragenie-site** | Public | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
-| **ragbot-data** | Private | DEPRECATED - kept for workspace history | `~/ragbot-data/` |
+| **ai-knowledge-*** | Private | AI Knowledge content repos (replaced ragbot-data) | `~/projects/my-projects/ai-knowledge/` |
 | **synthesis-coding-site** | Public | Website for synthesiscoding.com | `~/projects/my-projects/synthesis-coding-site/` |
 
 ### AI Knowledge Repositories
@@ -40,7 +40,7 @@ All repositories are in the same VS Code workspace for unified development.
 
 - **Ragbot**: Actively maintained and upgraded. Production-ready CLI and Streamlit UI.
 - **RaGenie**: Successor product with advanced RAG capabilities. Under development.
-- Both products share `ragbot-data` as their data layer.
+- Both products share `ai-knowledge-*` repos as their data layer.
 - Both products will continue to be actively developed.
 
 ## Architecture
@@ -77,16 +77,13 @@ docker compose up -d
 
 Ragbot uses **convention-based discovery** to find AI Knowledge repositories:
 
-1. **Primary source:** `~/projects/my-projects/ai-knowledge/ai-knowledge-*/`
-2. **Legacy source:** `~/ragbot-data/workspaces/` (deprecated)
+**Location:** `~/projects/my-projects/ai-knowledge/ai-knowledge-*/`
 
 Each ai-knowledge repo contains:
 - **source/instructions/** - WHO: Identity/persona files
 - **source/runbooks/** - HOW: Procedure guides
 - **source/datasets/** - WHAT: Reference knowledge
 - **compiled/** - AI-optimized output (auto-generated)
-
-**Note:** `ragbot-data` is deprecated. Content has been migrated to individual `ai-knowledge-*` repositories.
 
 ## Privacy Guidelines for This Public Repo
 

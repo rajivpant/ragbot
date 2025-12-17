@@ -14,6 +14,7 @@ This convention separates **project documentation** (plans, logs, lessons) from 
 │   ├── active/                  # Currently in-progress projects
 │   │   └── {project-name}/
 │   │       ├── README.md        # Overview, status, quick links
+│   │       ├── CONTEXT.md       # AI context snapshot (for session continuity)
 │   │       ├── architecture.md  # Design decisions (optional)
 │   │       ├── implementation.md # Phase-by-phase guide (optional)
 │   │       └── roadmap.md       # Future work (optional)
@@ -21,15 +22,82 @@ This convention separates **project documentation** (plans, logs, lessons) from 
 │   │   └── {project-name}/
 │   │       ├── README.md
 │   │       └── plan.md          # Original plan for reference
+│   │   └── index.md             # Semantic index of completed projects
 │   ├── work-logs/               # Chronological session history
 │   │   └── {project-name}/
 │   │       └── YYYY-MM-DD-{summary}.md
+│   │   └── summaries/           # Tiered summaries
+│   │       ├── weekly/          # YYYY-WNN.md
+│   │       ├── monthly/         # YYYY-MM.md
+│   │       └── quarterly/       # YYYY-QN.md
 │   ├── lessons-learned/         # Cross-cutting insights
 │   │   ├── index.md             # Index of all lessons
 │   │   └── {topic}.md
+│   ├── meta/                    # Cross-project observations
+│   │   ├── patterns.md          # Recurring patterns across projects
+│   │   └── insights.md          # Productivity observations
 │   └── templates/               # Reusable templates
 └── src/                         # Source code (separate from docs)
 ```
+
+## Public vs Private Repository Split
+
+When working with both public (open source) and private repositories, split content by confidentiality:
+
+### Public Repositories (e.g., ragbot, ragenie)
+
+```
+projects/
+├── active/           # Project plans, architecture, implementation guides
+├── completed/        # Archived project docs
+└── templates/        # Reusable templates (shared across all projects)
+```
+
+**What goes here:** Architecture decisions, implementation guides, roadmaps—anything helpful for contributors and safe to share publicly.
+
+### Private Knowledge Repository (e.g., ai-knowledge-{personal})
+
+```
+projects/
+├── active/           # Private-only projects
+├── completed/        # Archived private projects
+├── work-logs/        # ALL work logs (for any project, any repo)
+│   ├── ragbot/
+│   ├── ragenie/
+│   └── {other-project}/
+└── lessons-learned/  # ALL lessons (cross-cutting insights)
+```
+
+**What goes here:** Work logs and lessons learned contain raw thinking, confidential details, and unfiltered notes. These are personal knowledge artifacts that belong in your private knowledge base, even when they reference public projects.
+
+### Cross-References
+
+Link between public project docs and private work logs:
+
+**In public project README:**
+```markdown
+## Work Logs
+Work logs for this project are in the private knowledge base.
+```
+
+**In private work log:**
+```markdown
+**Project:** ragbot/ai-knowledge-compiler
+**Public docs:** https://github.com/rajivpant/ragbot/tree/main/projects/active/ai-knowledge-compiler
+```
+
+### Why This Split?
+
+| Content Type | Location | Reason |
+|--------------|----------|--------|
+| Architecture | Public repo | Helps contributors understand the project |
+| Implementation plan | Public repo | Documents the approach for collaboration |
+| Work logs | Private repo | Contains raw notes, mistakes, confidential context |
+| Lessons learned | Private repo | May reference clients, contain sensitive insights |
+
+Work logs capture the messy journey. Public docs show the polished destination.
+
+---
 
 ## Why This Structure?
 
@@ -210,6 +278,139 @@ When projects span multiple repositories:
 
 Use full GitHub URLs for cross-repo links so they work from anywhere.
 
+## AI-Native Project Management
+
+These features optimize the documentation system for AI coding assistants like Claude Code.
+
+### Context Snapshots (CONTEXT.md)
+
+Every active project should have a `CONTEXT.md` file that enables instant context recovery:
+
+```markdown
+# Current Context: {Project Name}
+
+**Last session:** YYYY-MM-DD
+**State:** {Phase X complete, starting Phase Y}
+
+## Immediate Next Steps
+1. {Most important next action}
+2. {Second priority}
+
+## Key Decisions Still Open
+- {Decision}: {options being considered}
+
+## Files Currently In Progress
+| File | Status | Notes |
+|------|--------|-------|
+| `path/to/file.py` | 60% complete | {what remains} |
+
+## Blockers
+- {Blocker or "None currently"}
+
+## Recent Progress (last 3 sessions)
+- YYYY-MM-DD: {what was accomplished}
+```
+
+**Session protocols:**
+- **Start:** Read CONTEXT.md first, check blockers, pick up from "Immediate Next Steps"
+- **End:** Update all sections to reflect current state
+
+### Semantic Indexing
+
+Add YAML frontmatter to all project READMEs for discoverability:
+
+```yaml
+---
+tags: [api, authentication, security]
+technologies: [python, fastapi, jwt]
+outcome: success  # or: in-progress, paused, abandoned
+related: [user-management, oauth-integration]
+---
+```
+
+Maintain a `completed/index.md` semantic index organized by:
+- Tags
+- Technologies
+- Outcomes
+- Project relationships
+
+### Tiered Summarization
+
+Roll up work logs into summaries at different time scales:
+
+| Level | Frequency | Purpose |
+|-------|-----------|---------|
+| **Weekly** | On request | What happened this week across projects |
+| **Monthly** | On request | Progress, patterns, decisions |
+| **Quarterly** | On request | Strategic review, retrospective |
+
+Templates: `templates/weekly-summary.md`, `monthly-summary.md`, `quarterly-summary.md`
+
+### Pattern Detection
+
+Maintain `meta/patterns.md` to document:
+- **Technical patterns** that work well (e.g., "Single Source of Truth")
+- **Process patterns** that improve productivity (e.g., "Phased Implementation")
+- **Anti-patterns** to avoid (e.g., "Blind Text Replacement")
+
+Update patterns when:
+- Completing a project that used a notable approach
+- A lesson applies across multiple projects
+- Noticing recurring friction or success
+
+### Proactive Intelligence
+
+AI assistants should:
+1. **Before starting work:** Search lessons learned, check related projects, consult semantic indexes
+2. **When starting new projects:** Check for similar completed projects, learn from predecessors
+3. **During sessions:** Watch for patterns to document
+4. **At session end:** Update CONTEXT.md, offer to create work log
+
+### Group Projects (Semantic Grouping)
+
+Group related projects without folder nesting using semantic parent/child relationships in frontmatter.
+
+**Parent (group) project frontmatter:**
+```yaml
+---
+tags: [writing, book, group-project]
+type: group-project
+children:
+  - synthesis-chapter-1
+  - synthesis-chapter-2
+  - synthesis-chapter-3
+completion_rule: all-children  # all-children | any-children | threshold:N | manual
+---
+```
+
+**Child project frontmatter:**
+```yaml
+---
+tags: [writing, book-chapter]
+outcome: in-progress
+parent: synthesis-engineering-book
+related: [synthesis-chapter-1, synthesis-chapter-3]
+---
+```
+
+**Completion rules:**
+| Rule | Meaning |
+|------|---------|
+| `all-children` | Complete when ALL children are complete |
+| `any-children` | Complete when ANY child is complete |
+| `threshold:N` | Complete when N children are complete |
+| `manual` | Requires explicit completion (default) |
+
+**Benefits:**
+- Flat folder structure (all projects in `active/`)
+- Multi-membership (project can have multiple parents)
+- Searchable relationships via semantic index
+- No folder restructuring when changing groups
+
+**Use cases:** Book chapters, blog series, multi-site launches, quarterly goals, feature epics
+
+Template: `templates/group-project-readme.md`
+
 ## Integration with AI Assistants
 
 ### Claude Code / CLAUDE.md
@@ -329,4 +530,6 @@ To adopt this convention in a repository:
 
 ## Changelog
 
+- **2025-12-16**: Added Group Projects (semantic grouping) pattern and template
+- **2025-12-16**: Added AI-Native Project Management section (CONTEXT.md, semantic indexing, tiered summarization, pattern detection, proactive intelligence)
 - **2025-12-14**: Initial version based on ai-knowledge architecture work

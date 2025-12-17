@@ -1,3 +1,10 @@
+---
+tags: [compiler, ai-knowledge, inheritance, llm-formatting]
+technologies: [python, yaml, jinja2]
+outcome: success
+related: [ai-knowledge-architecture, ui-redesign]
+---
+
 # AI Knowledge Compiler
 
 **Status:** Complete (v0.2.0)

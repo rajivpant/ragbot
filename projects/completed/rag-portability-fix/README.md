@@ -1,3 +1,10 @@
+---
+tags: [rag, bugfix, docker, search]
+technologies: [python, qdrant, docker]
+outcome: success
+related: [rag-relevance-improvements]
+---
+
 # RAG Portability Fix
 
 **Status:** Complete

@@ -1,3 +1,10 @@
+---
+tags: [rag, search, retrieval, nlp, llm]
+technologies: [python, qdrant, bm25, embeddings, litellm]
+outcome: success
+related: [rag-portability-fix, ui-redesign]
+---
+
 # RAG Relevance Improvements
 
 **Status:** Phase 4 Complete
