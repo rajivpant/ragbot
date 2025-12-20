@@ -15,7 +15,7 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 | **ragenie** | Public | Next-gen RAG platform | `~/projects/my-projects/ragenie/` |
 | **ragenie-site** | Public | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
 | **ai-knowledge-*** | Private | AI Knowledge content repos (replaced ragbot-data) | `~/projects/my-projects/ai-knowledge/` |
-| **synthesis-coding-site** | Public | Website for synthesiscoding.com | `~/projects/my-projects/synthesis-coding-site/` |
+| **synthesis-coding-site** | Public | Website for synthesiscoding.org | `~/projects/my-projects/synthesis-coding-site/` |
 
 ### AI Knowledge Repositories
 

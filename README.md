@@ -14,7 +14,7 @@
 
 ### RaGenie Overview
 
-**RaGenie** ([www.ragenie.com](https://www.ragenie.com) | [www.ragenie.ai](https://www.ragenie.ai)) is a modern microservices platform that complements Ragbot:
+**RaGenie** ([ragenie.ai](https://ragenie.ai)) is a modern microservices platform that complements Ragbot:
 
 | Feature | Ragbot (v1) | RaGenie (v2) |
 |---------|-------------|--------------|
