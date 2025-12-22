@@ -284,7 +284,7 @@ These features optimize the documentation system for AI coding assistants like C
 
 ### Context Snapshots (CONTEXT.md)
 
-Every active project should have a `CONTEXT.md` file that enables instant context recovery:
+Every active project should have a `CONTEXT.md` file that captures everything an AI assistant needs to resume work instantly:
 
 ```markdown
 # Current Context: {Project Name}
@@ -292,9 +292,20 @@ Every active project should have a `CONTEXT.md` file that enables instant contex
 **Last session:** YYYY-MM-DD
 **State:** {Phase X complete, starting Phase Y}
 
+## Project Summary
+{2-3 sentences: what this project is, why it exists}
+
+## Key Decisions Made
+1. {Decision}: {rationale}
+2. {Decision}: {rationale}
+
+## Current Architecture
+{Brief description of structure, key files, dependencies}
+
 ## Immediate Next Steps
-1. {Most important next action}
+1. {Most important action}
 2. {Second priority}
+3. {Third priority}
 
 ## Key Decisions Still Open
 - {Decision}: {options being considered}
@@ -305,11 +316,21 @@ Every active project should have a `CONTEXT.md` file that enables instant contex
 | `path/to/file.py` | 60% complete | {what remains} |
 
 ## Blockers
-- {Blocker or "None currently"}
+- {Blocker description} or "None currently"
+
+## Files Created This Session
+- `path/to/new-file.md` — {purpose}
 
 ## Recent Progress (last 3 sessions)
 - YYYY-MM-DD: {what was accomplished}
+- YYYY-MM-DD: {what was accomplished}
 ```
+
+**Key sections serve different purposes:**
+- **Project Summary** and **Key Decisions Made** — strategic context
+- **Immediate Next Steps** and **Blockers** — instant resumption
+- **Files Currently In Progress** — prevents duplicate work
+- **Recent Progress** — shows momentum and trajectory
 
 **Session protocols:**
 - **Start:** Read CONTEXT.md first, check blockers, pick up from "Immediate Next Steps"
@@ -530,6 +551,7 @@ To adopt this convention in a repository:
 
 ## Changelog
 
+- **2025-12-21**: Expanded CONTEXT.md template to 10 sections (added Project Summary, Key Decisions Made, Current Architecture, Files Created This Session)
 - **2025-12-16**: Added Group Projects (semantic grouping) pattern and template
 - **2025-12-16**: Added synthesis project management section (CONTEXT.md, semantic indexing, tiered summarization, pattern detection, proactive intelligence)
 - **2025-12-14**: Initial version based on ai-knowledge architecture work
