@@ -278,7 +278,7 @@ When projects span multiple repositories:
 
 Use full GitHub URLs for cross-repo links so they work from anywhere.
 
-## AI-Native Project Management
+## Synthesis Project Management
 
 These features optimize the documentation system for AI coding assistants like Claude Code.
 
@@ -531,5 +531,5 @@ To adopt this convention in a repository:
 ## Changelog
 
 - **2025-12-16**: Added Group Projects (semantic grouping) pattern and template
-- **2025-12-16**: Added AI-Native Project Management section (CONTEXT.md, semantic indexing, tiered summarization, pattern detection, proactive intelligence)
+- **2025-12-16**: Added synthesis project management section (CONTEXT.md, semantic indexing, tiered summarization, pattern detection, proactive intelligence)
 - **2025-12-14**: Initial version based on ai-knowledge architecture work
