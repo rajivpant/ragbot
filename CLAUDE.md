@@ -11,11 +11,12 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 | Repository | Type | Purpose | Location |
 |------------|------|---------|----------|
 | **ragbot** | Public | AI assistant CLI and Streamlit UI | `~/projects/my-projects/ragbot/` |
-| **ragbot-site** | Public | Website for ragbot.ai | `~/projects/my-projects/ragbot-site/` |
+| **ragbot-site** | Private | Website for ragbot.ai | `~/projects/my-projects/ragbot-site/` |
 | **ragenie** | Public | Next-gen RAG platform | `~/projects/my-projects/ragenie/` |
-| **ragenie-site** | Public | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
+| **ragenie-site** | Private | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
 | **ai-knowledge-*** | Private | AI Knowledge content repos (replaced ragbot-data) | `~/projects/my-projects/ai-knowledge/` |
-| **synthesis-coding-site** | Public | Website for synthesiscoding.org | `~/projects/my-projects/synthesis-coding-site/` |
+| **synthesis-coding-site** | Private | Website for synthesiscoding.org | `~/projects/my-projects/synthesis-coding-site/` |
+| **synthesis-engineering-site** | Private | Website for synthesisengineering.org | `~/projects/my-projects/synthesis-engineering-site/` |
 
 ### AI Knowledge Repositories
 
