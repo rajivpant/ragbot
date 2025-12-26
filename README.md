@@ -110,7 +110,7 @@ Your code contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.
 Blog Post Introducing Ragbot.AI
 --------------------------
 
-[Introducing Ragbot.AI: A Personalized AI Assistant, Written by Ragbot.AI](https://rajiv.com/blog/2023/05/08/introducing-rbot-a-personalized-ai-assistant-written-by-rbot/)
+[Introducing Ragbot: A Personalized AI Assistant](https://ragbot.ai/articles/introducing-ragbot/)
 
 Excerpt from the blog post:
 
