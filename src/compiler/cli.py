@@ -1,14 +1,14 @@
 """
-CLI Wrapper for AI Knowledge Compiler
+CLI Wrapper for AI Knowledge Compiler (Instructions Only)
 
 Thin wrapper that calls library functions. This is what `ragbot compile` invokes.
+Knowledge concatenation is handled by CI/CD (GitHub Actions).
+RAG indexing is handled by `ragbot index`.
 
 Usage:
     ragbot compile --project my-project
-    ragbot compile --project my-project --personalized
+    ragbot compile --project my-project --no-llm
     ragbot compile --project my-client --llm claude
-    ragbot compile --all
-    ragbot compile --dry-run
 """
 
 import argparse
@@ -17,7 +17,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import compile_project, compile_all_projects
+from . import compile_project
 from .config import load_compile_config, validate_config, get_project_name
 from .manifest import format_manifest_summary
 
@@ -26,7 +26,9 @@ def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the compile command."""
     parser = argparse.ArgumentParser(
         prog='ragbot compile',
-        description='Compile AI Knowledge repositories for LLM consumption'
+        description='Compile AI Knowledge instructions for LLM consumption. '
+                    'Knowledge concatenation is handled by CI/CD. '
+                    'RAG indexing is handled by `ragbot index`.'
     )
 
     # Project selection
@@ -38,11 +40,6 @@ def create_parser() -> argparse.ArgumentParser:
     project_group.add_argument(
         '--repo', '-r',
         help='Path to ai-knowledge-* repository to compile'
-    )
-    project_group.add_argument(
-        '--all', '-a',
-        action='store_true',
-        help='Compile all projects'
     )
 
     # Compilation options
@@ -57,22 +54,8 @@ def create_parser() -> argparse.ArgumentParser:
         default='all',
         help='Target LLM platform (default: all)'
     )
-    parser.add_argument(
-        '--context',
-        help='Context filter to apply (e.g., writing-mode, coding-mode)'
-    )
-    parser.add_argument(
-        '--instructions-only',
-        action='store_true',
-        help='Only compile instructions, skip knowledge assembly'
-    )
 
     # Behavior options
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be compiled without writing files'
-    )
     parser.add_argument(
         '--force', '-f',
         action='store_true',
@@ -119,42 +102,18 @@ def find_project_repo(project_name: str, base_path: str) -> str:
     raise FileNotFoundError(f"Repository not found: {repo_path}")
 
 
-def list_projects(base_path: str) -> list:
-    """List all ai-knowledge projects in the base path."""
-    projects = []
-
-    if not os.path.exists(base_path):
-        return projects
-
-    for name in os.listdir(base_path):
-        if name.startswith('ai-knowledge-'):
-            project_name = name.replace('ai-knowledge-', '')
-            repo_path = os.path.join(base_path, name)
-            config_path = os.path.join(repo_path, 'compile-config.yaml')
-
-            if os.path.exists(config_path):
-                projects.append({
-                    'name': project_name,
-                    'repo_path': repo_path
-                })
-
-    return projects
-
-
 def main(args=None):
     """Main entry point for the compile CLI."""
     parser = create_parser()
     args = parser.parse_args(args)
 
     # Determine what to compile
-    if args.all:
-        return compile_all_command(args)
-    elif args.project:
+    if args.project:
         return compile_project_command(args, args.project)
     elif args.repo:
         return compile_repo_command(args, args.repo)
     else:
-        # Default: show help or compile current directory if it's a repo
+        # Default: compile current directory if it's a repo
         cwd = os.getcwd()
         if os.path.exists(os.path.join(cwd, 'compile-config.yaml')):
             return compile_repo_command(args, cwd)
@@ -164,7 +123,7 @@ def main(args=None):
 
 
 def compile_project_command(args, project_name: str) -> int:
-    """Compile a specific project by name."""
+    """Compile instructions for a specific project by name."""
     try:
         repo_path = find_project_repo(project_name, args.base_path)
     except FileNotFoundError as e:
@@ -175,11 +134,11 @@ def compile_project_command(args, project_name: str) -> int:
 
 
 def compile_repo_command(args, repo_path: str) -> int:
-    """Compile a repository."""
+    """Compile instructions for a repository."""
     start_time = time.time()
 
     if not args.quiet:
-        print(f"Compiling: {repo_path}")
+        print(f"Compiling instructions: {repo_path}")
 
     # Load and validate config
     try:
@@ -196,9 +155,6 @@ def compile_repo_command(args, repo_path: str) -> int:
 
     project_name = get_project_name(config)
 
-    if args.dry_run:
-        return dry_run(args, config)
-
     # Map CLI llm option to platform names
     llm_map = {
         'claude': ['anthropic'],
@@ -208,16 +164,15 @@ def compile_repo_command(args, repo_path: str) -> int:
     }
     target_platforms = llm_map.get(args.llm)
 
-    # Compile
+    # Compile instructions only
     try:
         result = compile_project(
             config=config,
             platforms=target_platforms,
             personalized=args.personalized,
-            context=args.context,
             force=args.force,
             use_llm=not args.no_llm,
-            instructions_only=args.instructions_only,
+            instructions_only=True,  # Always instructions-only
             verbose=args.verbose,
             personal_repo_path=args.personal_repo
         )
@@ -236,88 +191,6 @@ def compile_repo_command(args, repo_path: str) -> int:
     else:
         print(format_manifest_summary(result.get('manifest', {})))
         print(f"\nCompleted in {elapsed:.2f}s")
-
-    return 0
-
-
-def compile_all_command(args) -> int:
-    """Compile all projects."""
-    projects = list_projects(args.base_path)
-
-    if not projects:
-        print(f"No projects found in {args.base_path}", file=sys.stderr)
-        return 1
-
-    if not args.quiet:
-        print(f"Found {len(projects)} projects to compile")
-
-    failed = []
-    for project in projects:
-        if not args.quiet:
-            print(f"\n{'='*60}")
-            print(f"Compiling: {project['name']}")
-            print('='*60)
-
-        result = compile_project_command(args, project['name'])
-        if result != 0:
-            failed.append(project['name'])
-
-    if failed:
-        print(f"\nFailed projects: {', '.join(failed)}", file=sys.stderr)
-        return 1
-
-    print(f"\nAll {len(projects)} projects compiled successfully")
-    return 0
-
-
-def dry_run(args, config: dict) -> int:
-    """Show what would be compiled without actually compiling."""
-    from .config import get_source_path, get_include_patterns, get_exclude_patterns, get_targets
-    from .assembler import assemble_content, check_token_budget
-
-    print("=== DRY RUN ===\n")
-
-    project_name = get_project_name(config)
-    print(f"Project: {project_name}")
-
-    source_path = get_source_path(config)
-    print(f"Source path: {source_path}")
-
-    if not os.path.exists(source_path):
-        print(f"Warning: Source path does not exist", file=sys.stderr)
-        return 1
-
-    # Assemble content to show what would be included
-    include = get_include_patterns(config)
-    exclude = get_exclude_patterns(config)
-
-    assembled = assemble_content(source_path, include, exclude)
-
-    print(f"\nFiles to compile: {len(assembled['files'])}")
-    print(f"Total tokens: {assembled['total_tokens']:,}")
-
-    # Show by category
-    print("\nBy category:")
-    for cat, files in assembled['by_category'].items():
-        if files:
-            tokens = sum(f['tokens'] for f in files)
-            print(f"  {cat}: {len(files)} files, {tokens:,} tokens")
-
-    # Check budget
-    from .config import get_token_budget
-    budget = get_token_budget(config)
-    budget_check = check_token_budget(assembled, budget)
-    status = "✓" if budget_check['within_budget'] else "⚠ OVER"
-    print(f"\nToken budget: {assembled['total_tokens']:,} / {budget:,} {status}")
-
-    # Show targets
-    targets = get_targets(config)
-    print(f"\nTargets: {', '.join(t['name'] for t in targets)}")
-
-    if args.verbose:
-        print("\n=== Files ===")
-        for f in assembled['files']:
-            print(f"  {f['relative_path']} ({f['tokens']:,} tokens)")
 
     return 0
 

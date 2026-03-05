@@ -119,11 +119,18 @@ def create_chat_parser(subparsers):
 
 
 def create_compile_parser(subparsers):
-    """Create the compile subcommand parser."""
+    """Create the compile subcommand parser.
+
+    Compiles instructions for AI Knowledge repositories. Knowledge concatenation
+    is handled by CI/CD (GitHub Actions), not this CLI. RAG indexing is handled
+    by the 'index' subcommand.
+    """
     compile_parser = subparsers.add_parser(
         'compile',
-        help='Compile AI Knowledge repositories for LLM consumption',
-        description='Compile AI Knowledge repositories into optimized outputs for various LLM platforms.'
+        help='Compile instructions for AI Knowledge repositories',
+        description='Compile instructions from AI Knowledge repositories for various LLM platforms. '
+                    'Knowledge concatenation is handled by CI/CD (GitHub Actions). '
+                    'For RAG indexing, use "ragbot index".'
     )
 
     # Project selection - what to compile
@@ -134,12 +141,7 @@ def create_compile_parser(subparsers):
     )
     project_group.add_argument(
         '--repo', '-r',
-        help='Path to ai-knowledge-* repository to compile (baseline only)'
-    )
-    project_group.add_argument(
-        '--all', '-a',
-        action='store_true',
-        help='Compile all projects (baseline only, no inheritance)'
+        help='Path to ai-knowledge-* repository to compile'
     )
     project_group.add_argument(
         '--all-with-inheritance',
@@ -167,22 +169,8 @@ def create_compile_parser(subparsers):
         default='all',
         help='Target LLM platform (default: all)'
     )
-    compile_parser.add_argument(
-        '--context',
-        help='Context filter to apply (e.g., writing-mode, coding-mode)'
-    )
-    compile_parser.add_argument(
-        '--instructions-only',
-        action='store_true',
-        help='Only compile instructions, skip knowledge assembly'
-    )
 
     # Behavior options
-    compile_parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be compiled without writing files'
-    )
     compile_parser.add_argument(
         '--force', '-f',
         action='store_true',
@@ -217,6 +205,39 @@ def create_compile_parser(subparsers):
 
     compile_parser.set_defaults(func=run_compile)
     return compile_parser
+
+
+def create_index_parser(subparsers):
+    """Create the index subcommand parser.
+
+    Indexes AI Knowledge content into a vector store (Qdrant) for RAG retrieval.
+    Reads source files directly — no intermediate compiled files needed.
+    """
+    index_parser = subparsers.add_parser(
+        'index',
+        help='Index AI Knowledge content into vector store for RAG',
+        description='Index AI Knowledge content into a vector store (Qdrant) for RAG retrieval. '
+                    'Reads source files directly from ai-knowledge repositories.'
+    )
+
+    index_parser.add_argument(
+        '--workspace', '-w',
+        required=True,
+        help='Workspace name to index (e.g., ragbot, rajiv, mcclatchy)'
+    )
+    index_parser.add_argument(
+        '--force', '-f',
+        action='store_true',
+        help='Clear existing index and rebuild from scratch'
+    )
+    index_parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Verbose output'
+    )
+
+    index_parser.set_defaults(func=run_index)
+    return index_parser
 
 
 def run_chat(args):
@@ -450,19 +471,18 @@ def run_chat(args):
 
 
 def run_compile(args):
-    """Run the compile command."""
+    """Run the compile command (instructions only).
+
+    Knowledge concatenation is handled by CI/CD (GitHub Actions).
+    RAG indexing is handled by the 'index' subcommand.
+    """
     import time
     from compiler.config import load_compile_config, validate_config, get_project_name
     from compiler import compile_project, compile_all_with_inheritance
     from compiler.manifest import format_manifest_summary
-    from ragbot.keystore import get_user_config
 
     def get_personal_repo_path_local(base_path):
-        """Get the path to the user's personal ai-knowledge repo.
-
-        Uses the user's configured default_workspace from ~/.config/ragbot/config.yaml,
-        or falls back to searching for my-projects.yaml (per ADR-006).
-        """
+        """Get the path to the user's personal ai-knowledge repo."""
         from compiler import get_personal_repo_path
         return get_personal_repo_path(base_path)
 
@@ -474,26 +494,12 @@ def run_compile(args):
             return repo_path
         raise FileNotFoundError(f"Repository not found: {repo_path}")
 
-    def list_projects(base_path):
-        """List all ai-knowledge projects in the base path."""
-        projects = []
-        if not os.path.exists(base_path):
-            return projects
-        for name in os.listdir(base_path):
-            if name.startswith('ai-knowledge-'):
-                project_name = name.replace('ai-knowledge-', '')
-                repo_path = os.path.join(base_path, name)
-                config_path = os.path.join(repo_path, 'compile-config.yaml')
-                if os.path.exists(config_path):
-                    projects.append({'name': project_name, 'repo_path': repo_path})
-        return projects
-
     def compile_repo(repo_path):
-        """Compile a single repository."""
+        """Compile instructions for a single repository."""
         start_time = time.time()
 
         if not args.quiet:
-            print(f"Compiling: {repo_path}")
+            print(f"Compiling instructions: {repo_path}")
 
         try:
             config = load_compile_config(repo_path)
@@ -509,9 +515,6 @@ def run_compile(args):
 
         project_name = get_project_name(config)
 
-        if args.dry_run:
-            return dry_run(config)
-
         llm_map = {
             'claude': ['anthropic'],
             'chatgpt': ['openai'],
@@ -526,18 +529,16 @@ def run_compile(args):
         if hasattr(args, 'output_repo') and args.output_repo:
             output_repo = os.path.expanduser(args.output_repo)
         elif with_inheritance:
-            # Inheritance compilations MUST go to user's private repo
             output_repo = get_personal_repo_path_local(args.base_path)
 
         try:
             result = compile_project(
                 config=config,
                 platforms=target_platforms,
-                personalized=with_inheritance,  # Internal param still called personalized
-                context=args.context,
+                personalized=with_inheritance,
                 force=args.force,
                 use_llm=not args.no_llm,
-                instructions_only=args.instructions_only,
+                instructions_only=True,  # Always instructions-only
                 verbose=args.verbose,
                 personal_repo_path=args.personal_repo,
                 base_path=args.base_path,
@@ -560,70 +561,17 @@ def run_compile(args):
 
         return 0
 
-    def dry_run(config):
-        """Show what would be compiled without actually compiling."""
-        from compiler.config import get_source_path, get_include_patterns, get_exclude_patterns, get_targets, get_token_budget
-        from compiler.assembler import assemble_content, check_token_budget
-
-        print("=== DRY RUN ===\n")
-
-        project_name = get_project_name(config)
-        print(f"Project: {project_name}")
-
-        source_path = get_source_path(config)
-        print(f"Source path: {source_path}")
-
-        if not os.path.exists(source_path):
-            print(f"Warning: Source path does not exist", file=sys.stderr)
-            return 1
-
-        include = get_include_patterns(config)
-        exclude = get_exclude_patterns(config)
-
-        assembled = assemble_content(source_path, include, exclude)
-
-        print(f"\nFiles to compile: {len(assembled['files'])}")
-        print(f"Total tokens: {assembled['total_tokens']:,}")
-
-        print("\nBy category:")
-        for cat, files in assembled['by_category'].items():
-            if files:
-                tokens = sum(f['tokens'] for f in files)
-                print(f"  {cat}: {len(files)} files, {tokens:,} tokens")
-
-        budget = get_token_budget(config)
-        budget_check = check_token_budget(assembled, budget)
-        status = "✓" if budget_check['within_budget'] else "⚠ OVER"
-        print(f"\nToken budget: {assembled['total_tokens']:,} / {budget:,} {status}")
-
-        targets = get_targets(config)
-        print(f"\nTargets: {', '.join(t['name'] for t in targets)}")
-
-        if args.verbose:
-            print("\n=== Files ===")
-            for f in assembled['files']:
-                print(f"  {f['relative_path']} ({f['tokens']:,} tokens)")
-
-        return 0
-
     # Determine what to compile
     if hasattr(args, 'all_with_inheritance') and args.all_with_inheritance:
-        # ==================================================================
-        # --all-with-inheritance: Compile ALL projects with inheritance
-        # into the personal repo. This is the SAFE and RECOMMENDED way
-        # to compile everything for personal use.
-        #
-        # See: projects/active/ai-knowledge-architecture/architecture.md
-        # ==================================================================
         personal_repo = get_personal_repo_path_local(args.base_path)
 
-        if not os.path.exists(personal_repo):
-            print(f"Error: Personal repo not found: {personal_repo}", file=sys.stderr)
+        if not personal_repo or not os.path.exists(personal_repo):
+            print(f"Error: Personal repo not found. Set default_workspace in ~/.config/ragbot/config.yaml", file=sys.stderr)
             return 1
 
         if not args.quiet:
             print("=" * 70)
-            print("COMPILING ALL PROJECTS WITH INHERITANCE")
+            print("COMPILING ALL INSTRUCTIONS WITH INHERITANCE")
             print("=" * 70)
             print(f"Output repo: {personal_repo}")
             print(f"All output will go to: {personal_repo}/compiled/")
@@ -644,11 +592,9 @@ def run_compile(args):
             platforms=target_platforms,
             force=args.force,
             use_llm=not args.no_llm,
-            instructions_only=args.instructions_only,
-            context=args.context
+            instructions_only=True,  # Always instructions-only
         )
 
-        # Report results
         if result['errors']:
             print("\nErrors:", file=sys.stderr)
             for error in result['errors']:
@@ -660,7 +606,6 @@ def run_compile(args):
         print(f"Projects compiled: {result['total_compiled']}")
         print(f"Output location: {personal_repo}/compiled/")
 
-        # List compiled projects
         print("\nCompiled projects:")
         for name, proj_result in result['projects'].items():
             if 'error' in proj_result:
@@ -671,37 +616,6 @@ def run_compile(args):
                 print(f"  ✓ {name} ({chain_str})")
 
         return 1 if result['errors'] else 0
-
-    elif args.all:
-        # ==================================================================
-        # --all: Compile all projects with BASELINE only (no inheritance)
-        # Each repo gets its own compiled/ folder with only its own content.
-        # ==================================================================
-        projects = list_projects(args.base_path)
-        if not projects:
-            print(f"No projects found in {args.base_path}", file=sys.stderr)
-            return 1
-
-        if not args.quiet:
-            print(f"Found {len(projects)} projects to compile (baseline only)")
-
-        failed = []
-        for project in projects:
-            if not args.quiet:
-                print(f"\n{'='*60}")
-                print(f"Compiling: {project['name']} (baseline)")
-                print('='*60)
-
-            result = compile_repo(project['repo_path'])
-            if result != 0:
-                failed.append(project['name'])
-
-        if failed:
-            print(f"\nFailed projects: {', '.join(failed)}", file=sys.stderr)
-            return 1
-
-        print(f"\nAll {len(projects)} projects compiled successfully (baseline only)")
-        return 0
 
     elif args.project:
         try:
@@ -715,14 +629,46 @@ def run_compile(args):
         return compile_repo(args.repo)
 
     else:
-        # Default: compile current directory if it's a repo
         cwd = os.getcwd()
         if os.path.exists(os.path.join(cwd, 'compile-config.yaml')):
             return compile_repo(cwd)
         else:
-            print("Error: No project specified. Use --project, --repo, or --all.")
+            print("Error: No project specified. Use --project, --repo, or --all-with-inheritance.")
             print("       Or run from an ai-knowledge-* directory with compile-config.yaml")
             return 1
+
+
+def run_index(args):
+    """Run the index command — index AI Knowledge content into vector store.
+
+    Reads source files directly from ai-knowledge repositories and indexes
+    them into Qdrant for RAG retrieval. No intermediate compiled files needed.
+    """
+    import time
+
+    workspace_name = args.workspace
+
+    if args.verbose:
+        print(f"Indexing workspace: {workspace_name}")
+        if args.force:
+            print("Force mode: clearing existing index first")
+
+    start_time = time.time()
+
+    try:
+        from rag import index_workspace_by_name
+        indexed = index_workspace_by_name(workspace_name, force=args.force)
+    except Exception as e:
+        print(f"Indexing error: {e}", file=sys.stderr)
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        return 1
+
+    elapsed = time.time() - start_time
+
+    print(f"Indexed {indexed} documents for workspace '{workspace_name}' in {elapsed:.2f}s")
+    return 0
 
 
 def main():
@@ -740,6 +686,7 @@ def main():
     # Create subcommand parsers
     create_chat_parser(subparsers)
     create_compile_parser(subparsers)
+    create_index_parser(subparsers)
 
     # Parse arguments
     args = parser.parse_args()

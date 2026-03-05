@@ -1,35 +1,30 @@
 """
-AI Knowledge Compiler
+AI Knowledge Compiler — Instructions Only
 
-Library for compiling AI Knowledge repositories into optimized outputs
-for various LLM platforms (Claude, ChatGPT, Gemini, etc.).
+Compiles instructions from AI Knowledge repositories for various LLM platforms
+(Claude, ChatGPT, Gemini, etc.).
+
+Knowledge concatenation is handled by CI/CD (GitHub Actions).
+RAG indexing is handled by `ragbot index` (reads source directly).
 
 Key concept: The output repo determines what content is included—not who
 runs the compiler. See docs/compilation-guide.md for details.
 
 Example usage:
-    from ragbot.compiler import compile_project, compile_all_with_inheritance
+    from ragbot.compiler import compile_project
     from ragbot.compiler.config import load_compile_config
 
-    # Baseline compilation (single repo)
     config = load_compile_config("/path/to/ai-knowledge-{project}")
-    result = compile_project(config, platforms=['anthropic'])
-
-    # With-inheritance compilation (output repo determines content)
-    result = compile_all_with_inheritance(
-        output_repo_path="/path/to/ai-knowledge-{output}"
-    )
+    result = compile_project(config, instructions_only=True)
 
 Public API:
-- compile_project() - Compile a single project
+- compile_project() - Compile a single project's instructions
 - compile_all_with_inheritance() - Compile all projects into an output repo
-- compile_all_projects() - Compile all projects (baseline only)
 - Config: load_compile_config, resolve_model, validate_config
 - Assembler: assemble_content, count_tokens
 - Instructions: compile_instructions, format_for_platform
 - Cache: load_cache, save_cache, is_file_changed
 - Manifest: generate_manifest, save_manifest
-- Vectors: chunk_content, generate_chunks_for_rag
 """
 
 import os
@@ -55,7 +50,6 @@ from .config import (
     get_token_budget,
     get_targets,
     get_default_compiler,
-    get_vector_store_config
 )
 
 from .assembler import (
@@ -107,12 +101,7 @@ from .manifest import (
     format_manifest_summary
 )
 
-from .vectors import (
-    chunk_content,
-    generate_chunks_for_rag,
-    save_chunks,
-    load_chunks
-)
+# vectors.py removed — RAG indexing reads source directly via rag.py
 
 
 def get_personal_repo_path(base_path: str) -> Optional[str]:
@@ -347,110 +336,6 @@ def assemble_inherited_content(
     return merge_assembled_content(assembled_list)
 
 
-def write_knowledge_files(assembled: Dict, output_dir: str, verbose: bool = False) -> List[str]:
-    """
-    Write individual knowledge files to knowledge/ directory (flat structure).
-
-    Output structure:
-        compiled/{project}/
-        ├── knowledge/                # Individual files
-        │   ├── runbooks-*.md
-        │   └── datasets-*.md
-        └── all-knowledge.md          # Consolidated (same level as knowledge/)
-
-    This creates individual files suitable for:
-    - Claude Projects: GitHub sync to compiled/{project}/knowledge/
-    - ChatGPT GPTs: Upload all files from knowledge/
-    - LLMs with file limits: Use all-knowledge.md (consolidated)
-
-    The consolidated file is placed at the same level as knowledge/ (not inside it)
-    so that Claude's GitHub sync doesn't include it when syncing knowledge/.
-
-    Args:
-        assembled: Assembled content dict
-        output_dir: Project output directory (compiled/{project}/)
-        verbose: Print verbose output
-
-    Returns:
-        List of written file paths
-    """
-    knowledge_dir = os.path.join(output_dir, 'knowledge')
-    os.makedirs(knowledge_dir, exist_ok=True)
-
-    written_files = []
-    all_content_parts = []
-
-    # Write runbooks and datasets as individual files
-    for category in ['runbooks', 'datasets']:
-        files = assembled.get('by_category', {}).get(category, [])
-
-        for file_info in files:
-            rel_path = file_info.get('relative_path', '')
-            content = file_info.get('content', '')
-
-            if not content.strip():
-                continue
-
-            # Get just the filename (flat structure, no subdirectories)
-            filename = os.path.basename(rel_path)
-
-            # Prefix with category to avoid collisions and provide context
-            # e.g., runbooks-anti-watermarking.md, datasets-about-me.md
-            prefixed_filename = f"{category}-{filename}"
-
-            output_path = os.path.join(knowledge_dir, prefixed_filename)
-
-            with open(output_path, 'w') as f:
-                f.write(content)
-
-            written_files.append(output_path)
-
-            # Collect content for consolidated file
-            title = filename.replace('.md', '').replace('-', ' ').title()
-            all_content_parts.append(f"## {category.title()}: {title}\n\n{content}")
-
-            if verbose:
-                print(f"    Wrote: {output_path}")
-
-    # Generate consolidated file for LLMs with file count limits (Gemini: 10 files, etc.)
-    # Place at same level as knowledge/ (not inside it) to:
-    # - Prevent it from being included in Claude's GitHub sync of knowledge/
-    # - Make it obvious this is an alternative to the folder
-    # - Avoid accidental duplication when uploading to ChatGPT
-    if all_content_parts:
-        consolidated_path = os.path.join(output_dir, 'all-knowledge.md')
-        consolidated_content = "# Knowledge Base\n\n" + "\n\n---\n\n".join(all_content_parts)
-
-        with open(consolidated_path, 'w') as f:
-            f.write(consolidated_content)
-
-        written_files.append(consolidated_path)
-
-        if verbose:
-            print(f"    Wrote consolidated: {consolidated_path}")
-
-    return written_files
-
-
-# Deprecated: by-context compilation removed - RAG handles context filtering
-def write_knowledge_by_context(
-    assembled: Dict,
-    output_dir: str,
-    source_path: str,
-    verbose: bool = False
-) -> Dict[str, List[str]]:
-    """
-    DEPRECATED: This function is no longer used.
-
-    Context filtering is now handled by RAG at query time, not at compile time.
-    Pre-generating by-context folders was wasteful since there are dozens of contexts.
-
-    Kept for backwards compatibility but returns empty dict.
-    """
-    if verbose:
-        print("  Note: by-context compilation deprecated, RAG handles filtering")
-    return {}
-
 
 def compile_project(config: dict,
                     platforms: list = None,
@@ -465,34 +350,28 @@ def compile_project(config: dict,
                     output_repo_path: str = None,
                     target_project: str = None) -> dict:
     """
-    Compile an AI Knowledge project.
+    Compile instructions for an AI Knowledge project.
 
     Output structure:
         compiled/{project}/
-        ├── instructions/
-        │   ├── claude.md
-        │   ├── chatgpt.md
-        │   └── gemini.md
-        ├── knowledge/
-        │   ├── runbooks-*.md      (individual files)
-        │   ├── datasets-*.md      (individual files)
-        │   └── gemini-knowledge.md (consolidated for Gemini's 10-file limit)
-        └── vectors/
-            └── chunks.jsonl
+        └── instructions/
+            ├── claude.md
+            ├── chatgpt.md
+            └── gemini.md
+
+    Knowledge concatenation is handled by CI/CD (GitHub Actions).
+    RAG indexing is handled by `ragbot index` (reads source directly).
 
     PRIVACY RULES:
     - If personalized=True, output MUST go to output_repo_path (your private repo)
     - Personalized compilations merge private content and must NEVER go to shared repos
-    - See: projects/active/ai-knowledge-architecture/architecture.md
 
-    This is the main compilation function. It:
+    This function:
     1. Assembles content from source directories
     2. Optionally merges inherited content (if personalized)
     3. Applies context filtering (if specified)
     4. Compiles instructions for each target LLM (claude.md, chatgpt.md, gemini.md)
-    5. Generates individual knowledge files + consolidated for Gemini
-    6. Optionally generates vector store chunks
-    7. Creates a manifest
+    5. Creates a manifest
 
     Args:
         config: Loaded compile-config.yaml (from load_compile_config)
@@ -653,7 +532,6 @@ def compile_project(config: dict,
     # Clean up and create output directory: compiled/{project}/
     # Remove the project's output directory if it exists to ensure clean output
     if os.path.exists(output_dir):
-        import shutil
         shutil.rmtree(output_dir)
         if verbose:
             print(f"Cleaned existing output directory: {output_dir}")
@@ -724,29 +602,8 @@ def compile_project(config: dict,
             if verbose:
                 print(f"  Wrote: {instructions_path}")
 
-    # Write knowledge files (if not instructions-only)
-    # Output: compiled/{project}/knowledge/
-    if not instructions_only:
-        if verbose:
-            print("Writing knowledge files")
-        knowledge_files = write_knowledge_files(assembled, output_dir, verbose)
-        compiled_files.extend(knowledge_files)
-
-    # Generate vector store chunks (if enabled and not instructions-only)
-    # Output: compiled/{project}/vectors/
-    vector_config = get_vector_store_config(config)
-    if vector_config.get('enabled') and not instructions_only:
-        if verbose:
-            print("Generating vector store chunks")
-
-        chunks = generate_chunks_for_rag(assembled, vector_config)
-        vector_output = os.path.join(output_dir, 'vectors')
-
-        chunk_result = save_chunks(chunks, vector_output)
-        compiled_files.append(chunk_result['jsonl_path'])
-
-        if verbose:
-            print(f"  Generated {chunk_result['total_chunks']} chunks")
+    # Knowledge concatenation is handled by CI/CD (GitHub Actions).
+    # RAG indexing is handled by `ragbot index` (reads source directly).
 
     # Generate manifest
     compilation_time = time.time() - start_time
