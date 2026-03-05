@@ -6,6 +6,10 @@ __pycache__
 # Docker user-specific configuration
 docker-compose.override.yml
 
+# Virtual environments
+venv/
+.venv/
+
 # IDE and editor files
 .vscode/
 .idea/
