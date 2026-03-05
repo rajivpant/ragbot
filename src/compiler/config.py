@@ -237,10 +237,3 @@ def get_default_compiler(config: dict) -> dict:
     })
 
 
-def get_vector_store_config(config: dict) -> dict:
-    """Get vector store configuration."""
-    return config.get('vector_store', {
-        'enabled': False,
-        'chunk_size': 1000,
-        'chunk_overlap': 200
-    })

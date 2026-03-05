@@ -2,6 +2,10 @@
 
 > Technical design of the AI Knowledge Compiler.
 
+## Current Architecture (as of March 2026)
+
+The compiler has been simplified to instructions-only compilation. Knowledge concatenation moved to CI/CD (GitHub Actions). RAG indexing reads source directly.
+
 ## Location
 
 The compiler lives in `ragbot/src/compiler/` as a library-first design, with CLI integration via the main ragbot command.
@@ -14,17 +18,19 @@ src/
 │   ├── __init__.py         # Public API exports
 │   └── core.py             # Core chunking algorithms
 ├── compiler/
-│   ├── __init__.py         # Public API exports
+│   ├── __init__.py         # Public API exports (instructions-only)
 │   ├── cli.py              # Command-line interface
 │   ├── config.py           # Configuration parsing
 │   ├── cache.py            # Compilation caching
 │   ├── assembler.py        # Content assembly
 │   ├── inheritance.py      # Inheritance resolution
 │   ├── instructions.py     # LLM-specific instruction compilation
-│   ├── manifest.py         # Manifest generation
-│   └── vectors.py          # Vector chunk generation (uses chunking/)
-└── rag.py                  # RAG runtime (uses chunking/)
+│   └── manifest.py         # Manifest generation
+└── rag.py                  # RAG runtime (uses chunking/, reads source directly)
 ```
+
+**Removed modules:**
+- `vectors.py` — Deleted. RAG reads source directly via `rag.py`.
 
 ## Module Responsibilities
 
@@ -55,20 +61,14 @@ src/
   - **Gemini:** Aggressive consolidation (10 file limit for Gems)
 - Model names come from `engines.yaml` — never hardcoded
 
-### `vectors.py`
-- Chunks content for RAG vector search
-- Uses shared `chunking/` library for consistent behavior
-- Generates JSON chunks for Qdrant indexing
-
 ### `chunking/` (Shared Library)
 - Single source of truth for text chunking
-- Used by both compiler (build-time) and RAG (runtime)
+- Used by RAG runtime (`rag.py`)
 - Provides `ChunkConfig` for configurable chunk sizes
 - Exports `chunk_text()`, `chunk_file()`, `chunk_files()`
-- Convenience functions: `chunk_for_compiler()`, `chunk_for_rag()`
 
 ### `manifest.py`
-- Generates `manifest.json` with compilation metadata
+- Generates manifest with compilation metadata
 - Includes file counts, token counts, timestamps
 - Used for cache validation
 
@@ -81,48 +81,27 @@ src/
 
 ```
 1. Discovery
-   └─> Find all ai-knowledge-* directories
+   └─> Find ai-knowledge-* directory for project
 
 2. Config Resolution
-   └─> Read compile-config.yaml from each repo
+   └─> Read compile-config.yaml
    └─> Resolve inheritance chains
 
-3. Assembly (per project)
+3. Assembly
    └─> Collect source files from repo + inherited repos
    └─> Respect privacy boundaries
 
-4. Compilation
-   ├─> Generate LLM-specific instructions
-   │   ├─> compiled/instructions/claude/{project}.md
-   │   ├─> compiled/instructions/openai/{project}.md
-   │   └─> compiled/instructions/gemini/{project}.md
-   │
-   └─> Generate vector chunks
-       └─> compiled/vectors/{project}.json
+4. Instruction Compilation
+   └─> Generate LLM-specific instructions
+       ├─> compiled/{project}/instructions/claude.md
+       ├─> compiled/{project}/instructions/chatgpt.md
+       └─> compiled/{project}/instructions/gemini.md
 
 5. Manifest
-   └─> Write compiled/manifest.json
+   └─> Write compilation manifest
 ```
 
-## Output Structure
-
-```
-ai-knowledge-{name}/
-└── compiled/
-    ├── instructions/
-    │   ├── claude/
-    │   │   └── {name}.md
-    │   ├── openai/
-    │   │   └── {name}.md
-    │   └── gemini/
-    │       └── {name}.md
-    ├── knowledge/
-    │   └── full/
-    │       └── {assembled-files}
-    ├── vectors/
-    │   └── {name}.json
-    └── manifest.json
-```
+**Knowledge concatenation** is handled separately by CI/CD (GitHub Actions), not the compiler.
 
 ## Three Dimensions of Compilation
 
@@ -141,13 +120,6 @@ ai-knowledge-{name}/
 | personal | personal only |
 | company | personal + company |
 | client | personal + company + client |
-
-### Dimension 3: By Context (Task-Specific Filtering)
-
-Future feature for filtering content by context tags:
-- `writing-mode`: Voice/style instructions
-- `coding-mode`: Technical instructions
-- `meeting-prep`: Meeting runbooks, people datasets
 
 ## Privacy Model
 
@@ -169,18 +141,9 @@ All model information comes from `engines.yaml`:
 
 The compiler only knows about **platform names** (anthropic, openai, google). It uses `resolve_model(platform, category)` to get actual model IDs at runtime.
 
-**Why this matters:**
-- Models change frequently (new releases, deprecations)
-- One place to update when models change
-- Compiler code doesn't need updates for new models
-
 ### Platform-Native Compilation
 
 Each platform's flagship model compiles its own instructions:
 - Ensures output matches platform conventions
 - Models understand their own strengths
 - Better optimization than cross-platform compilation
-
-## Related
-
-- [AI Knowledge Architecture](https://github.com/rajivpant/ai-knowledge-rajiv/tree/main/projects/active/ai-knowledge-architecture) - The repository architecture the compiler supports
