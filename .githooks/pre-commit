@@ -1,0 +1,77 @@
+#!/bin/bash
+#
+# Repo-specific pre-commit hook for ragbot (PUBLIC repository)
+#
+# This hook is called by the global hook (~/.git-hooks/pre-commit) after
+# universal checks pass. It checks for patterns that must never appear
+# in this public repository.
+#
+# The global hook handles: API keys, financial terms, HR terms, secrets
+# This hook handles: client/company names that reveal business relationships
+#
+
+set -euo pipefail
+
+# ── Confidential names (must never appear in public repos) ───────────
+
+CONFIDENTIAL_PATTERNS=(
+    # Client names
+    'mcclatchy'
+    'hearst'
+    'scalepost'
+    'snapshot'
+    'trustguard'
+
+    # Company names
+    'flatiron'
+
+    # GitHub orgs that reveal relationships
+    'tgorg-ai'
+
+    # Personal repo references
+    'ai-knowledge-rajiv'
+)
+
+# Build grep pattern
+PATTERN=""
+for p in "${CONFIDENTIAL_PATTERNS[@]}"; do
+    if [ -z "$PATTERN" ]; then
+        PATTERN="$p"
+    else
+        PATTERN="$PATTERN|$p"
+    fi
+done
+
+# Check staged changes (only added/modified content, not deletions or diff headers)
+MATCHES=$(git diff --cached --diff-filter=AM -U0 | grep '^+' | grep -v '^+++' | grep -i -E "$PATTERN" | head -20) || true
+
+if [ -n "$MATCHES" ]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════════╗"
+    echo "║  ⚠️  CONFIDENTIAL NAME IN PUBLIC REPO (ragbot)                   ║"
+    echo "╚══════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "The following client/company names were found in staged changes:"
+    echo ""
+    echo "$MATCHES"
+    echo ""
+    echo "This is a PUBLIC repository. Use generic names instead:"
+    echo "  'example-client', 'example-company', '{client}', '{company}'"
+    echo ""
+    echo "If this is in a generic example (e.g., inheritance chain docs):"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+# ── Check for example files that might contain real data ─────────────
+
+EXAMPLE_FILES=$(git diff --cached --name-only | grep -E "examples/|templates/|profiles" | head -5) || true
+if [ -n "$EXAMPLE_FILES" ]; then
+    echo ""
+    echo "📋 Note: Committing example/template files. Double-check for real data:"
+    echo "$EXAMPLE_FILES"
+    echo ""
+fi
+
+exit 0
