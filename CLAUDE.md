@@ -188,4 +188,4 @@ If a model doesn't work, investigate the code/API issues rather than downgrading
 
 ## Skills
 
-For code review methodology, see the codebase-review and pr-review skills. For multi-contributor workflow, see the multi-contributor-synthesis-coding skill.
+For code review methodology, see the synthesis-codebase-review and synthesis-pr-review skills. For multi-contributor workflow, see the synthesis-code-integration skill.
