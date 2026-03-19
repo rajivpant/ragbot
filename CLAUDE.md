@@ -185,3 +185,7 @@ If `engines.yaml` has a model configured, it was added intentionally by the user
 - Google: https://ai.google.dev/models
 
 If a model doesn't work, investigate the code/API issues rather than downgrading. The problem is ALWAYS in the code, not in choosing the wrong model.
+
+## Skills
+
+For code review methodology, see the codebase-review and pr-review skills. For multi-contributor workflow, see the multi-contributor-synthesis-coding skill.
