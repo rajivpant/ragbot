@@ -104,6 +104,19 @@ from .manifest import (
 # vectors.py removed — RAG indexing reads source directly via rag.py
 
 
+def _resolve_base_path() -> str:
+    """Resolve the base path for ai-knowledge repos.
+
+    Resolution order:
+    1. RAGBOT_BASE_PATH environment variable
+    2. ~/ai-knowledge (user convention)
+    """
+    env_path = os.environ.get('RAGBOT_BASE_PATH')
+    if env_path:
+        return os.path.expanduser(env_path)
+    return os.path.expanduser('~/ai-knowledge')
+
+
 def get_personal_repo_path(base_path: str) -> Optional[str]:
     """
     Get the path to the personal repo using the user's configured default workspace.
@@ -404,7 +417,7 @@ def compile_project(config: dict,
 
     # Determine base_path for ai-knowledge repos
     if not base_path:
-        base_path = os.path.expanduser('~/workspaces/rajiv')
+        base_path = _resolve_base_path()
 
     # =========================================================================
     # PRIVACY SAFEGUARD: Validate output destination for personalized builds
@@ -738,7 +751,7 @@ def compile_all_with_inheritance(
         - errors: List of any errors
     """
     if not base_path:
-        base_path = os.path.expanduser('~/workspaces/rajiv')
+        base_path = _resolve_base_path()
 
     # Expand ~ in output path
     if output_repo_path.startswith('~'):

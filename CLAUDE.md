@@ -4,39 +4,6 @@
 
 This is a **PUBLIC** open source repository. Be careful not to include confidential information.
 
-## Repository Ecosystem
-
-### Core Repositories
-
-| Repository | Type | Purpose | Location |
-|------------|------|---------|----------|
-| **ragbot** | Public | AI assistant CLI and Streamlit UI | `~/workspaces/rajiv/ragbot/` |
-| **ragbot-site** | Private | Website for ragbot.ai | `~/workspaces/rajiv/ragbot-site/` |
-| **ragenie** | Public | Next-gen RAG platform | `~/workspaces/rajiv/ragenie/` |
-| **ragenie-site** | Private | Website for ragenie.ai | `~/workspaces/rajiv/ragenie-site/` |
-| **ai-knowledge-*** | Private | AI Knowledge content repos | `~/workspaces/{workspace}/ai-knowledge-{name}` |
-| **synthesis-coding-site** | Private | Website for synthesiscoding.org | `~/workspaces/rajiv/synthesis-coding-site/` |
-| **synthesis-engineering-site** | Private | Website for synthesisengineering.org | `~/workspaces/rajiv/synthesis-engineering-site/` |
-
-### AI Knowledge Repositories
-
-Distributed across `~/workspaces/{workspace}/ai-knowledge-{name}`. The authoritative list is in your personal repo's `my-projects.yaml`.
-
-| Repository | Type | Description |
-|------------|------|-------------|
-| **ai-knowledge-ragbot** | Public | Open source templates (root) |
-| **ai-knowledge-{personal}** | Private | Your identity workspace |
-| **ai-knowledge-{company}** | Private | Company workspaces |
-| **ai-knowledge-{client}** | Private | Client workspaces |
-
-**Note:** Some repos may be in different GitHub orgs. Check `my-projects.yaml` for the full list.
-
-Note: Home directory varies by machine, so use `~` for paths.
-
-## VS Code Workspace
-
-All repositories are in the same VS Code workspace for unified development.
-
 ## Product Relationship
 
 - **Ragbot**: Actively maintained and upgraded. Production-ready CLI and Streamlit UI.
@@ -69,16 +36,18 @@ ragbot/
 
 **Running the stack:**
 ```bash
-cd ~/workspaces/rajiv/ragbot
 docker compose up -d
 # Access at http://localhost:3000
 ```
 
 ## Data Location
 
-Ragbot uses **convention-based discovery** to find AI Knowledge repositories:
+Ragbot uses **convention-based discovery** to find AI Knowledge repositories.
 
-**Location:** `~/workspaces/{workspace}/ai-knowledge-{name}/`
+Base path resolution (in order):
+1. `--base-path` CLI argument
+2. `RAGBOT_BASE_PATH` environment variable
+3. `~/ai-knowledge/` (default convention)
 
 Each ai-knowledge repo contains:
 - **source/instructions/** - WHO: Identity/persona files
@@ -88,13 +57,10 @@ Each ai-knowledge repo contains:
 
 ## Privacy Guidelines for This Public Repo
 
-**⚠️ THIS IS A PUBLIC REPOSITORY - CONFIDENTIALITY IS CRITICAL ⚠️**
-
-### Rules
+**This is a PUBLIC repository. Confidentiality is critical.**
 
 - **NEVER** include client, company, or personal workspace names
 - **ONLY** use generic placeholders: `personal`, `company`, `example-company`, `example-client`, `client-a`
-- The list of confidential names is in `~/.claude/CLAUDE.md` (private, not in any repo)
 - When in doubt, ask the user before committing
 
 ## Key Concepts
@@ -110,16 +76,6 @@ Each ai-knowledge repo contains:
 - System supports multiple users with separate identity workspaces
 - Different workspaces may come from different git repos
 - User workspaces are private; some workspaces may be shared team repos
-
-## Git Operations
-
-**IMPORTANT**: Before any git commands for this repo, ensure you are in the correct directory:
-
-```bash
-cd ~/workspaces/rajiv/ragbot
-```
-
-Each repo in the ecosystem has its own git history. Don't run git commands from the wrong directory.
 
 ## Versioning
 
@@ -185,7 +141,3 @@ If `engines.yaml` has a model configured, it was added intentionally by the user
 - Google: https://ai.google.dev/models
 
 If a model doesn't work, investigate the code/API issues rather than downgrading. The problem is ALWAYS in the code, not in choosing the wrong model.
-
-## Skills
-
-For code review methodology, see the synthesis-codebase-review and synthesis-pr-review skills. For multi-contributor workflow, see the synthesis-code-integration skill.

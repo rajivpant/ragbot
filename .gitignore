@@ -15,3 +15,6 @@ venv/
 .idea/
 *.swp
 *.swo
+
+# Personal Claude Code context (managed via mac-sync)
+CLAUDE.local.md

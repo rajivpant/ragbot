@@ -31,11 +31,24 @@ except ImportError:
     INHERITANCE_AVAILABLE = False
 
 
-# Default locations for ai-knowledge repos
-DEFAULT_AI_KNOWLEDGE_PATHS = [
-    '/app/ai-knowledge',  # Docker
-    os.path.expanduser('~/workspaces/rajiv'),  # Local dev
-]
+def _get_default_ai_knowledge_paths():
+    """Build the default search paths for ai-knowledge repos.
+
+    Resolution order:
+    1. RAGBOT_BASE_PATH environment variable (if set)
+    2. Docker container path (/app/ai-knowledge)
+    3. User's home ~/ai-knowledge (convention for any user)
+    """
+    paths = []
+    env_path = os.environ.get('RAGBOT_BASE_PATH')
+    if env_path:
+        paths.append(os.path.expanduser(env_path))
+    paths.append('/app/ai-knowledge')  # Docker
+    paths.append(os.path.expanduser('~/ai-knowledge'))  # Convention
+    return paths
+
+
+DEFAULT_AI_KNOWLEDGE_PATHS = _get_default_ai_knowledge_paths()
 
 
 

@@ -195,8 +195,8 @@ def create_compile_parser(subparsers):
     # Path options
     compile_parser.add_argument(
         '--base-path',
-        default=os.path.expanduser('~/workspaces/rajiv'),
-        help='Base path containing ai-knowledge-* repositories'
+        default=os.environ.get('RAGBOT_BASE_PATH', os.path.expanduser('~/ai-knowledge')),
+        help='Base path containing ai-knowledge-* repositories (default: $RAGBOT_BASE_PATH or ~/ai-knowledge)'
     )
     compile_parser.add_argument(
         '--personal-repo',
