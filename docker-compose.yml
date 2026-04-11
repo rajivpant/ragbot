@@ -13,8 +13,8 @@ services:
       # Mount user config for API keys
       - ~/.config/ragbot:/root/.config/ragbot:ro
 
-      # Mount ai-knowledge repos for workspace discovery
-      - ~/projects/my-projects/ai-knowledge:/app/ai-knowledge:ro
+      # Mount workspaces for ai-knowledge repo discovery (repos distributed across workspaces)
+      - ~/workspaces:/root/workspaces:ro
 
       # Mount engines.yaml to use latest model configurations
       - ./engines.yaml:/app/engines.yaml:ro

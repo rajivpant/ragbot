@@ -10,17 +10,17 @@ This is a **PUBLIC** open source repository. Be careful not to include confident
 
 | Repository | Type | Purpose | Location |
 |------------|------|---------|----------|
-| **ragbot** | Public | AI assistant CLI and Streamlit UI | `~/projects/my-projects/ragbot/` |
-| **ragbot-site** | Private | Website for ragbot.ai | `~/projects/my-projects/ragbot-site/` |
-| **ragenie** | Public | Next-gen RAG platform | `~/projects/my-projects/ragenie/` |
-| **ragenie-site** | Private | Website for ragenie.ai | `~/projects/my-projects/ragenie-site/` |
-| **ai-knowledge-*** | Private | AI Knowledge content repos (replaced ragbot-data) | `~/projects/my-projects/ai-knowledge/` |
-| **synthesis-coding-site** | Private | Website for synthesiscoding.org | `~/projects/my-projects/synthesis-coding-site/` |
-| **synthesis-engineering-site** | Private | Website for synthesisengineering.org | `~/projects/my-projects/synthesis-engineering-site/` |
+| **ragbot** | Public | AI assistant CLI and Streamlit UI | `~/workspaces/rajiv/ragbot/` |
+| **ragbot-site** | Private | Website for ragbot.ai | `~/workspaces/rajiv/ragbot-site/` |
+| **ragenie** | Public | Next-gen RAG platform | `~/workspaces/rajiv/ragenie/` |
+| **ragenie-site** | Private | Website for ragenie.ai | `~/workspaces/rajiv/ragenie-site/` |
+| **ai-knowledge-*** | Private | AI Knowledge content repos | `~/workspaces/{workspace}/ai-knowledge-{name}` |
+| **synthesis-coding-site** | Private | Website for synthesiscoding.org | `~/workspaces/rajiv/synthesis-coding-site/` |
+| **synthesis-engineering-site** | Private | Website for synthesisengineering.org | `~/workspaces/rajiv/synthesis-engineering-site/` |
 
 ### AI Knowledge Repositories
 
-All located in `~/projects/my-projects/ai-knowledge/`. The authoritative list is in your personal repo's `my-projects.yaml`.
+Distributed across `~/workspaces/{workspace}/ai-knowledge-{name}`. The authoritative list is in your personal repo's `my-projects.yaml`.
 
 | Repository | Type | Description |
 |------------|------|-------------|
@@ -69,7 +69,7 @@ ragbot/
 
 **Running the stack:**
 ```bash
-cd ~/projects/my-projects/ragbot
+cd ~/workspaces/rajiv/ragbot
 docker compose up -d
 # Access at http://localhost:3000
 ```
@@ -78,7 +78,7 @@ docker compose up -d
 
 Ragbot uses **convention-based discovery** to find AI Knowledge repositories:
 
-**Location:** `~/projects/my-projects/ai-knowledge/ai-knowledge-*/`
+**Location:** `~/workspaces/{workspace}/ai-knowledge-{name}/`
 
 Each ai-knowledge repo contains:
 - **source/instructions/** - WHO: Identity/persona files
@@ -116,7 +116,7 @@ Each ai-knowledge repo contains:
 **IMPORTANT**: Before any git commands for this repo, ensure you are in the correct directory:
 
 ```bash
-cd ~/projects/my-projects/ragbot
+cd ~/workspaces/rajiv/ragbot
 ```
 
 Each repo in the ecosystem has its own git history. Don't run git commands from the wrong directory.
