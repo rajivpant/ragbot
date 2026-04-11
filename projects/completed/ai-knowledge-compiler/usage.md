@@ -96,4 +96,4 @@ The compiler automatically discovers repositories by convention:
 
 1. Looks for `ai-knowledge-*` directories
 2. No explicit configuration needed
-3. Default path: `~/projects/my-projects/ai-knowledge/`
+3. Default path: `~/workspaces/rajiv/`

@@ -80,7 +80,7 @@ def create_parser() -> argparse.ArgumentParser:
     # Path options
     parser.add_argument(
         '--base-path',
-        default=os.path.expanduser('~/projects/my-projects/ai-knowledge'),
+        default=os.path.expanduser('~/workspaces/rajiv'),
         help='Base path containing ai-knowledge-* repositories'
     )
     parser.add_argument(

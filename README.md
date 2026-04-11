@@ -357,7 +357,7 @@ Ragbot automatically discovers AI Knowledge repositories by convention:
 services:
   ragbot-web:
     volumes:
-      - ${HOME}/projects/my-projects/ai-knowledge:/app/ai-knowledge:ro
+      - ${HOME}/workspaces:/root/workspaces:ro
       - ./workspaces:/app/workspaces:ro
 ```
 

@@ -34,7 +34,7 @@ except ImportError:
 # Default locations for ai-knowledge repos
 DEFAULT_AI_KNOWLEDGE_PATHS = [
     '/app/ai-knowledge',  # Docker
-    os.path.expanduser('~/projects/my-projects/ai-knowledge'),  # Local dev
+    os.path.expanduser('~/workspaces/rajiv'),  # Local dev
 ]
 
 

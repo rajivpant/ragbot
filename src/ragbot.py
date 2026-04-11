@@ -195,7 +195,7 @@ def create_compile_parser(subparsers):
     # Path options
     compile_parser.add_argument(
         '--base-path',
-        default=os.path.expanduser('~/projects/my-projects/ai-knowledge'),
+        default=os.path.expanduser('~/workspaces/rajiv'),
         help='Base path containing ai-knowledge-* repositories'
     )
     compile_parser.add_argument(

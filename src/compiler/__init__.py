@@ -404,7 +404,7 @@ def compile_project(config: dict,
 
     # Determine base_path for ai-knowledge repos
     if not base_path:
-        base_path = os.path.expanduser('~/projects/my-projects/ai-knowledge')
+        base_path = os.path.expanduser('~/workspaces/rajiv')
 
     # =========================================================================
     # PRIVACY SAFEGUARD: Validate output destination for personalized builds
@@ -738,7 +738,7 @@ def compile_all_with_inheritance(
         - errors: List of any errors
     """
     if not base_path:
-        base_path = os.path.expanduser('~/projects/my-projects/ai-knowledge')
+        base_path = os.path.expanduser('~/workspaces/rajiv')
 
     # Expand ~ in output path
     if output_repo_path.startswith('~'):
