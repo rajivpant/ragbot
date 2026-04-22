@@ -51,12 +51,54 @@ def _get_default_ai_knowledge_paths():
 DEFAULT_AI_KNOWLEDGE_PATHS = _get_default_ai_knowledge_paths()
 
 
+# Environment variable for owner-context discovery override.
+# When set to "1" or "true", *-private repos will NOT be filtered out.
+# This should ONLY be used when the current user is the owner of those private repos.
+# Default (unset) behavior: filter out all *-private repos — safe for team contexts.
+_OWNER_CONTEXT_ENV = 'RAGBOT_OWNER_CONTEXT'
+
+
+def _is_owner_context() -> bool:
+    """Check if running in owner context (allows -private repos to be discovered)."""
+    value = os.environ.get(_OWNER_CONTEXT_ENV, '').lower()
+    return value in ('1', 'true', 'yes')
+
+
+def _is_private_repo(repo_path: str, repo_name: str) -> bool:
+    """Check if a repo is a workspace-private repo per ADR-014.
+
+    A repo is considered private if ANY of:
+    - Name ends with '-private' (e.g., ai-knowledge-example-client-person-private)
+    - A sentinel file `.ai-knowledge-private-owner` exists at the repo root
+
+    Private repos MUST be filtered from default discovery. They are only
+    included when _is_owner_context() returns True (see ADR-014, ADR-020).
+
+    Args:
+        repo_path: Absolute path to the repo directory
+        repo_name: Basename of the repo (e.g., 'ai-knowledge-example-private')
+
+    Returns:
+        True if the repo is private and should be filtered out by default
+    """
+    if repo_name.endswith('-private'):
+        return True
+    sentinel = os.path.join(repo_path, '.ai-knowledge-private-owner')
+    if os.path.isfile(sentinel):
+        return True
+    return False
+
 
 def discover_ai_knowledge_repos(ai_knowledge_root: str) -> Dict[str, Dict[str, Any]]:
     """
     Auto-discover ai-knowledge repos by convention.
 
     Convention: Any directory matching 'ai-knowledge-*' is recognized as a workspace.
+
+    Private repos (matching 'ai-knowledge-*-private' or containing a
+    `.ai-knowledge-private-owner` sentinel file) are filtered out by default
+    per ADR-014. Set the RAGBOT_OWNER_CONTEXT environment variable to '1' to
+    include them (owner-context compilation per ADR-020).
 
     Args:
         ai_knowledge_root: Root directory containing ai-knowledge-* folders
@@ -69,12 +111,18 @@ def discover_ai_knowledge_repos(ai_knowledge_root: str) -> Dict[str, Dict[str, A
     if not os.path.isdir(ai_knowledge_root):
         return discovered
 
+    owner_context = _is_owner_context()
+
     for item in os.listdir(ai_knowledge_root):
         if not item.startswith('ai-knowledge-'):
             continue
 
         repo_path = os.path.join(ai_knowledge_root, item)
         if not os.path.isdir(repo_path):
+            continue
+
+        # ADR-014: filter out -private repos unless in owner context
+        if _is_private_repo(repo_path, item) and not owner_context:
             continue
 
         workspace_name = item.replace('ai-knowledge-', '')
@@ -147,17 +195,23 @@ def _load_centralized_inheritance(ai_knowledge_root: str) -> Dict[str, Any]:
     if not os.path.isdir(ai_knowledge_root):
         return {}
 
+    owner_context = _is_owner_context()
+
     for item in os.listdir(ai_knowledge_root):
         if not item.startswith('ai-knowledge-'):
             continue
         repo_path = os.path.join(ai_knowledge_root, item)
-        if os.path.isdir(repo_path):
-            config_path = find_inheritance_config(repo_path)
-            if config_path:
-                try:
-                    return load_inheritance_config(config_path)
-                except Exception:
-                    pass
+        if not os.path.isdir(repo_path):
+            continue
+        # ADR-014: filter out -private repos unless in owner context
+        if _is_private_repo(repo_path, item) and not owner_context:
+            continue
+        config_path = find_inheritance_config(repo_path)
+        if config_path:
+            try:
+                return load_inheritance_config(config_path)
+            except Exception:
+                pass
     return {}
 
 
