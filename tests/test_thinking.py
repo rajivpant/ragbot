@@ -42,10 +42,13 @@ class TestResolveThinkingForModel:
     * Env-var override wins over engines.yaml default but loses to per-call.
     """
 
-    def test_flagship_defaults_to_medium(self, monkeypatch):
+    def test_flagship_claude_4_7_uses_adaptive_thinking_shape(self, monkeypatch):
+        # Claude 4.7+ requires the new ``thinking.type.adaptive`` shape;
+        # LiteLLM's reasoning_effort mapper still emits the older
+        # ``thinking.type.enabled`` form which the API rejects.
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
         out = _resolve_thinking_for_model("anthropic/claude-opus-4-7")
-        assert out == {"reasoning_effort": "medium"}
+        assert out == {"thinking": {"type": "adaptive"}, "temperature": 1.0}
 
     def test_non_flagship_with_thinking_defaults_to_off(self, monkeypatch):
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
@@ -57,10 +60,12 @@ class TestResolveThinkingForModel:
         out = _resolve_thinking_for_model("anthropic/claude-haiku-4-5-20251001")
         assert out == {}
 
-    def test_per_call_override_wins(self, monkeypatch):
+    def test_per_call_override_for_claude_4_6_uses_reasoning_effort_with_temp_override(self, monkeypatch):
+        # Pre-4.7 Claude still supports reasoning_effort via LiteLLM's mapper,
+        # but extended thinking on Anthropic requires temperature=1.
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
         out = _resolve_thinking_for_model("anthropic/claude-sonnet-4-6", requested_effort="high")
-        assert out == {"reasoning_effort": "high"}
+        assert out == {"reasoning_effort": "high", "temperature": 1.0}
 
     def test_per_call_off_disables_flagship_default(self, monkeypatch):
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
@@ -71,12 +76,12 @@ class TestResolveThinkingForModel:
         # Sonnet defaults to off; env says low.
         monkeypatch.setenv("RAGBOT_THINKING_EFFORT", "low")
         out = _resolve_thinking_for_model("anthropic/claude-sonnet-4-6")
-        assert out == {"reasoning_effort": "low"}
+        assert out == {"reasoning_effort": "low", "temperature": 1.0}
 
     def test_per_call_override_beats_env_var(self, monkeypatch):
         monkeypatch.setenv("RAGBOT_THINKING_EFFORT", "high")
         out = _resolve_thinking_for_model("anthropic/claude-sonnet-4-6", requested_effort="low")
-        assert out == {"reasoning_effort": "low"}
+        assert out == {"reasoning_effort": "low", "temperature": 1.0}
 
     def test_models_without_thinking_metadata_ignore_overrides(self, monkeypatch):
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
@@ -93,12 +98,13 @@ class TestResolveThinkingForModel:
             "anthropic/claude-opus-4-7",
             requested_effort="ridiculous",
         )
-        # Falls back to engines.yaml default (flagship → medium).
-        assert out == {"reasoning_effort": "medium"}
+        # Falls back to engines.yaml default (flagship → adaptive thinking shape).
+        assert out == {"thinking": {"type": "adaptive"}, "temperature": 1.0}
 
     def test_gemini_flagship_defaults_to_medium(self, monkeypatch):
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
         out = _resolve_thinking_for_model("gemini/gemini-3.1-pro-preview")
+        # Non-Anthropic provider — no temperature override needed.
         assert out == {"reasoning_effort": "medium"}
 
     def test_openai_flagship_defaults_to_medium(self, monkeypatch):

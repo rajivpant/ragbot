@@ -1855,8 +1855,13 @@ def get_relevant_context(workspace_name, query: str,
         # Rough token estimate
         text_tokens = len(text) // 4
 
+        # Skip oversized chunks rather than terminating: results are
+        # ranked by score, so an oversized top-ranked chunk would lock
+        # out smaller, lower-ranked chunks that still fit. This matters
+        # for skill-script chunks (whole-file) that can be much larger
+        # than typical markdown chunks.
         if current_tokens + text_tokens > max_tokens:
-            break
+            continue
 
         source = result['metadata'].get('filename', 'unknown')
         content_type = result['metadata'].get('content_type', 'content')

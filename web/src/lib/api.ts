@@ -10,6 +10,8 @@ export interface Message {
   content: string;
 }
 
+export type ThinkingEffort = 'auto' | 'off' | 'minimal' | 'low' | 'medium' | 'high';
+
 export interface ChatRequest {
   prompt: string;
   workspace?: string;
@@ -20,6 +22,18 @@ export interface ChatRequest {
   rag_max_tokens?: number;
   history?: Message[];
   stream?: boolean;
+  /**
+   * Reasoning / thinking effort. Defaults: flagship → "medium", non-flagship → "off",
+   * models without thinking metadata → ignored. Override here or via the
+   * RAGBOT_THINKING_EFFORT env on the server.
+   */
+  thinking_effort?: ThinkingEffort;
+  /**
+   * Extra workspaces to query alongside the primary one. When omitted, the
+   * "skills" workspace is auto-included if it has indexed content. Pass an
+   * empty array to opt out, or a list of workspace names for explicit fan-out.
+   */
+  additional_workspaces?: string[];
 }
 
 export interface WorkspaceInfo {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Message, chatStream } from '@/lib/api';
+import { Message, chatStream, type ThinkingEffort } from '@/lib/api';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SettingsPanel } from './SettingsPanel';
@@ -23,6 +23,9 @@ export function Chat() {
   const [ragMaxTokens, setRagMaxTokens] = useState(16000);
   const [maxTokens, setMaxTokens] = useState(4096);
   const [showSettings, setShowSettings] = useState(true); // Start expanded
+  // v3 reasoning + cross-workspace controls
+  const [thinkingEffort, setThinkingEffort] = useState<ThinkingEffort | undefined>(undefined);
+  const [includeSkills, setIncludeSkills] = useState<boolean>(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +69,10 @@ export function Chat() {
         rag_max_tokens: ragMaxTokens,
         history: messages,
         stream: true,
+        thinking_effort: thinkingEffort,
+        // includeSkills=true → undefined (use server-side auto-include)
+        // includeSkills=false → empty array (explicit opt-out)
+        additional_workspaces: includeSkills ? undefined : [],
       });
 
       for await (const chunk of stream) {
@@ -153,6 +160,10 @@ export function Chat() {
           conversationTokens={conversationStats.tokens}
           onClearChat={handleClear}
           disabled={isStreaming}
+          thinkingEffort={thinkingEffort}
+          onThinkingEffortChange={setThinkingEffort}
+          includeSkills={includeSkills}
+          onIncludeSkillsChange={setIncludeSkills}
         />
       )}
 

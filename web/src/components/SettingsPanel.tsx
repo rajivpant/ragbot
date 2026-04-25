@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getModels, getWorkspaces, getIndexStatus, indexWorkspace, getConfig, getProviders, getTemperatureSettings, getKeysStatus, type ModelInfo, type WorkspaceInfo, type IndexStatus, type ProviderInfo, type KeysStatusResponse, type KeyStatus } from '@/lib/api';
+import { getModels, getWorkspaces, getIndexStatus, indexWorkspace, getConfig, getProviders, getTemperatureSettings, getKeysStatus, type ModelInfo, type WorkspaceInfo, type IndexStatus, type ProviderInfo, type KeysStatusResponse, type KeyStatus, type ThinkingEffort } from '@/lib/api';
 
 interface SettingsPanelProps {
   workspace: string | undefined;
@@ -20,6 +20,12 @@ interface SettingsPanelProps {
   conversationTokens: number;
   onClearChat: () => void;
   disabled?: boolean;
+  // v3 reasoning + cross-workspace controls (optional — caller may omit
+  // for backwards compatibility; the panel hides them gracefully).
+  thinkingEffort?: ThinkingEffort;
+  onThinkingEffortChange?: (effort: ThinkingEffort | undefined) => void;
+  includeSkills?: boolean;
+  onIncludeSkillsChange?: (include: boolean) => void;
 }
 
 // Category labels - these are UI display names, not configuration
@@ -50,6 +56,10 @@ export function SettingsPanel({
   conversationTokens,
   onClearChat,
   disabled,
+  thinkingEffort,
+  onThinkingEffortChange,
+  includeSkills,
+  onIncludeSkillsChange,
 }: SettingsPanelProps) {
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -441,6 +451,48 @@ export function SettingsPanel({
                 >
                   {indexing ? '...' : indexStatus?.indexed ? '🔄 Rebuild' : '📚 Index'}
                 </button>
+              </div>
+            )}
+
+            {/* Cross-workspace skills auto-include toggle (v3+) */}
+            {onIncludeSkillsChange !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">🧩 Skills</span>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={includeSkills ?? true}
+                    onChange={(e) => onIncludeSkillsChange(e.target.checked)}
+                    disabled={disabled}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Auto-include</span>
+                </label>
+              </div>
+            )}
+
+            {/* Reasoning / thinking effort (v3+) */}
+            {onThinkingEffortChange !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">🧠 Thinking</span>
+                <select
+                  value={thinkingEffort ?? 'auto'}
+                  onChange={(e) => {
+                    const v = e.target.value as ThinkingEffort;
+                    onThinkingEffortChange(v === 'auto' ? undefined : v);
+                  }}
+                  disabled={disabled}
+                  className="rounded border border-gray-300 dark:border-gray-600
+                             bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                  title="Reasoning effort. Defaults: flagship → medium, others → off."
+                >
+                  <option value="auto">auto</option>
+                  <option value="off">off</option>
+                  <option value="minimal">minimal</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
               </div>
             )}
 

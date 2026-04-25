@@ -347,19 +347,12 @@ def run_chat(args):
 
     new_session = True if not args.load else False
 
-    # Load workspaces from ragbot-data directory
-    data_root = os.getenv('RAGBOT_DATA_ROOT')
-
-    if data_root is None:
-        if os.path.isdir('/app/workspaces'):
-            data_root = '/app'
-        elif os.path.isdir('workspaces'):
-            data_root = '.'
-        elif os.path.isdir('../ragbot-data/workspaces'):
-            data_root = '../ragbot-data'
-        else:
-            data_root = '.'
-
+    # Workspace discovery for the chat command:
+    #   - Honour RAGBOT_DATA_ROOT (legacy flat-parent override) when set.
+    #   - Honour RAGBOT_BASE_PATH (the canonical override used elsewhere).
+    #   - Otherwise fall through to the full discovery chain
+    #     (~/.synthesis/console.yaml, ~/workspaces/*/ai-knowledge-*, legacy fallbacks).
+    data_root = os.getenv('RAGBOT_DATA_ROOT') or os.getenv('RAGBOT_BASE_PATH')
     profiles = load_workspaces_as_profiles(data_root)
 
     workspace_name = None
