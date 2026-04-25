@@ -262,9 +262,23 @@ def _build_repo_metadata(workspace_name: str, repo_path: str) -> Optional[Dict[s
     knowledge_dir = os.path.join(compiled_base, "knowledge")
 
     source_dir = os.path.join(repo_path, "source")
+    source_datasets_dir = os.path.join(source_dir, "datasets")
+    source_instructions_dir = os.path.join(source_dir, "instructions")
     has_source = os.path.isdir(source_dir)
-    has_instructions = os.path.isdir(instructions_dir)
-    has_knowledge = os.path.isdir(knowledge_dir)
+    # ``has_instructions`` and ``has_datasets`` reflect "is there any source
+    # of this content the user can chat against," not "is a pre-compiled
+    # bundle on disk." The pre-v3 architecture wrote compiled/{name}/knowledge/
+    # but the v3 compiler ships only compiled/{name}/instructions/ — knowledge
+    # concatenation moved to CI/CD. Falling back to source/* keeps the UI
+    # honest under both layouts.
+    has_instructions = (
+        os.path.isdir(instructions_dir)
+        or os.path.isdir(source_instructions_dir)
+    )
+    has_knowledge = (
+        os.path.isdir(knowledge_dir)
+        or os.path.isdir(source_datasets_dir)
+    )
 
     if not (has_instructions or has_knowledge or has_source or config):
         return None
