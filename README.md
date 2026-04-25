@@ -1,3 +1,28 @@
+## What's New in v3.2
+
+Ragbot v3.2 (April 2026) ships a one-command demo mode and a refreshed
+screenshot set captured against it:
+
+- **Demo mode** via `RAGBOT_DEMO=1` (or `ragbot --demo`) ships a small
+  bundled workspace and skill in `demo/`, hard-isolates discovery from
+  the user's real workspaces, and surfaces an unmistakable banner in
+  the Web UI. Anyone can clone the repo, set an API key, and have a
+  working chat with RAG retrieval in under a minute — no database or
+  workspace setup needed.
+- **`/health` and `/api/config`** report `demo_mode` so any consumer
+  (UI, ops dashboards, screenshot tools) can render the right
+  affordances.
+- **Twenty new tests** lock in the discovery isolation contract so a
+  future change can't accidentally let real workspace or skill names
+  leak through when demo mode is on.
+
+![Ragbot v3.2 demo — settings panel and welcome state](screenshots/v3.2/01-hero-settings-panel.png)
+
+A live conversation in demo mode showing RAG retrieval citing the
+bundled sample documents:
+
+![Ragbot v3.2 chat with RAG response](screenshots/v3.2/02-chat-with-response.png)
+
 ## What's New in v3.1
 
 Ragbot v3.1 (April 2026) adds an LLM backend abstraction that decouples ragbot from any single provider gateway:
@@ -224,6 +249,44 @@ docker-compose up -d
 - 🐳 **Docker deployment:** See [README-DOCKER.md](README-DOCKER.md) for deployment guide
 - 🤝 **Contributing safely:** Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing
 - ⚙️ **Detailed setup:** Follow the [installation guide](INSTALL.md) and [configuration guide](CONFIGURE.md)
+
+Try the Demo (v3.2+)
+--------------------
+
+Want to evaluate ragbot end-to-end without setting up a workspace, a
+database, or any data? Use demo mode:
+
+```bash
+git clone https://github.com/rajivpant/ragbot.git
+cd ragbot
+cp .env.example .env
+# Edit .env to set at least one API key (Anthropic, OpenAI, or Google).
+
+# Install Python deps (in your preferred virtualenv):
+pip install -r requirements.txt
+
+# Start the bundled Postgres + ragbot stack:
+docker compose up -d
+
+# Run any subcommand in demo mode:
+RAGBOT_DEMO=1 python3 src/ragbot.py db status
+RAGBOT_DEMO=1 python3 src/ragbot.py skills list
+RAGBOT_DEMO=1 python3 src/ragbot.py chat -p "What is ragbot?"
+```
+
+Or for the Web UI:
+
+```bash
+RAGBOT_DEMO=1 python3 -m uvicorn src.api.main:app --port 8000 &
+cd web && npm install && NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+# Open http://localhost:3000 — you'll see a yellow "🎭 Demo mode" banner.
+```
+
+Demo mode hard-isolates discovery to the bundled `demo/ai-knowledge-demo/`
+workspace and `demo/skills/ragbot-demo-skill/`. Real workspaces on the
+host are invisible to discovery while `RAGBOT_DEMO=1` is set, so the
+demo is safe to drive in front of an audience or to capture
+screenshots from. Unset the env var to return to your real workspaces.
 
 Configuration Layout (v3+)
 -------------------------
@@ -493,9 +556,34 @@ Read the [installation guide](INSTALL.md) and the [configuration and personaliat
 
 Using the Web version
 ---------------------
-![](screenshots/Screenshot%202023-06-16%20at%2010.53.12%20PM.png)
-![](screenshots/Screenshot%202024-04-10%20at%2010.46.02 PM.png)
-![](screenshots/Screenshot%202023-08-02%20at%2010.30.37%20PM.png)
+_The screenshots below were captured against the bundled demo workspace in v3.2 (April 2026). Open the [`screenshots/v3.2/`](screenshots/v3.2/) directory for the full set._
+
+**Settings panel and welcome state**
+
+![Ragbot Web UI — settings panel and welcome state](screenshots/v3.2/01-hero-settings-panel.png)
+
+**A chat that retrieves from the bundled sample documents**
+
+![Ragbot Web UI — chat with RAG-augmented response](screenshots/v3.2/02-chat-with-response.png)
+
+**Advanced settings expanded**
+
+![Ragbot Web UI — advanced settings expanded](screenshots/v3.2/03-advanced-settings.png)
+
+**Cross-workspace skills auto-include**
+
+A follow-up question retrieves from the bundled demo skill via the cross-workspace fan-out:
+
+![Ragbot Web UI — cross-workspace skills retrieval](screenshots/v3.2/04-skills-via-cross-workspace.png)
+
+<!--
+Legacy screenshots from earlier ragbot versions, kept on disk for archival
+reference but no longer rendered in the README. The v3.2 captures above
+reflect the current Web UI.
+  - screenshots/Screenshot 2023-06-16 at 10.53.12 PM.png
+  - screenshots/Screenshot 2024-04-10 at 10.46.02 PM.png
+  - screenshots/Screenshot 2023-08-02 at 10.30.37 PM.png
+-->
 
 
 Using the command line interface

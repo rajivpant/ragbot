@@ -144,6 +144,16 @@ CLI: `ragbot skills list`, `ragbot skills info <name>`, `ragbot skills index [--
 
 Backend code lives in `src/ragbot/skills/`.
 
+### Demo Mode (v3.2+)
+
+`RAGBOT_DEMO=1` (or `ragbot --demo`) hard-isolates discovery to the bundled `demo/ai-knowledge-demo/` workspace and the bundled `demo/skills/ragbot-demo-skill/`. The user's real workspaces declared in `~/.synthesis/console.yaml` and any glob-discovered repos under `~/workspaces/*/` are invisible while demo mode is on.
+
+Auto-index runs on first demo invocation: the bundled content lands in the configured vector store under workspace names `demo` and `demo_skills`. Subsequent demo invocations see the existing chunks and skip re-indexing.
+
+`/health` and `/api/config` both return `demo_mode: true` when active. The healthcheck's `vector_backend.workspaces` count is filtered to demo-visible collections only — real workspace counts can't leak through the UI even when other collections exist on the same vector store. The Web UI (`Chat.tsx`) renders a yellow banner whenever the server reports `demo_mode: true`.
+
+Code: `src/ragbot/demo.py` (helpers), `src/ragbot/workspaces.py::resolve_repo_index` (discovery short-circuit), `src/ragbot/skills/discovery.py::discover_skills` (skill discovery short-circuit), `src/ragbot.py::_ensure_demo_indexed` (auto-index hook), `src/api/main.py` + `src/api/routers/config.py` (API surfacing).
+
 ### LLM Backend Abstraction
 
 Ragbot routes every LLM call through a backend interface (`src/ragbot/llm/`) so the underlying provider gateway is swappable without touching the chat code path.

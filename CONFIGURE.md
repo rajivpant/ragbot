@@ -81,6 +81,44 @@ Default discovery roots:
 
 When the `skills` workspace has indexed content, `ragbot chat` automatically merges its results with the user's selected workspace. Override per-call with `--no-skills` (opt out) or `--workspace foo --workspace bar` (explicit list).
 
+### Demo mode (v3.2+)
+
+Set `RAGBOT_DEMO=1` (or run `ragbot --demo`) to evaluate ragbot
+end-to-end without configuring a workspace, an inheritance chain, or
+the user-config files. Demo mode does three things:
+
+1. **Discovery isolation.** The discovery layer returns ONLY the
+   bundled `demo/ai-knowledge-demo/` workspace and the bundled
+   `demo/skills/ragbot-demo-skill/` skill. Real workspaces declared
+   in `~/.synthesis/console.yaml` and any glob-discovered repos under
+   `~/workspaces/*/` are invisible while demo mode is on.
+2. **Auto-indexing.** On the first demo invocation, ragbot indexes the
+   bundled content into the configured vector store under the
+   `demo` workspace (and a separate `demo_skills` workspace for the
+   bundled skill). Idempotent on subsequent runs.
+3. **API + Web UI signal.** `/health` and `/api/config` both return
+   `demo_mode: true`. The Web UI renders a yellow banner so screenshots
+   captured in demo mode are unmistakably demo. The healthcheck's
+   `vector_backend.workspaces` count is filtered to demo-visible
+   collections only — your real workspace count won't leak through the
+   UI even if other collections exist on the same vector store.
+
+```bash
+# Run any subcommand in demo mode:
+RAGBOT_DEMO=1 ragbot db status
+RAGBOT_DEMO=1 ragbot skills list
+RAGBOT_DEMO=1 ragbot chat -p "What is ragbot?"
+
+# Or as a top-level flag:
+ragbot --demo db status
+ragbot --demo chat -p "What is ragbot?"
+```
+
+To exit demo mode, simply unset the env var: `unset RAGBOT_DEMO`. The
+auto-indexed `demo` and `demo_skills` workspaces remain in the vector
+store and can be cleared with `ragbot db status` followed by manual
+cleanup if desired; they won't appear in non-demo discovery.
+
 ### LLM backend selection
 
 Ragbot v3.1+ routes every LLM call through a swappable backend interface (`src/ragbot/llm/`). Two backends ship:
