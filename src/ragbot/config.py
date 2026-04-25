@@ -5,6 +5,7 @@ All model and provider configuration is loaded from engines.yaml - never hardcod
 """
 
 import os
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 import yaml
 
@@ -12,8 +13,34 @@ from .exceptions import ConfigurationError
 from .keystore import get_api_key, check_api_keys as keystore_check_api_keys
 
 
-# Version of the ragbot library
-VERSION = "2.0.0"
+def _read_version() -> str:
+    """Read the project version.
+
+    Resolution order:
+      1. ``RAGBOT_VERSION`` env var (useful for development overrides).
+      2. ``VERSION`` file at the repository root (single source of truth).
+      3. Hard-coded fallback (only hit if neither of the above is available,
+         e.g., the package is imported from an installed wheel without the
+         VERSION file).
+    """
+
+    env = os.environ.get("RAGBOT_VERSION")
+    if env:
+        return env.strip()
+    # repo root is two parents above this file: src/ragbot/config.py → repo
+    candidates = [
+        Path(__file__).resolve().parents[2] / "VERSION",
+        Path(__file__).resolve().parents[3] / "VERSION",  # in case of layout shift
+    ]
+    for path in candidates:
+        try:
+            return path.read_text().strip() or "0.0.0"
+        except OSError:
+            continue
+    return "0.0.0"
+
+
+VERSION = _read_version()
 
 # Default settings (fallbacks only - prefer engines.yaml values)
 DEFAULT_MAX_TOKENS = 4096
@@ -32,7 +59,8 @@ def _find_engines_yaml() -> str:
     1. RAGBOT_ENGINES_PATH environment variable
     2. Current working directory
     3. Ragbot package directory (src/ragbot/../..)
-    4. User's home directory/.config/ragbot/
+    4. ~/.synthesis/ (synthesis-engineering shared config home)
+    5. ~/.config/ragbot/ (legacy fallback)
 
     Returns:
         Path to engines.yaml
@@ -54,9 +82,11 @@ def _find_engines_yaml() -> str:
     package_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     search_paths.append(os.path.join(package_dir, 'engines.yaml'))
 
-    # 4. User config directory
-    config_dir = os.path.expanduser('~/.config/ragbot')
-    search_paths.append(os.path.join(config_dir, 'engines.yaml'))
+    # 4. Synthesis-engineering shared config home
+    search_paths.append(os.path.expanduser('~/.synthesis/engines.yaml'))
+
+    # 5. Legacy user config directory
+    search_paths.append(os.path.expanduser('~/.config/ragbot/engines.yaml'))
 
     for path in search_paths:
         if os.path.exists(path):
@@ -207,6 +237,9 @@ def get_all_models() -> Dict[str, List[Dict[str, Any]]]:
                 "max_temperature": model.get('max_temperature', 1.0),
                 "default_max_tokens": model.get('default_max_tokens', DEFAULT_MAX_TOKENS),
                 "is_flagship": model.get('is_flagship', False),
+                # Forward thinking metadata (supported flag, mode, modes,
+                # features) so callers can decide how to set reasoning_effort.
+                "thinking": model.get('thinking') or {},
             })
 
         if models:
