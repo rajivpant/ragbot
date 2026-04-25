@@ -1,0 +1,40 @@
+# Demo workspace for ragbot. Bundled in the repo so anyone can run
+# `ragbot --demo` without external setup.
+#
+# This is intentionally a minimal example. Real workspaces typically live
+# at ~/workspaces/{name}/ai-knowledge-{name}/ and are discovered via
+# ~/.synthesis/console.yaml; the demo workspace is hard-isolated when
+# RAGBOT_DEMO=1 so it never mixes with a user's real workspaces.
+
+project:
+  name: demo
+  description: Bundled demo workspace shipped with ragbot.
+  inherits_from: []
+  output_dir: ./compiled
+
+sources:
+  local:
+    path: ./source
+    include:
+      - "**/*"
+    exclude:
+      - "**/.DS_Store"
+
+compilation:
+  default_token_budget: 50000
+  default_compiler:
+    engine: anthropic
+    model_category: medium
+  targets:
+    - name: claude
+      platform: anthropic
+      model_category: medium
+      output: compiled/demo/instructions/claude.md
+    - name: chatgpt
+      platform: openai
+      model_category: medium
+      output: compiled/demo/instructions/chatgpt.md
+    - name: gemini
+      platform: google
+      model_category: medium
+      output: compiled/demo/instructions/gemini.md
