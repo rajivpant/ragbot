@@ -83,7 +83,7 @@ Work logs for this project are in the private knowledge base.
 **In private work log:**
 ```markdown
 **Project:** ragbot/ai-knowledge-compiler
-**Public docs:** https://github.com/rajivpant/ragbot/tree/main/projects/active/ai-knowledge-compiler
+**Public docs:** https://github.com/synthesisengineering/ragbot/tree/main/projects/active/ai-knowledge-compiler
 ```
 
 ### Why This Split?
@@ -447,7 +447,7 @@ All repositories use a consistent `projects/` folder structure:
 - `projects/work-logs/` - Session history (YYYY-MM-DD-summary.md)
 - `projects/lessons-learned/` - Cross-cutting insights
 
-See: https://github.com/rajivpant/ragbot/blob/main/docs/conventions/project-documentation.md
+See: https://github.com/synthesisengineering/ragbot/blob/main/docs/conventions/project-documentation.md
 ```
 
 ### AI Knowledge Repos

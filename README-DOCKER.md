@@ -440,7 +440,7 @@ docker system prune -a
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/rajivpant/ragbot/issues
+- GitHub Issues: https://github.com/synthesisengineering/ragbot/issues
 - Documentation: See main README.md
 
 ## License

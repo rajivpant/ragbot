@@ -65,7 +65,7 @@ Once you have Python and pip installed, you can download the RagBot.AI code from
 1.  Clone the RagBot.AI repository from GitHub:
 
     ```bash
-    git clone https://github.com/rajivpant/ragbot.git
+    git clone https://github.com/synthesisengineering/ragbot.git
     ```
 
 2.  Navigate to the RagBot.AI directory:

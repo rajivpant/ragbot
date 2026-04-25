@@ -90,9 +90,9 @@ Your existing workflow doesn't change:
 - ✅ RaGenie mounts ragbot-data read-only (never modifies your files)
 
 **Migration Resources:**
-- **RaGenie Repository:** [github.com/rajivpant/ragenie](https://github.com/rajivpant/ragenie)
+- **RaGenie Repository:** [github.com/synthesisengineering/ragenie](https://github.com/synthesisengineering/ragenie)
 - **Integration Guide:** [RAGENIE_INTEGRATION.md](https://github.com/rajivpant/ragbot-data/blob/main/RAGENIE_INTEGRATION.md)
-- **Quick Start:** [RaGenie QUICKSTART.md](https://github.com/rajivpant/ragenie/blob/main/QUICKSTART.md)
+- **Quick Start:** [RaGenie QUICKSTART.md](https://github.com/synthesisengineering/ragenie/blob/main/QUICKSTART.md)
 
 ### Development Status
 
@@ -116,7 +116,7 @@ Both products are actively developed:
 Ragbot.AI
 =========
 
-🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
+🤖 [Ragbot.AI (formerly named rbot)](https://github.com/synthesisengineering/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
 🚀 Ragbot.AI processes user prompts along with instructions, datasets, runbooks, and Agent Skills, enabling context-aware responses. Powered by the latest LLMs — OpenAI's GPT-5.5 family, Anthropic's Claude Sonnet 4.6 and Claude Opus 4.7, and Google's Gemini 3.x series — Ragbot.AI uses retrieval-augmented generation backed by PostgreSQL + pgvector for vector search and native full-text search.
 
@@ -150,7 +150,7 @@ How to Contribute
 
 Your code contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for important safety guidelines (especially about not committing personal data), then fork the repository and submit a pull request with your improvements.
 
-[![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/rajivpant/ragbot)
+[![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/synthesisengineering/ragbot)
 
 Blog Post Introducing Ragbot.AI
 --------------------------
@@ -190,7 +190,7 @@ Get Ragbot running in 5 minutes:
 
 ```bash
 # 1. Clone this repository
-git clone https://github.com/rajivpant/ragbot.git
+git clone https://github.com/synthesisengineering/ragbot.git
 cd ragbot
 
 # 2. Set up your API keys
@@ -218,7 +218,7 @@ If you want to keep your data in a separate directory or private repository:
 
 ```bash
 # 1. Clone Ragbot
-git clone https://github.com/rajivpant/ragbot.git
+git clone https://github.com/synthesisengineering/ragbot.git
 cd ragbot
 
 # 2. Create your data directory
@@ -257,7 +257,7 @@ Want to evaluate ragbot end-to-end without setting up a workspace, a
 database, or any data? Use demo mode:
 
 ```bash
-git clone https://github.com/rajivpant/ragbot.git
+git clone https://github.com/synthesisengineering/ragbot.git
 cd ragbot
 cp .env.example .env
 # Edit .env to set at least one API key (Anthropic, OpenAI, or Google).

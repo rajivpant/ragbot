@@ -204,7 +204,7 @@ ragbot/ (public)                ai-knowledge-*/ (private)
 **Quick Start:**
 ```bash
 # 1. Clone Ragbot
-git clone https://github.com/rajivpant/ragbot.git
+git clone https://github.com/synthesisengineering/ragbot.git
 cd ragbot
 pip install -e .
 

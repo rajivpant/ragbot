@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ragbot.py - https://github.com/rajivpant/ragbot
+# ragbot.py - https://github.com/synthesisengineering/ragbot
 
 import os
 import sys
