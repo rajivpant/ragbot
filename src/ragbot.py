@@ -662,8 +662,14 @@ def run_skills_index(args):
 
 
 def run_db_status(args):
-    """Print backend health and indexed collections."""
+    """Print backend health and indexed collections.
+
+    In demo mode the listing is filtered to only the bundled demo
+    workspace, so screenshots taken with ``RAGBOT_DEMO=1`` cannot leak
+    real workspace names that happen to exist on the same vector store.
+    """
     from ragbot.vectorstore import get_vector_store
+    from ragbot.demo import is_demo_mode, DEMO_WORKSPACE_NAME
 
     vs = get_vector_store()
     if vs is None:
@@ -680,6 +686,13 @@ def run_db_status(args):
         print(f"  {k}: {v}")
 
     collections = vs.list_collections()
+    if is_demo_mode():
+        # Show only demo-scoped collections. Hide everything else so
+        # screenshots cannot leak real workspace names that happen to
+        # exist on the same vector store.
+        from ragbot.demo import DEMO_SKILLS_WORKSPACE_NAME
+        allowed = {DEMO_WORKSPACE_NAME, DEMO_SKILLS_WORKSPACE_NAME}
+        collections = [c for c in collections if c in allowed]
     print(f"\nIndexed collections ({len(collections)}):")
     if not collections:
         print("  (none)")
@@ -920,6 +933,15 @@ def main():
         description="Ragbot.AI - An augmented brain and AI assistant. Learn more at https://ragbot.ai"
     )
 
+    # Top-level --demo flag: equivalent to setting RAGBOT_DEMO=1 for the
+    # rest of the process. Activates the bundled demo workspace and skill,
+    # hard-isolating from any real workspaces or skills on the host.
+    parser.add_argument(
+        '--demo',
+        action='store_true',
+        help='Run in demo mode using the bundled sample workspace and skill.'
+    )
+
     subparsers = parser.add_subparsers(
         title='commands',
         description='Available commands',
@@ -936,6 +958,11 @@ def main():
     # Parse arguments
     args = parser.parse_args()
 
+    # If --demo was passed at the top level (or on a subcommand), set the
+    # env var early so every later import that reads RAGBOT_DEMO sees it.
+    if getattr(args, 'demo', False):
+        os.environ['RAGBOT_DEMO'] = '1'
+
     # If no command specified, default to chat behavior for backward compatibility
     if args.command is None:
         # Re-parse with 'chat' as the default command
@@ -944,6 +971,13 @@ def main():
         #   ragbot -i
         sys.argv.insert(1, 'chat')
         args = parser.parse_args()
+        if getattr(args, 'demo', False):
+            os.environ['RAGBOT_DEMO'] = '1'
+
+    # Demo mode: ensure the bundled workspace is indexed before any
+    # subcommand runs. First-run setup; idempotent on subsequent runs.
+    if os.environ.get('RAGBOT_DEMO', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        _ensure_demo_indexed()
 
     # Run the appropriate command
     if hasattr(args, 'func'):
@@ -951,6 +985,56 @@ def main():
     else:
         parser.print_help()
         return 1
+
+
+def _ensure_demo_indexed() -> None:
+    """First-run auto-indexing for demo mode.
+
+    Indexes the bundled demo workspace and demo skill into the configured
+    vector backend (typically pgvector) under the canonical 'demo'
+    workspace name. Idempotent: if the workspace already has chunks,
+    this is a no-op.
+    """
+    try:
+        from ragbot.demo import DEMO_WORKSPACE_NAME, demo_workspace_path
+        from rag import (
+            get_index_status,
+            index_content,
+            index_skills,
+            init_collection,
+        )
+    except Exception:
+        # Imports might fail in narrow contexts (e.g., db status). Skip
+        # silently — discovery still hard-isolates either way.
+        return
+
+    workspace_path = demo_workspace_path()
+    if workspace_path is None:
+        return
+
+    # Skip if already indexed.
+    indexed, count = get_index_status(DEMO_WORKSPACE_NAME)
+    if indexed and count > 0:
+        return
+
+    init_collection(DEMO_WORKSPACE_NAME)
+    source_dir = workspace_path / 'source'
+    for category in ('datasets', 'runbooks', 'instructions'):
+        category_dir = source_dir / category
+        if category_dir.is_dir():
+            try:
+                index_content(DEMO_WORKSPACE_NAME, [str(category_dir)], content_type=category)
+            except Exception as exc:  # noqa: BLE001
+                print(f"Demo: skipped {category} indexing ({exc})", file=sys.stderr)
+
+    # Index the bundled demo skill into a demo-scoped workspace so the
+    # demo's cross-workspace fan-out can NOT retrieve real skill content
+    # that happens to share the host vector store.
+    try:
+        from ragbot.demo import DEMO_SKILLS_WORKSPACE_NAME
+        index_skills(workspace_name=DEMO_SKILLS_WORKSPACE_NAME, force=False)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

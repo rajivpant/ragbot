@@ -12,6 +12,14 @@ export interface Message {
 
 export type ThinkingEffort = 'auto' | 'off' | 'minimal' | 'low' | 'medium' | 'high';
 
+export interface VectorBackendInfo {
+  backend?: string;
+  ok?: boolean;
+  pgvector_version?: string;
+  workspaces?: number;
+  [key: string]: unknown;
+}
+
 export interface ChatRequest {
   prompt: string;
   workspace?: string;
@@ -72,6 +80,13 @@ export interface ConfigResponse {
   default_workspace?: string;
   api_keys: Record<string, boolean>;
   workspaces_with_keys: string[];
+  vector_backend?: VectorBackendInfo;
+  /**
+   * True when the server is running with RAGBOT_DEMO=1. The UI shows a
+   * yellow banner and the discovery layer hard-isolates from real
+   * workspaces/skills on the host.
+   */
+  demo_mode?: boolean;
 }
 
 export interface KeyStatus {

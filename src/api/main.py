@@ -75,11 +75,32 @@ async def health_check():
     except Exception as exc:  # pragma: no cover - defensive
         backend_health = {"backend": "unknown", "ok": False, "reason": str(exc)}
 
+    from ragbot.demo import is_demo_mode, DEMO_WORKSPACE_NAME, DEMO_SKILLS_WORKSPACE_NAME
+
+    # In demo mode, the host's true workspaces count would leak through
+    # the healthcheck metadata. Override with the count of demo-visible
+    # collections so screenshots cannot reveal that other workspaces
+    # exist on the same vector store.
+    if is_demo_mode():
+        try:
+            from ragbot.vectorstore import get_vector_store as _vs
+
+            v = _vs()
+            allowed = {DEMO_WORKSPACE_NAME, DEMO_SKILLS_WORKSPACE_NAME}
+            if v is not None:
+                visible = sum(1 for c in v.list_collections() if c in allowed)
+                if isinstance(backend_health, dict):
+                    backend_health = dict(backend_health)
+                    backend_health["workspaces"] = visible
+        except Exception:
+            pass
+
     return HealthResponse(
         status="ok",
         version=VERSION,
         rag_available=check_rag_available(),
         vector_backend=backend_health,
+        demo_mode=is_demo_mode(),
     )
 
 

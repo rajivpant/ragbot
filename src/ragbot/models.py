@@ -141,6 +141,14 @@ class ConfigResponse(BaseModel):
             "{backend, ok, pgvector_version (if pgvector), workspaces_count, ...}."
         ),
     )
+    demo_mode: bool = Field(
+        False,
+        description=(
+            "True when RAGBOT_DEMO=1 is set on the server. The Web UI "
+            "renders a banner and the discovery layer hard-isolates from "
+            "the user's real workspaces and skills."
+        ),
+    )
 
 
 class HealthResponse(BaseModel):
@@ -151,4 +159,8 @@ class HealthResponse(BaseModel):
     vector_backend: Dict[str, Any] = Field(
         default_factory=dict,
         description="Active vector backend health: {backend, ok, ...}",
+    )
+    demo_mode: bool = Field(
+        False,
+        description="True when RAGBOT_DEMO=1 is set on the server.",
     )

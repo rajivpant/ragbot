@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Message, chatStream, type ThinkingEffort } from '@/lib/api';
+import { Message, chatStream, getConfig, type ThinkingEffort } from '@/lib/api';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SettingsPanel } from './SettingsPanel';
@@ -26,8 +26,21 @@ export function Chat() {
   // v3 reasoning + cross-workspace controls
   const [thinkingEffort, setThinkingEffort] = useState<ThinkingEffort | undefined>(undefined);
   const [includeSkills, setIncludeSkills] = useState<boolean>(true);
+  // v3.2: server-reported demo mode. Surfaced as a banner so screenshots
+  // taken with RAGBOT_DEMO=1 are unmistakably demo.
+  const [demoMode, setDemoMode] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Poll /api/config once on mount for demo_mode (and any future
+  // server-driven UI flags).
+  useEffect(() => {
+    getConfig()
+      .then((cfg) => setDemoMode(Boolean(cfg.demo_mode)))
+      .catch(() => {
+        /* ignore — banner just stays off if the call fails */
+      });
+  }, []);
 
   // Calculate conversation stats
   const conversationStats = useMemo(() => {
@@ -140,6 +153,22 @@ export function Chat() {
           Settings
         </button>
       </header>
+
+      {/* Demo-mode banner (v3.2+) */}
+      {demoMode && (
+        <div
+          role="status"
+          className="px-4 py-2 bg-yellow-100 dark:bg-yellow-900/40 border-b border-yellow-300 dark:border-yellow-700 text-yellow-900 dark:text-yellow-200 text-sm"
+        >
+          <div className="max-w-6xl mx-auto flex items-center gap-2">
+            <span>🎭</span>
+            <span>
+              <strong>Demo mode</strong> — running against bundled sample data,
+              not your real workspaces. Unset <code className="font-mono">RAGBOT_DEMO</code> on the server to disable.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Settings Panel */}
       {showSettings && (

@@ -158,7 +158,21 @@ def resolve_repo_index(base_path: Optional[str] = None) -> Dict[str, str]:
 
     Private repos (-private suffix or .ai-knowledge-private-owner sentinel)
     are filtered out unless RAGBOT_OWNER_CONTEXT=1.
+
+    When ``RAGBOT_DEMO=1`` is set, this function bypasses every other
+    source and returns ONLY the bundled demo workspace. This is the
+    backstop that prevents real workspace names from appearing in
+    screenshot captures or in evaluator-mode runs.
     """
+    # Demo mode: hard-isolate to the bundled workspace. No fallbacks.
+    from .demo import is_demo_mode, demo_workspace_path, DEMO_WORKSPACE_NAME
+
+    if is_demo_mode():
+        path = demo_workspace_path()
+        if path is None:
+            return {}
+        return {DEMO_WORKSPACE_NAME: str(path)}
+
     owner_context = _is_owner_context()
 
     # Override mode: explicit base_path arg or RAGBOT_BASE_PATH env.

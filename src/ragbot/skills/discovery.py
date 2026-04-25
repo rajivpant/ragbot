@@ -95,10 +95,22 @@ def discover_skills(
     When ``roots`` is None, the default chain (``DEFAULT_SKILL_ROOTS`` +
     plugin glob + ``extra``) is used. On name collision later roots win,
     matching the override semantics documented in the module docstring.
+
+    When ``RAGBOT_DEMO=1`` is set and ``roots`` is None, only the
+    bundled demo skills directory is scanned. This keeps demo screenshots
+    free of any real skill names that happen to be installed on the host.
     """
 
+    # Demo mode short-circuit. Honour explicit ``roots`` (so tests can
+    # bypass demo) but otherwise replace the default chain entirely.
     if roots is None:
-        targets = resolve_skill_roots(extra=extra)
+        from ..demo import is_demo_mode, demo_skills_path
+
+        if is_demo_mode():
+            demo_path = demo_skills_path()
+            targets = [str(demo_path)] if demo_path is not None else []
+        else:
+            targets = resolve_skill_roots(extra=extra)
     else:
         targets = [os.path.abspath(os.path.expanduser(r)) for r in roots]
 

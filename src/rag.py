@@ -1698,12 +1698,22 @@ def get_relevant_context(workspace_name, query: str,
     if additional_workspaces is None:
         # Auto-include the canonical "skills" workspace when it has content
         # and it's not already the primary workspace.
-        if VECTOR_STORE_AVAILABLE and workspace_name != 'skills':
+        # Demo mode swaps in the demo-scoped skills workspace so the fan-out
+        # cannot pull real skill content from the host vector store.
+        try:
+            from ragbot.demo import (
+                is_demo_mode,
+                DEMO_SKILLS_WORKSPACE_NAME,
+            )
+            skills_ws = DEMO_SKILLS_WORKSPACE_NAME if is_demo_mode() else 'skills'
+        except ImportError:
+            skills_ws = 'skills'
+        if VECTOR_STORE_AVAILABLE and workspace_name != skills_ws:
             vs = get_vector_store()
             if vs is not None:
-                info = vs.get_collection_info('skills')
+                info = vs.get_collection_info(skills_ws)
                 if info and (info.get('count') or 0) > 0:
-                    auto_extra = ['skills']
+                    auto_extra = [skills_ws]
         effective_extra = auto_extra
     else:
         effective_extra = [w for w in additional_workspaces if w != workspace_name]
