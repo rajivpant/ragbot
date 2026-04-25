@@ -18,6 +18,74 @@ from .keystore import get_api_key
 from .config import get_default_model, get_model_info, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_MAX_INPUT_TOKENS
 
 
+# Recognised effort levels (highest to lowest "off"). Aligned with the
+# discrete modes documented in engines.yaml for GPT-5.x and Gemini.
+_THINKING_EFFORT_LEVELS = {"high", "medium", "low", "minimal", "off"}
+
+
+def _normalise_effort(value: Any) -> Optional[str]:
+    """Normalise a raw thinking-effort string. Returns None for unrecognised."""
+
+    if value is None:
+        return None
+    s = str(value).strip().lower()
+    if s in _THINKING_EFFORT_LEVELS:
+        return s
+    if s in ("auto", "default"):
+        return "auto"
+    return None
+
+
+def _resolve_thinking_for_model(
+    model: str,
+    requested_effort: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Decide which LiteLLM thinking-related params (if any) to send.
+
+    Resolution order:
+        1. Explicit ``requested_effort`` argument (per-call override).
+        2. ``RAGBOT_THINKING_EFFORT`` env var.
+        3. Engines.yaml "thinking" block for the model: when present and
+           supported, default to ``medium`` for flagship models, otherwise
+           ``off``. Non-flagship models default to ``off``.
+
+    The returned dict can be merged into ``completion_kwargs``. Possible
+    keys: ``reasoning_effort`` (cross-provider; LiteLLM normalises to the
+    correct provider-specific shape) — or empty dict when thinking is off
+    or unsupported.
+    """
+
+    import os
+    from .config import get_model_info as _get_model_info  # local to avoid cycles
+
+    # 1) Explicit per-call override
+    effort = _normalise_effort(requested_effort)
+    # 2) Env var fallback
+    if effort is None:
+        effort = _normalise_effort(os.environ.get("RAGBOT_THINKING_EFFORT"))
+    # 3) Engines.yaml introspection for default behaviour
+    info = _get_model_info(model) or {}
+    thinking_meta = info.get("thinking") or {}
+    if not thinking_meta or thinking_meta.get("supported") is False:
+        # Model doesn't advertise thinking — never send any thinking params,
+        # even if the user requested an effort level. (Caller can drop
+        # `litellm.drop_params=True` to surface errors instead.)
+        return {}
+
+    if effort is None or effort == "auto":
+        # Default policy: flagship → medium, others → off.
+        is_flagship = bool(info.get("is_flagship"))
+        effort = "medium" if is_flagship else "off"
+
+    if effort == "off":
+        return {}
+
+    # Both Anthropic adaptive-mode models and discrete-level providers accept
+    # ``reasoning_effort`` via LiteLLM. LiteLLM maps it to the provider-native
+    # shape (e.g., thinking={"type": "adaptive"} for Claude 4.x).
+    return {"reasoning_effort": effort}
+
+
 def _get_api_key_for_model(model: str, workspace: Optional[str] = None) -> Optional[str]:
     """Get the appropriate API key for a model based on its provider.
 
@@ -200,7 +268,10 @@ def chat(
     workspace_name: Optional[str] = None,
     use_rag: bool = True,
     rag_max_tokens: int = 16000,
-    auto_load_instructions: bool = True
+    auto_load_instructions: bool = True,
+    thinking_effort: Optional[str] = None,
+    additional_workspaces: Optional[List[str]] = None,
+    **kwargs: Any,
 ) -> str:
     """
     Send a request to the LLM API with the provided prompt and context.
@@ -284,7 +355,8 @@ def chat(
                 if is_rag_available():
                     rag_context = get_relevant_context(
                         workspace_name, prompt, max_tokens=rag_max_tokens,
-                        user_model=model
+                        user_model=model,
+                        additional_workspaces=additional_workspaces,
                     )
             except ImportError:
                 pass
@@ -349,6 +421,14 @@ def chat(
             completion_kwargs["max_completion_tokens"] = max_tokens
         else:
             completion_kwargs["max_tokens"] = max_tokens
+
+        # Wire thinking / reasoning_effort for models that advertise it in
+        # engines.yaml. Per-call override comes from kwargs['thinking_effort'].
+        thinking_kwargs = _resolve_thinking_for_model(
+            model, requested_effort=thinking_effort,
+        )
+        if thinking_kwargs:
+            completion_kwargs.update(thinking_kwargs)
 
         # Make API call
         if stream and stream_callback:
@@ -446,7 +526,8 @@ def chat_stream(
             if is_rag_available():
                 rag_context = get_relevant_context(
                     workspace_name, prompt, max_tokens=rag_max_tokens,
-                    user_model=model
+                    user_model=model,
+                    additional_workspaces=kwargs.get('additional_workspaces'),
                 )
         except ImportError:
             pass
@@ -509,6 +590,13 @@ def chat_stream(
         completion_kwargs["max_completion_tokens"] = max_tokens
     else:
         completion_kwargs["max_tokens"] = max_tokens
+
+    # Wire thinking / reasoning_effort for models that advertise it.
+    thinking_kwargs = _resolve_thinking_for_model(
+        model, requested_effort=kwargs.get('thinking_effort'),
+    )
+    if thinking_kwargs:
+        completion_kwargs.update(thinking_kwargs)
 
     # Stream response
     llm_response = completion(**completion_kwargs)

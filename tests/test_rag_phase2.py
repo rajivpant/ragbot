@@ -40,14 +40,14 @@ class TestGetFastModel:
         assert fast == 'anthropic/claude-haiku-4-5-20251001'
 
     def test_get_fast_model_for_openai(self):
-        """Fast model for OpenAI should be GPT-5-mini."""
-        fast = _get_fast_model('openai/gpt-5.2-chat')
-        assert fast == 'openai/gpt-5-mini'
+        """Fast model for OpenAI should be the small-category model from engines.yaml."""
+        fast = _get_fast_model('openai/gpt-5.5')
+        assert fast == 'openai/gpt-5.4-mini'
 
     def test_get_fast_model_for_google(self):
-        """Fast model for Google should be Flash Lite."""
-        fast = _get_fast_model('gemini/gemini-3-pro')
-        assert fast == 'gemini/gemini-2.5-flash-lite'
+        """Fast model for Google should be the small-category Gemini Flash Lite."""
+        fast = _get_fast_model('gemini/gemini-3.1-pro-preview')
+        assert fast == 'gemini/gemini-3.1-flash-lite-preview'
 
     def test_get_fast_model_falls_back_to_default(self):
         """When no model specified, use default provider's fast model."""
@@ -331,9 +331,9 @@ class TestProviderAgnosticIntegration:
     def test_different_providers_use_their_fast_models(self):
         """Each provider should use its own fast model, not hardcoded Haiku."""
         # Test that we're not hardcoding "haiku" but using categories
-        fast_anthropic = _get_fast_model('anthropic/claude-sonnet-4-20250514')
-        fast_openai = _get_fast_model('openai/gpt-5.2-chat')
-        fast_google = _get_fast_model('gemini/gemini-3-pro')
+        fast_anthropic = _get_fast_model('anthropic/claude-sonnet-4-6')
+        fast_openai = _get_fast_model('openai/gpt-5.5')
+        fast_google = _get_fast_model('gemini/gemini-3.1-pro-preview')
 
         # Each should be different (different providers)
         assert fast_anthropic != fast_openai
@@ -355,9 +355,9 @@ class TestProviderAgnosticIntegration:
         google_small = get_model_by_category('google', 'small')
 
         # These should match _get_fast_model results
-        assert anthropic_small == _get_fast_model('anthropic/claude-opus-4-5-20251101')
-        assert openai_small == _get_fast_model('openai/gpt-5.2-chat')
-        assert google_small == _get_fast_model('gemini/gemini-3-pro')
+        assert anthropic_small == _get_fast_model('anthropic/claude-opus-4-7')
+        assert openai_small == _get_fast_model('openai/gpt-5.5')
+        assert google_small == _get_fast_model('gemini/gemini-3.1-pro-preview')
 
 
 class TestFallbackBehavior:

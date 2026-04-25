@@ -16,6 +16,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 from . import compile_project
 from .config import load_compile_config, validate_config, get_project_name
@@ -80,8 +81,10 @@ def create_parser() -> argparse.ArgumentParser:
     # Path options
     parser.add_argument(
         '--base-path',
-        default=os.environ.get('RAGBOT_BASE_PATH', os.path.expanduser('~/ai-knowledge')),
-        help='Base path containing ai-knowledge-* repositories (default: $RAGBOT_BASE_PATH or ~/ai-knowledge)'
+        default=os.environ.get('RAGBOT_BASE_PATH'),
+        help='Optional flat-parent path containing ai-knowledge-* repos. '
+             'When unset, repos are discovered via ~/.synthesis/console.yaml '
+             'and the workspace-rooted layout.'
     )
     parser.add_argument(
         '--personal-repo',
@@ -91,15 +94,18 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def find_project_repo(project_name: str, base_path: str) -> str:
+def find_project_repo(project_name: str, base_path: Optional[str] = None) -> str:
     """Find the repository path for a project name."""
-    repo_name = f'ai-knowledge-{project_name}'
-    repo_path = os.path.join(base_path, repo_name)
+    from ragbot.workspaces import resolve_repo_index
 
-    if os.path.exists(repo_path):
+    repo_path = resolve_repo_index(base_path).get(project_name)
+    if repo_path and os.path.exists(repo_path):
         return repo_path
 
-    raise FileNotFoundError(f"Repository not found: {repo_path}")
+    raise FileNotFoundError(
+        f"Repository not found for project '{project_name}'. "
+        f"Check ~/.synthesis/console.yaml or pass --base-path."
+    )
 
 
 def main(args=None):

@@ -114,6 +114,34 @@ def create_chat_parser(subparsers):
         help="Load a previous interactive session from a file."
     )
 
+    # Reasoning / thinking effort. Reads from RAGBOT_THINKING_EFFORT env when
+    # unset; per-call value wins. Models that don't advertise thinking
+    # silently ignore the value.
+    chat_parser.add_argument(
+        "--thinking-effort",
+        choices=["auto", "off", "minimal", "low", "medium", "high"],
+        default=None,
+        help="Reasoning effort for the LLM call. Defaults: flagship → medium, "
+             "non-flagship → off, models without thinking metadata → ignored. "
+             "Override via this flag or RAGBOT_THINKING_EFFORT env var."
+    )
+
+    # Cross-workspace search controls.
+    chat_parser.add_argument(
+        "--workspace", "-w",
+        action="append",
+        default=None,
+        dest="extra_workspaces",
+        help="Additional workspace to query alongside the primary one. "
+             "Repeatable. When unset, the canonical 'skills' workspace is "
+             "auto-included if it has indexed content."
+    )
+    chat_parser.add_argument(
+        "--no-skills",
+        action="store_true",
+        help="Disable auto-inclusion of the 'skills' workspace in retrieval."
+    )
+
     chat_parser.set_defaults(func=run_chat)
     return chat_parser
 
@@ -195,8 +223,10 @@ def create_compile_parser(subparsers):
     # Path options
     compile_parser.add_argument(
         '--base-path',
-        default=os.environ.get('RAGBOT_BASE_PATH', os.path.expanduser('~/ai-knowledge')),
-        help='Base path containing ai-knowledge-* repositories (default: $RAGBOT_BASE_PATH or ~/ai-knowledge)'
+        default=os.environ.get('RAGBOT_BASE_PATH'),
+        help='Optional flat-parent path containing ai-knowledge-* repos. '
+             'When unset, repos are discovered via ~/.synthesis/console.yaml '
+             'and the workspace-rooted layout.'
     )
     compile_parser.add_argument(
         '--personal-repo',
@@ -223,7 +253,7 @@ def create_index_parser(subparsers):
     index_parser.add_argument(
         '--workspace', '-w',
         required=True,
-        help='Workspace name to index (e.g., ragbot, rajiv, mcclatchy)'
+        help='Workspace name to index (e.g., personal, example-client)'
     )
     index_parser.add_argument(
         '--force', '-f',
@@ -238,6 +268,75 @@ def create_index_parser(subparsers):
 
     index_parser.set_defaults(func=run_index)
     return index_parser
+
+
+def create_skills_parser(subparsers):
+    """Create the `skills` subcommand parser.
+
+    List, inspect, and index Agent Skills (directories with SKILL.md).
+    """
+    skills_parser = subparsers.add_parser(
+        'skills',
+        help='Discover, inspect, and index Agent Skills',
+        description='Manage Agent Skills (directories with SKILL.md) for RAG '
+                    'indexing and inspection. Skills are discovered from '
+                    '~/.synthesis/skills, ~/.claude/skills, and plugin caches.'
+    )
+    skills_subparsers = skills_parser.add_subparsers(dest='skills_command', required=True)
+
+    list_parser = skills_subparsers.add_parser('list', help='List discovered skills.')
+    list_parser.add_argument('--verbose', '-v', action='store_true',
+                             help='Include description and file counts.')
+    list_parser.set_defaults(func=run_skills_list)
+
+    info_parser = skills_subparsers.add_parser('info', help='Show details for one skill.')
+    info_parser.add_argument('name', help='Skill name (directory or frontmatter name).')
+    info_parser.set_defaults(func=run_skills_info)
+
+    index_parser = skills_subparsers.add_parser(
+        'index',
+        help='Index discovered skills into a vector-store workspace (default: `skills`).',
+    )
+    index_parser.add_argument('--workspace', '-w', default='skills',
+                              help='Target workspace name (default: skills).')
+    index_parser.add_argument('--only', action='append', default=None,
+                              help='Restrict to a specific skill name (repeatable).')
+    index_parser.add_argument('--force', '-f', action='store_true',
+                              help='Clear the target workspace before indexing.')
+    index_parser.set_defaults(func=run_skills_index)
+
+    return skills_parser
+
+
+def create_db_parser(subparsers):
+    """Create the db subcommand parser.
+
+    Diagnostics and maintenance for the configured vector store backend.
+    """
+    db_parser = subparsers.add_parser(
+        'db',
+        help='Vector store backend diagnostics and maintenance',
+        description='Inspect and maintain the configured vector store backend '
+                    '(pgvector or qdrant). Use `ragbot db status` to verify '
+                    'connectivity, list collections, and confirm migrations '
+                    'are applied.'
+    )
+
+    db_subparsers = db_parser.add_subparsers(dest='db_command', required=True)
+
+    status_parser = db_subparsers.add_parser(
+        'status',
+        help='Show backend health, configured connection, and indexed collections.'
+    )
+    status_parser.set_defaults(func=run_db_status)
+
+    init_parser = db_subparsers.add_parser(
+        'init',
+        help='Apply schema migrations (no-op if already applied). Pgvector only.'
+    )
+    init_parser.set_defaults(func=run_db_init)
+
+    return db_parser
 
 
 def run_chat(args):
@@ -316,6 +415,23 @@ def run_chat(args):
         use_rag = False
     else:
         print("RAG disabled - using instructions only")
+
+    # Resolve additional workspaces (cross-workspace retrieval).
+    #   --workspace W (repeatable): explicit list (auto-include disabled).
+    #   --no-skills:                  explicit opt-out of skills auto-include.
+    #   neither:                      auto-include policy applies in get_relevant_context.
+    extra_workspaces_arg = getattr(args, 'extra_workspaces', None)
+    no_skills = getattr(args, 'no_skills', False)
+    if extra_workspaces_arg is not None:
+        # Explicit list given; respect --no-skills filter.
+        additional_workspaces = [w for w in extra_workspaces_arg if w and (not no_skills or w != 'skills')]
+    elif no_skills:
+        # User opts out without specifying alternates.
+        additional_workspaces = []
+    else:
+        additional_workspaces = None  # let get_relevant_context auto-include skills
+
+    thinking_effort = getattr(args, 'thinking_effort', None)
 
     history = []
 
@@ -428,7 +544,9 @@ def run_chat(args):
                 stream_callback=print_chunk,
                 workspace_name=workspace_dir_name,
                 use_rag=use_rag,
-                auto_load_instructions=auto_load_instructions
+                auto_load_instructions=auto_load_instructions,
+                thinking_effort=thinking_effort,
+                additional_workspaces=additional_workspaces,
             )
             print()  # Newline after streaming
             history.append({"role": "assistant", "content": reply})
@@ -470,6 +588,135 @@ def run_chat(args):
         print(reply)
 
 
+def run_skills_list(args):
+    """Print discovered skills."""
+    from ragbot.skills import discover_skills
+
+    skills = discover_skills()
+    if not skills:
+        print("No skills discovered. Searched ~/.synthesis/skills and ~/.claude/skills.")
+        return 0
+
+    print(f"Discovered {len(skills)} skills:")
+    for s in skills:
+        if args.verbose:
+            desc_short = (s.description or '').strip().replace('\n', ' ')[:80]
+            extras = []
+            if s.references:
+                extras.append(f"{len(s.references)} refs")
+            if s.scripts:
+                extras.append(f"{len(s.scripts)} scripts")
+            if s.other_files:
+                extras.append(f"{len(s.other_files)} other")
+            extras_str = f" ({', '.join(extras)})" if extras else ""
+            version_str = f" v{s.version}" if s.version else ""
+            print(f"  {s.name}{version_str}{extras_str}")
+            if desc_short:
+                print(f"    {desc_short}")
+        else:
+            print(f"  {s.name}")
+    return 0
+
+
+def run_skills_info(args):
+    """Show full details for one skill."""
+    from ragbot.skills import discover_skills
+
+    target = args.name
+    skills = discover_skills()
+    skill = next((s for s in skills if s.name == target), None)
+    if skill is None:
+        print(f"Skill not found: {target}", file=sys.stderr)
+        print(f"Run `ragbot skills list` to see all discovered skills.", file=sys.stderr)
+        return 1
+
+    print(f"Name:        {skill.name}")
+    print(f"Path:        {skill.path}")
+    print(f"Version:     {skill.version or '(unset)'}")
+    print(f"Description: {skill.description or '(none)'}")
+    print(f"Triggers:    {', '.join(skill.triggers) if skill.triggers else '(none)'}")
+    print(f"Files:       {len(skill.files)}")
+    print()
+    for f in skill.files:
+        chars = len(f.content) if f.is_text else 0
+        print(f"  {f.kind.value:18s} {f.relative_path:50s} {chars} chars")
+    return 0
+
+
+def run_skills_index(args):
+    """Index discovered skills into a vector-store workspace."""
+    from rag import index_skills, get_index_status
+
+    result = index_skills(
+        workspace_name=args.workspace,
+        only=args.only,
+        force=args.force,
+    )
+    if 'error' in result:
+        print(f"Error: {result['error']}", file=sys.stderr)
+        return 1
+
+    print(f"Backend:        {result.get('backend', '?')}")
+    print(f"Workspace:      {result.get('workspace', '?')}")
+    print(f"Skills indexed: {result.get('skills_indexed', 0)}")
+    print(f"Chunks indexed: {result.get('chunks_indexed', 0)}")
+    skipped = result.get('skipped') or []
+    if skipped:
+        print(f"Skipped (no indexable text): {', '.join(skipped)}")
+    indexed_total, count = get_index_status(args.workspace)
+    print(f"Workspace now contains {count} chunks (indexed={indexed_total}).")
+    return 0
+
+
+def run_db_status(args):
+    """Print backend health and indexed collections."""
+    from ragbot.vectorstore import get_vector_store
+
+    vs = get_vector_store()
+    if vs is None:
+        print("Vector backend: unavailable.")
+        print("Check RAGBOT_VECTOR_BACKEND and RAGBOT_DATABASE_URL.")
+        return 1
+
+    health = vs.healthcheck()
+    print(f"Backend: {vs.backend_name}")
+    print(f"Healthy: {health.get('ok', False)}")
+    for k, v in health.items():
+        if k in ('backend', 'ok'):
+            continue
+        print(f"  {k}: {v}")
+
+    collections = vs.list_collections()
+    print(f"\nIndexed collections ({len(collections)}):")
+    if not collections:
+        print("  (none)")
+    for name in collections:
+        info = vs.get_collection_info(name) or {}
+        print(f"  {name:30s} chunks={info.get('count', 0)}")
+    return 0
+
+
+def run_db_init(args):
+    """Apply schema migrations explicitly (idempotent)."""
+    from ragbot.vectorstore import get_vector_store
+
+    vs = get_vector_store()
+    if vs is None:
+        print("Vector backend: unavailable.")
+        return 1
+
+    if vs.backend_name != 'pgvector':
+        print(f"`db init` is a no-op for {vs.backend_name}; nothing to do.")
+        return 0
+
+    # Pgvector backend runs migrations on construction; explicit re-trigger
+    # by calling init_collection(workspace='_init_') is harmless and confirms
+    # the schema is applied.
+    ok = vs.init_collection('_init_check_', vector_size=384)
+    print("Schema migrations applied." if ok else "Migration failed (see logs).")
+    return 0 if ok else 1
+
+
 def run_compile(args):
     """Run the compile command (instructions only).
 
@@ -488,11 +735,14 @@ def run_compile(args):
 
     def find_project_repo(project_name, base_path):
         """Find the repository path for a project name."""
-        repo_name = f'ai-knowledge-{project_name}'
-        repo_path = os.path.join(base_path, repo_name)
-        if os.path.exists(repo_path):
+        from ragbot.workspaces import resolve_repo_index
+        repo_path = resolve_repo_index(base_path).get(project_name)
+        if repo_path and os.path.exists(repo_path):
             return repo_path
-        raise FileNotFoundError(f"Repository not found: {repo_path}")
+        raise FileNotFoundError(
+            f"Repository not found for project '{project_name}'. "
+            f"Check ~/.synthesis/console.yaml or pass --base-path."
+        )
 
     def compile_repo(repo_path):
         """Compile instructions for a single repository."""
@@ -566,7 +816,7 @@ def run_compile(args):
         personal_repo = get_personal_repo_path_local(args.base_path)
 
         if not personal_repo or not os.path.exists(personal_repo):
-            print(f"Error: Personal repo not found. Set default_workspace in ~/.config/ragbot/config.yaml", file=sys.stderr)
+            print(f"Error: Personal repo not found. Set default_workspace in ~/.synthesis/ragbot.yaml", file=sys.stderr)
             return 1
 
         if not args.quiet:
@@ -687,6 +937,8 @@ def main():
     create_chat_parser(subparsers)
     create_compile_parser(subparsers)
     create_index_parser(subparsers)
+    create_skills_parser(subparsers)
+    create_db_parser(subparsers)
 
     # Parse arguments
     args = parser.parse_args()

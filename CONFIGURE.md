@@ -6,30 +6,97 @@ If you haven't already downloaded and installed RagBot.AI, read the [installatio
 
 After successfully installing the dependencies, RagBot.AI needs to be configured with API keys.
 
-1.  Create the configuration directory:
+1.  Create the synthesis-engineering shared config directory:
 
 ```bash
-mkdir -p ~/.config/ragbot
+mkdir -p ~/.synthesis
 ```
 
 2.  Create the API keys file:
 
 ```bash
-cat > ~/.config/ragbot/keys.yaml << 'EOF'
-# Ragbot API Keys
+cat > ~/.synthesis/keys.yaml << 'EOF'
+# Synthesis API Keys (shared across synthesis-engineering products: ragbot, ragenie, etc.)
 default:
   anthropic: "sk-ant-your-key-here"
   openai: "sk-your-key-here"
   google: "your-gemini-key-here"
 EOF
-chmod 600 ~/.config/ragbot/keys.yaml
+chmod 600 ~/.synthesis/keys.yaml
 ```
 
-3.  Edit `~/.config/ragbot/keys.yaml` with your actual API keys.
+3.  Edit `~/.synthesis/keys.yaml` with your actual API keys.
 
 * * * * *
 
-Remember, the keys file contains sensitive information such as API keys, so it should never be shared or published. The file is stored in your home directory at `~/.config/ragbot/` and is NOT part of the ragbot repository.
+Remember, the keys file contains sensitive information such as API keys, so it should never be shared or published. The file is stored in your home directory at `~/.synthesis/` and is NOT part of the ragbot repository.
+
+The legacy location `~/.config/ragbot/keys.yaml` continues to work as a fallback if `~/.synthesis/keys.yaml` does not exist.
+
+### Configuring the vector backend (pgvector)
+
+Ragbot's default vector store is PostgreSQL with the `pgvector` extension. For Docker Compose users, the database container starts automatically (see [README-DOCKER.md](README-DOCKER.md)).
+
+For native CLI use, point ragbot at any reachable Postgres instance:
+
+```bash
+# 1. Install pgvector for your Postgres (example: PostgreSQL 16 via Homebrew)
+brew install postgresql@16
+brew services start postgresql@16
+git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+cd pgvector && PG_CONFIG=/opt/homebrew/opt/postgresql@16/bin/pg_config make && PG_CONFIG=/opt/homebrew/opt/postgresql@16/bin/pg_config make install
+
+# 2. Create the ragbot database and enable the extension
+createuser -s ragbot
+createdb -O ragbot ragbot
+psql -U ragbot -d ragbot -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# 3. Point ragbot at it
+export RAGBOT_DATABASE_URL=postgresql://ragbot:CHANGE_ME@localhost:5432/ragbot
+
+# 4. Verify
+ragbot db status
+```
+
+To run on the legacy embedded Qdrant backend instead, set `RAGBOT_VECTOR_BACKEND=qdrant`. No database setup needed; Qdrant data is stored under `$QDRANT_PATH` (default `/app/qdrant_data` in containers).
+
+### Discovering and indexing Agent Skills
+
+Ragbot reads Agent Skills (directories containing `SKILL.md`) as first-class content. The full directory tree is honoured — `references/**/*.md` and bundled scripts are all indexed and queryable via RAG.
+
+```bash
+ragbot skills list                          # show discovered skills
+ragbot skills info <skill-name>             # inspect a specific skill
+ragbot skills index                         # index every skill into the 'skills' workspace
+ragbot skills index --only synthesis-foo    # narrow to one skill
+ragbot skills index --force                 # clear and re-index
+```
+
+Default discovery roots:
+
+1. `~/.synthesis/skills/`            (shared install for synthesis-engineering tools)
+2. `~/.claude/skills/`                (Claude Code private)
+3. `~/.claude/plugins/cache/*/skills/` (plugin-installed)
+4. Per-workspace roots from `compile-config.yaml` `sources.skills.roots`
+
+When the `skills` workspace has indexed content, `ragbot chat` automatically merges its results with the user's selected workspace. Override per-call with `--no-skills` (opt out) or `--workspace foo --workspace bar` (explicit list).
+
+### Reasoning / thinking modes
+
+Flagship models with thinking support (Claude Opus 4.7, GPT-5.5-pro, Gemini 3.1 Pro) automatically use `reasoning_effort: medium`. Non-flagship thinking-capable models (Claude Sonnet 4.6, GPT-5.5, etc.) default to off but accept overrides. Models without a `thinking` block in `engines.yaml` (e.g., Claude Haiku 4.5, GPT-5.4-mini) silently ignore the parameter.
+
+```bash
+# Per-call override
+ragbot chat --thinking-effort high -p "explain this..."
+
+# Globally
+export RAGBOT_THINKING_EFFORT=low
+
+# Disable on a flagship model
+ragbot chat --thinking-effort off -p "..."
+```
+
+LiteLLM normalises `reasoning_effort` per provider — Claude 4.x receives `thinking={"type": "adaptive"}`, OpenAI receives `reasoning_effort` directly, Gemini receives the corresponding thinking level.
 
 ### Running RagBot.AI
 

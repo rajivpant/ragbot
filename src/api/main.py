@@ -60,11 +60,26 @@ app.include_router(config.router)
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint.
+
+    Reports overall status, RAG availability, and the active vector backend's
+    health (pgvector reachability, qdrant client status).
+    """
+    backend_health = {}
+    try:
+        from ragbot.vectorstore import get_vector_store
+
+        vs = get_vector_store()
+        if vs is not None:
+            backend_health = vs.healthcheck()
+    except Exception as exc:  # pragma: no cover - defensive
+        backend_health = {"backend": "unknown", "ok": False, "reason": str(exc)}
+
     return HealthResponse(
         status="ok",
         version=VERSION,
         rag_available=check_rag_available(),
+        vector_backend=backend_health,
     )
 
 

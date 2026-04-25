@@ -2,12 +2,27 @@
 
 This module handles discovering and loading workspaces from ai-knowledge repos.
 
+Discovery resolution order (first match wins):
+    1. --base-path CLI arg     (treated as flat parent containing ai-knowledge-*)
+    2. RAGBOT_BASE_PATH env    (treated as flat parent)
+    3. ~/.synthesis/console.yaml  (synthesis-console's source list — preferred)
+    4. ~/workspaces/*/ai-knowledge-*  (workspace-rooted layout glob fallback)
+    5. /app/ai-knowledge       (Docker container default)
+    6. ~/ai-knowledge          (legacy flat-parent convention)
+
+This integrates ragbot with synthesis-console: when both are installed and
+~/.synthesis/console.yaml exists, ragbot reuses synthesis-console's source list.
+Both products remain independently usable.
+
 IMPORTANT: Inheritance configuration is centralized in my-projects.yaml in the
 personal repo (per ADR-006). Individual compile-config.yaml files do NOT contain
 inheritance information - that would reveal private repo existence in shared repos.
 """
 
+import glob
 import os
+import re
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 import yaml
 
@@ -31,24 +46,161 @@ except ImportError:
     INHERITANCE_AVAILABLE = False
 
 
-def _get_default_ai_knowledge_paths():
-    """Build the default search paths for ai-knowledge repos.
+# Synthesis-console config path (the integration point).
+SYNTHESIS_CONSOLE_CONFIG = Path.home() / ".synthesis" / "console.yaml"
 
-    Resolution order:
-    1. RAGBOT_BASE_PATH environment variable (if set)
-    2. Docker container path (/app/ai-knowledge)
-    3. User's home ~/ai-knowledge (convention for any user)
+# Convention-based fallback search globs.
+WORKSPACE_GLOB_PATTERN = str(Path.home() / "workspaces" / "*" / "ai-knowledge-*")
+
+# Legacy flat-parent fallback paths.
+LEGACY_FLAT_PARENT_PATHS = [
+    "/app/ai-knowledge",                          # Docker container default
+    str(Path.home() / "ai-knowledge"),            # Legacy convention
+]
+
+
+def _derive_workspace_name(repo_path: str) -> str:
+    """Derive workspace name from an ai-knowledge-* repo directory name.
+
+    Strips the `ai-knowledge-` prefix and returns the remainder.
+        ai-knowledge-personal           → personal
+        ai-knowledge-example-client     → example-client
+        ai-knowledge-example-private    → example-private
     """
-    paths = []
-    env_path = os.environ.get('RAGBOT_BASE_PATH')
-    if env_path:
-        paths.append(os.path.expanduser(env_path))
-    paths.append('/app/ai-knowledge')  # Docker
-    paths.append(os.path.expanduser('~/ai-knowledge'))  # Convention
-    return paths
+    name = os.path.basename(repo_path.rstrip("/"))
+    if name.startswith("ai-knowledge-"):
+        return name[len("ai-knowledge-"):]
+    return name
 
 
-DEFAULT_AI_KNOWLEDGE_PATHS = _get_default_ai_knowledge_paths()
+# Pattern for extracting the bare workspace identifier from a private repo
+# whose suffix encodes ownership (e.g., `<workspace>-<owner>-private` or
+# plain `<workspace>-private`). Used to find compiled/{bare_name}/ output.
+_PRIVATE_SUFFIX_RE = re.compile(r'(?:-[^-]+)?-private$')
+
+
+def _bare_workspace_name(name: str) -> str:
+    """Strip private-suffix annotations to recover the bare workspace name.
+
+    Examples:
+        personal              → personal
+        example-client        → example-client
+        example-private       → example
+        example-someone-private → example
+    """
+    return _PRIVATE_SUFFIX_RE.sub('', name)
+
+
+def _read_synthesis_console_sources() -> List[Dict[str, str]]:
+    """Read sources from ~/.synthesis/console.yaml.
+
+    Returns a list of {name, root} dicts. The `name` is derived from the
+    directory (stripping the `ai-knowledge-` prefix) so it aligns with
+    my-projects.yaml's workspace keys, which is ragbot's source of truth for
+    inheritance. Synthesis-console's `name` field is a display label for its
+    own UI/URLs and is not used as the workspace identifier here.
+
+    Demo sources (demo: true) are skipped.
+    """
+    if not SYNTHESIS_CONSOLE_CONFIG.exists():
+        return []
+    try:
+        with open(SYNTHESIS_CONSOLE_CONFIG) as f:
+            config = yaml.safe_load(f) or {}
+    except (yaml.YAMLError, OSError):
+        return []
+
+    sources = []
+    for src in config.get("sources", []):
+        if src.get("demo"):
+            continue
+        root = src.get("root")
+        if not root:
+            continue
+        root = os.path.expanduser(root)
+        # Only include sources whose root is an ai-knowledge-* directory.
+        if not os.path.basename(root.rstrip("/")).startswith("ai-knowledge-"):
+            continue
+        name = _derive_workspace_name(root)
+        sources.append({"name": name, "root": root})
+    return sources
+
+
+def _scan_flat_parent(parent: str) -> Dict[str, str]:
+    """Walk a flat parent dir for ai-knowledge-* children. Returns {name: path}."""
+    parent = os.path.expanduser(parent)
+    if not os.path.isdir(parent):
+        return {}
+    results = {}
+    for item in os.listdir(parent):
+        if not item.startswith("ai-knowledge-"):
+            continue
+        repo_path = os.path.join(parent, item)
+        if os.path.isdir(repo_path):
+            results[_derive_workspace_name(repo_path)] = repo_path
+    return results
+
+
+def resolve_repo_index(base_path: Optional[str] = None) -> Dict[str, str]:
+    """Resolve the available ai-knowledge repos.
+
+    Returns a mapping of workspace_name -> absolute repo path. Workspace name
+    is derived from the directory (the `ai-knowledge-` prefix is stripped).
+
+    When base_path or RAGBOT_BASE_PATH is set, ONLY that flat parent is
+    scanned (override mode, for back-compat and Docker container use).
+
+    Otherwise, the index is the UNION of:
+        - ~/.synthesis/console.yaml sources (synthesis-console integration)
+        - ~/workspaces/*/ai-knowledge-* glob (workspace-rooted layout)
+        - /app/ai-knowledge children (Docker container default)
+        - ~/ai-knowledge children (legacy flat-parent convention)
+
+    Private repos (-private suffix or .ai-knowledge-private-owner sentinel)
+    are filtered out unless RAGBOT_OWNER_CONTEXT=1.
+    """
+    owner_context = _is_owner_context()
+
+    # Override mode: explicit base_path arg or RAGBOT_BASE_PATH env.
+    # When set, only this flat parent is scanned. Used by Docker and tests.
+    override_path = base_path or os.environ.get("RAGBOT_BASE_PATH")
+    if override_path:
+        return _filter_private(_scan_flat_parent(override_path), owner_context)
+
+    # Union mode: aggregate across all available sources.
+    index: Dict[str, str] = {}
+
+    # ~/.synthesis/console.yaml sources
+    for src in _read_synthesis_console_sources():
+        if os.path.isdir(src["root"]):
+            index.setdefault(src["name"], src["root"])
+
+    # ~/workspaces/*/ai-knowledge-* glob
+    for repo_path in glob.glob(WORKSPACE_GLOB_PATTERN):
+        if os.path.isdir(repo_path):
+            index.setdefault(_derive_workspace_name(repo_path), repo_path)
+
+    # Legacy flat parents (Docker, ~/ai-knowledge)
+    for parent in LEGACY_FLAT_PARENT_PATHS:
+        for name, path in _scan_flat_parent(parent).items():
+            index.setdefault(name, path)
+
+    return _filter_private(index, owner_context)
+
+
+def _filter_private(index: Dict[str, str], owner_context: bool) -> Dict[str, str]:
+    """Filter out private repos unless owner context is set."""
+    if owner_context:
+        return index
+    return {
+        name: path for name, path in index.items()
+        if not _is_private_repo(path, os.path.basename(path))
+    }
+
+
+# Back-compat alias: legacy code references DEFAULT_AI_KNOWLEDGE_PATHS as the
+# list of flat-parent search paths. Kept for any external callers.
+DEFAULT_AI_KNOWLEDGE_PATHS = LEGACY_FLAT_PARENT_PATHS
 
 
 # Environment variable for owner-context discovery override.
@@ -89,11 +241,56 @@ def _is_private_repo(repo_path: str, repo_name: str) -> bool:
     return False
 
 
-def discover_ai_knowledge_repos(ai_knowledge_root: str) -> Dict[str, Dict[str, Any]]:
-    """
-    Auto-discover ai-knowledge repos by convention.
+def _build_repo_metadata(workspace_name: str, repo_path: str) -> Optional[Dict[str, Any]]:
+    """Build the metadata dict for a single ai-knowledge repo.
 
-    Convention: Any directory matching 'ai-knowledge-*' is recognized as a workspace.
+    Returns None if the repo has no usable content (no source, no compiled, no config).
+    """
+    if not os.path.isdir(repo_path):
+        return None
+
+    config = {}
+    compile_config_path = os.path.join(repo_path, "compile-config.yaml")
+    if os.path.isfile(compile_config_path):
+        with open(compile_config_path, "r") as f:
+            config = yaml.safe_load(f) or {}
+
+    # Compiled output is keyed by the bare workspace name (private-suffix stripped).
+    bare_name = _bare_workspace_name(workspace_name)
+    compiled_base = os.path.join(repo_path, "compiled", bare_name)
+    instructions_dir = os.path.join(compiled_base, "instructions")
+    knowledge_dir = os.path.join(compiled_base, "knowledge")
+
+    source_dir = os.path.join(repo_path, "source")
+    has_source = os.path.isdir(source_dir)
+    has_instructions = os.path.isdir(instructions_dir)
+    has_knowledge = os.path.isdir(knowledge_dir)
+
+    if not (has_instructions or has_knowledge or has_source or config):
+        return None
+
+    return {
+        "instructions": instructions_dir if has_instructions else None,
+        "datasets": knowledge_dir if has_knowledge else None,
+        "repo_path": repo_path,
+        "source_path": source_dir if has_source else None,
+        "config": config,
+        "has_instructions": has_instructions,
+        "has_datasets": has_knowledge,
+        "has_source": has_source,
+    }
+
+
+def discover_ai_knowledge_repos(ai_knowledge_root: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """
+    Auto-discover ai-knowledge repos.
+
+    When ai_knowledge_root is provided, treats it as a flat parent directory and
+    walks for ai-knowledge-* children (legacy mode).
+
+    When ai_knowledge_root is None, uses the full resolution chain:
+    ~/.synthesis/console.yaml, then ~/workspaces/*/ai-knowledge-* glob,
+    then legacy flat parents.
 
     Private repos (matching 'ai-knowledge-*-private' or containing a
     `.ai-knowledge-private-owner` sentinel file) are filtered out by default
@@ -101,111 +298,64 @@ def discover_ai_knowledge_repos(ai_knowledge_root: str) -> Dict[str, Dict[str, A
     include them (owner-context compilation per ADR-020).
 
     Args:
-        ai_knowledge_root: Root directory containing ai-knowledge-* folders
+        ai_knowledge_root: Optional flat parent override. If None, uses the
+            full resolution chain (~/.synthesis/console.yaml, etc.).
 
     Returns:
-        Dictionary mapping workspace names to their content and metadata
+        Dictionary mapping workspace names to their content and metadata.
     """
+    index = resolve_repo_index(ai_knowledge_root)
     discovered = {}
-
-    if not os.path.isdir(ai_knowledge_root):
-        return discovered
-
-    owner_context = _is_owner_context()
-
-    for item in os.listdir(ai_knowledge_root):
-        if not item.startswith('ai-knowledge-'):
-            continue
-
-        repo_path = os.path.join(ai_knowledge_root, item)
-        if not os.path.isdir(repo_path):
-            continue
-
-        # ADR-014: filter out -private repos unless in owner context
-        if _is_private_repo(repo_path, item) and not owner_context:
-            continue
-
-        workspace_name = item.replace('ai-knowledge-', '')
-
-        # Read compile-config.yaml for metadata
-        config = {}
-        compile_config_path = os.path.join(repo_path, 'compile-config.yaml')
-        if os.path.isfile(compile_config_path):
-            with open(compile_config_path, 'r') as f:
-                config = yaml.safe_load(f) or {}
-
-        # Check compiled content locations
-        # New flat structure: compiled/{project}/instructions/ and compiled/{project}/knowledge/
-        compiled_base = os.path.join(repo_path, 'compiled', workspace_name)
-        instructions_dir = os.path.join(compiled_base, 'instructions')
-        knowledge_dir = os.path.join(compiled_base, 'knowledge')
-
-        # Check source directory
-        source_dir = os.path.join(repo_path, 'source')
-        has_source = os.path.isdir(source_dir)
-        has_instructions = os.path.isdir(instructions_dir)
-        has_knowledge = os.path.isdir(knowledge_dir)
-
-        if has_instructions or has_knowledge or has_source or config:
-            discovered[workspace_name] = {
-                'instructions': instructions_dir if has_instructions else None,
-                'datasets': knowledge_dir if has_knowledge else None,
-                'repo_path': repo_path,
-                'source_path': source_dir if has_source else None,
-                'config': config,
-                'has_instructions': has_instructions,
-                'has_datasets': has_knowledge,
-                'has_source': has_source,
-            }
-
+    for workspace_name, repo_path in index.items():
+        meta = _build_repo_metadata(workspace_name, repo_path)
+        if meta is not None:
+            discovered[workspace_name] = meta
     return discovered
 
 
 def find_ai_knowledge_root() -> Optional[str]:
-    """Find the ai-knowledge root directory.
+    """Find the ai-knowledge root directory (legacy flat-parent only).
+
+    NOTE: With the workspace-rooted layout there is no single root — repos are
+    distributed across workspaces. This function only succeeds for legacy
+    flat-parent setups (e.g., ~/ai-knowledge/, /app/ai-knowledge/). Code that
+    needs to enumerate repos should use resolve_repo_index() or
+    discover_ai_knowledge_repos() directly.
 
     Returns:
-        Path to ai-knowledge root, or None if not found
+        Path to flat-parent root, or None if no flat-parent layout exists.
     """
-    for candidate in DEFAULT_AI_KNOWLEDGE_PATHS:
+    env_path = os.environ.get("RAGBOT_BASE_PATH")
+    if env_path:
+        expanded = os.path.expanduser(env_path)
+        if os.path.isdir(expanded):
+            return expanded
+    for candidate in LEGACY_FLAT_PARENT_PATHS:
         if os.path.isdir(candidate):
             return candidate
     return None
 
 
-def _load_centralized_inheritance(ai_knowledge_root: str) -> Dict[str, Any]:
+def _load_centralized_inheritance(ai_knowledge_root: Optional[str] = None) -> Dict[str, Any]:
     """
     Load inheritance configuration from my-projects.yaml.
 
     Per ADR-006, inheritance config lives ONLY in the personal repo. This function
-    searches all ai-knowledge repos to find the one containing my-projects.yaml.
-    This approach avoids hardcoding personal repo names in the public codebase.
+    searches all discovered ai-knowledge repos to find the one containing
+    my-projects.yaml.
 
     Args:
-        ai_knowledge_root: Root directory containing ai-knowledge-* folders
+        ai_knowledge_root: Optional flat-parent override. Otherwise uses the
+            full resolution chain.
 
     Returns:
-        Inheritance configuration dictionary, or empty dict if not found
+        Inheritance configuration dictionary, or empty dict if not found.
     """
     if not INHERITANCE_AVAILABLE:
         return {}
 
-    # Search all ai-knowledge repos for my-projects.yaml
-    # The personal repo is the one that contains this file (per ADR-006)
-    if not os.path.isdir(ai_knowledge_root):
-        return {}
-
-    owner_context = _is_owner_context()
-
-    for item in os.listdir(ai_knowledge_root):
-        if not item.startswith('ai-knowledge-'):
-            continue
-        repo_path = os.path.join(ai_knowledge_root, item)
-        if not os.path.isdir(repo_path):
-            continue
-        # ADR-014: filter out -private repos unless in owner context
-        if _is_private_repo(repo_path, item) and not owner_context:
-            continue
+    index = resolve_repo_index(ai_knowledge_root)
+    for workspace_name, repo_path in index.items():
         config_path = find_inheritance_config(repo_path)
         if config_path:
             try:
@@ -246,25 +396,18 @@ def discover_workspaces(ai_knowledge_root: Optional[str] = None) -> List[Dict[st
     """
     Discover all workspaces from ai-knowledge repos.
 
-    Inheritance is resolved from my-projects.yaml in the personal repo (per ADR-006),
-    NOT from individual compile-config.yaml files.
+    Uses the full resolution chain (synthesis-console config, workspace glob,
+    legacy flat parents). Inheritance is resolved from my-projects.yaml in the
+    personal repo (per ADR-006), NOT from individual compile-config.yaml files.
 
     Args:
-        ai_knowledge_root: Optional root directory for ai-knowledge repos
+        ai_knowledge_root: Optional flat-parent override (legacy mode).
 
     Returns:
-        List of workspace dictionaries
+        List of workspace dictionaries.
     """
-    if ai_knowledge_root is None:
-        ai_knowledge_root = find_ai_knowledge_root()
-
-    ai_knowledge_repos = {}
-    inheritance_config = {}
-
-    if ai_knowledge_root:
-        ai_knowledge_repos = discover_ai_knowledge_repos(ai_knowledge_root)
-        # Load centralized inheritance config from personal repo
-        inheritance_config = _load_centralized_inheritance(ai_knowledge_root)
+    ai_knowledge_repos = discover_ai_knowledge_repos(ai_knowledge_root)
+    inheritance_config = _load_centralized_inheritance(ai_knowledge_root)
 
     discovered = []
 
@@ -518,22 +661,21 @@ def get_llm_specific_instruction_path(
     - gemini.md for Google Gemini models
 
     Args:
-        workspace_name: Name of the workspace (e.g., 'personal', 'company')
+        workspace_name: Name of the workspace (e.g., 'personal', 'example-client')
         engine: LLM engine name ('anthropic', 'openai', 'google')
-        ai_knowledge_root: Optional root directory for ai-knowledge repos
+        ai_knowledge_root: Optional flat-parent override (legacy mode).
 
     Returns:
-        Path to the instruction file, or None if not found
+        Path to the instruction file, or None if not found.
     """
-    if ai_knowledge_root is None:
-        ai_knowledge_root = find_ai_knowledge_root()
-
-    if not ai_knowledge_root:
+    index = resolve_repo_index(ai_knowledge_root)
+    repo_path = index.get(workspace_name)
+    if not repo_path:
         return None
 
-    # Build path to compiled instructions
-    repo_path = os.path.join(ai_knowledge_root, f'ai-knowledge-{workspace_name}')
-    instructions_dir = os.path.join(repo_path, 'compiled', workspace_name, 'instructions')
+    # Compiled subdirectory is keyed by the bare workspace name.
+    bare_name = _bare_workspace_name(workspace_name)
+    instructions_dir = os.path.join(repo_path, "compiled", bare_name, "instructions")
 
     if not os.path.isdir(instructions_dir):
         return None

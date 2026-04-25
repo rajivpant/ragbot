@@ -1,3 +1,13 @@
+## What's New in v3.0
+
+Ragbot v3.0 (April 2026) ships three major upgrades over v2:
+
+- **Pgvector by default.** PostgreSQL with the `pgvector` extension is the default vector backend, replacing embedded Qdrant. Native full-text search via `tsvector` + GIN replaces in-process BM25. The legacy embedded Qdrant backend remains as an opt-in fallback (`RAGBOT_VECTOR_BACKEND=qdrant`).
+- **Agent Skills as first-class content.** Ragbot discovers and indexes Agent Skills (`SKILL.md` plus references and scripts) from `~/.synthesis/skills`, `~/.claude/skills`, and plugin caches. New `ragbot skills {list,info,index}` CLI. The compiler can include skills via a `sources.skills` block in `compile-config.yaml`.
+- **Workspace-rooted layout.** AI Knowledge repos are discovered across `~/workspaces/*/ai-knowledge-*` and via the synthesis-engineering shared `~/.synthesis/console.yaml` source list. Configuration moved to `~/.synthesis/` (legacy `~/.config/ragbot/` falls through).
+
+Plus reasoning-effort wiring (Claude 4.x adaptive thinking, GPT-5.5 reasoning, Gemini 3.x thinking levels) — see `--thinking-effort` and `RAGBOT_THINKING_EFFORT`.
+
 ## 🚀 Ragbot & RaGenie: Two Products, One Ecosystem
 
 **Ragbot continues active development** alongside **RaGenie**, its next-generation sibling. Both are open source and share the same data layer (ragbot-data).
@@ -7,7 +17,7 @@
 | Use Case | Recommendation |
 |----------|----------------|
 | Quick setup, CLI-focused workflow | **Ragbot** |
-| Need RAG with vector search | **Both** (Ragbot now has Qdrant RAG) |
+| Need RAG with vector search | **Both** (Ragbot defaults to pgvector; Qdrant fallback available) |
 | Prefer Streamlit simplicity | **Ragbot** |
 | Need microservices architecture | **RaGenie** |
 | Want both CLI and modern web UI | Use both! |
@@ -18,10 +28,10 @@
 
 | Feature | Ragbot (v1) | RaGenie (v2) |
 |---------|-------------|--------------|
-| Architecture | Monolithic Streamlit | Microservices (FastAPI + React) |
+| Architecture | CLI + FastAPI backend + React UI | Microservices (FastAPI + React) |
 | Authentication | None | JWT OAuth2 with role-based access |
-| Storage | File system + Qdrant | PostgreSQL + MinIO + Qdrant (vectors) |
-| RAG | Qdrant vector search | Automatic embeddings with semantic search |
+| Storage | File system + PostgreSQL/pgvector | PostgreSQL + MinIO + Qdrant (vectors) |
+| RAG | Pgvector hybrid search (vector + native FTS) | Automatic embeddings with semantic search |
 | Scalability | Single container | Horizontal scaling with load balancing |
 | Monitoring | None | Prometheus + Grafana dashboards |
 | Caching | None | Redis with smart invalidation |
@@ -73,7 +83,7 @@ Ragbot.AI
 
 🤖 [Ragbot.AI (formerly named rbot)](https://github.com/rajivpant/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
 
-🚀 Ragbot.AI processes user prompts along with instructions, datasets, and runbooks, enabling context-aware responses. Powered by the latest LLMs including OpenAI's GPT-4o and o-series models, Anthropic's Claude Sonnet 4.5 and Claude Opus 4.5, and Google's Gemini 2.5 series, Ragbot.AI uses RAG, a technique that combines the power of pre-trained dense retrieval and sequence-to-sequence models to generate more factual and informative text.
+🚀 Ragbot.AI processes user prompts along with instructions, datasets, runbooks, and Agent Skills, enabling context-aware responses. Powered by the latest LLMs — OpenAI's GPT-5.5 family, Anthropic's Claude Sonnet 4.6 and Claude Opus 4.7, and Google's Gemini 3.x series — Ragbot.AI uses retrieval-augmented generation backed by PostgreSQL + pgvector for vector search and native full-text search.
 
 🧠 Instructions and datasets help Ragbot.AI better understand context, resulting in personalized, more accurate, and relevant responses, surpassing the capabilities of out of the box LLMs.
 
@@ -204,6 +214,60 @@ docker-compose up -d
 - 🐳 **Docker deployment:** See [README-DOCKER.md](README-DOCKER.md) for deployment guide
 - 🤝 **Contributing safely:** Read [CONTRIBUTING.md](CONTRIBUTING.md) before contributing
 - ⚙️ **Detailed setup:** Follow the [installation guide](INSTALL.md) and [configuration guide](CONFIGURE.md)
+
+Configuration Layout (v3+)
+-------------------------
+
+Ragbot's user configuration lives under `~/.synthesis/` (a shared home for synthesis-engineering tools — keys are reused by other tools in the family without duplication):
+
+```
+~/.synthesis/
+├── keys.yaml         # API keys (per-provider; per-workspace overrides supported)
+├── ragbot.yaml       # Ragbot user prefs (default_workspace, etc.)
+└── console.yaml      # Synthesis-console source list (optional; ragbot reads it for repo discovery)
+```
+
+Legacy `~/.config/ragbot/{keys,config}.yaml` is still read as a fallback so existing setups keep working.
+
+Vector Backend
+--------------
+
+Ragbot's default vector store is PostgreSQL with the `pgvector` extension. The schema is shared across workspaces (one `chunks` table with a `workspace` column, an HNSW vector index for cosine ANN, and a generated `tsvector` + GIN index for native full-text search). Migrations are applied idempotently on first connection.
+
+For local development without Docker, install pgvector for your PostgreSQL and point `RAGBOT_DATABASE_URL` at it. With Docker Compose, the bundled `postgres` service starts automatically. See [CONFIGURE.md](CONFIGURE.md) for both paths.
+
+Use `ragbot db status` to confirm the active backend, and the legacy embedded Qdrant backend remains available via `RAGBOT_VECTOR_BACKEND=qdrant`.
+
+Agent Skills
+------------
+
+Ragbot indexes Agent Skills (directories containing `SKILL.md`) as first-class content. The full directory tree is honoured — `references/**/*.md` and bundled scripts (`*.py`, `*.sh`, etc.) are all indexed and become queryable via RAG.
+
+```bash
+ragbot skills list                   # show all discovered skills
+ragbot skills info <skill-name>      # full details for one skill
+ragbot skills index                  # index all skills into the 'skills' workspace
+```
+
+Discovery sources (later wins on name collision):
+
+1. `~/.synthesis/skills/` (synthesis-engineering shared install)
+2. `~/.claude/skills/` (Claude Code private)
+3. `~/.claude/plugins/cache/<vendor>/skills/` (plugin-installed)
+4. Per-workspace roots declared in `compile-config.yaml` (`sources.skills.roots`)
+
+When the `skills` workspace has indexed content, `ragbot chat` automatically merges its results with the user's selected workspace via cross-workspace retrieval. Disable per-call with `--no-skills` or programmatically via `additional_workspaces=[]`.
+
+Reasoning / Thinking Modes
+--------------------------
+
+Models that advertise thinking support in `engines.yaml` (Claude Sonnet 4.6, Claude Opus 4.7, GPT-5.5, GPT-5.5-pro, Gemini 3.x) are wired through LiteLLM's `reasoning_effort` parameter. Defaults: flagship models → `medium`, non-flagship with thinking → `off`, models without thinking metadata → silent (no params sent).
+
+```bash
+ragbot chat --thinking-effort high -p "explain this..."          # explicit high effort
+RAGBOT_THINKING_EFFORT=low ragbot chat -p "explain this..."      # globally low
+ragbot chat --thinking-effort off -p "..."                       # disable on a flagship
+```
 
 RAG (Retrieval-Augmented Generation)
 ------------------------------------

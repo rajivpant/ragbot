@@ -29,10 +29,14 @@ ragbot/
 ├── requirements.txt
 └── engines.yaml               # LLM engine configurations (SINGLE SOURCE OF TRUTH)
 
-~/.config/ragbot/
-├── keys.yaml                  # API keys (per-user, never in repo)
-└── config.yaml                # User preferences (default_workspace)
+~/.synthesis/                  # synthesis-engineering shared config home
+├── keys.yaml                  # API keys (shared across ragbot, ragenie, etc.; never in repo)
+├── ragbot.yaml                # Ragbot user preferences (default_workspace)
+└── console.yaml               # Synthesis-console sources (also used by ragbot for repo discovery)
 ```
+
+Legacy `~/.config/ragbot/{keys,config}.yaml` is read as a fallback when
+`~/.synthesis/` is empty, so existing setups keep working.
 
 **Running the stack:**
 ```bash
@@ -42,12 +46,19 @@ docker compose up -d
 
 ## Data Location
 
-Ragbot uses **convention-based discovery** to find AI Knowledge repositories.
+Ragbot discovers AI Knowledge repositories from multiple sources. Resolution
+order (when `--base-path` and `RAGBOT_BASE_PATH` are both unset, the index is
+the **union** across these sources):
 
-Base path resolution (in order):
-1. `--base-path` CLI argument
-2. `RAGBOT_BASE_PATH` environment variable
-3. `~/ai-knowledge/` (default convention)
+1. `--base-path` CLI argument or `RAGBOT_BASE_PATH` env (override mode: flat-parent only)
+2. `~/.synthesis/console.yaml` — synthesis-console source list (the integration point)
+3. `~/workspaces/*/ai-knowledge-*` — workspace-rooted layout glob
+4. `/app/ai-knowledge` — Docker container default
+5. `~/ai-knowledge` — legacy flat-parent convention
+
+Workspace names are derived from the directory (`ai-knowledge-` prefix
+stripped). Private repos (`-private` suffix or `.ai-knowledge-private-owner`
+sentinel) are filtered unless `RAGBOT_OWNER_CONTEXT=1`.
 
 Each ai-knowledge repo contains:
 - **source/instructions/** - WHO: Identity/persona files
@@ -92,7 +103,84 @@ Each ai-knowledge repo contains:
 - Python CLI with FastAPI backend + React/Next.js frontend
 - Uses LiteLLM for multi-provider LLM support
 - Engines configured in `engines.yaml` (SINGLE SOURCE OF TRUTH for all model config)
-- API keys stored in `~/.config/ragbot/keys.yaml`
+- API keys stored in `~/.synthesis/keys.yaml` (shared across synthesis-engineering products)
+
+### Agent Skills
+
+Ragbot reads Agent Skills (directories containing `SKILL.md`) as first-class content alongside legacy runbooks.
+
+Discovery sources, in priority order (later wins on name collision):
+1. `~/.synthesis/skills/` (synthesis-engineering shared install)
+2. `~/.claude/skills/` (Claude Code private skills)
+3. `~/.claude/plugins/cache/<vendor>/skills/` (plugin-installed skills)
+4. Per-workspace skill roots declared in compile-config.yaml `sources.skills.roots`
+
+A skill's full directory tree is honored:
+- `SKILL.md` — canonical entry point (frontmatter + body).
+- `references/**/*.md` and other markdown — additional procedure detail.
+- Scripts (`*.py`, `*.sh`, `*.js`, etc.) — bundled tools.
+- Other text artifacts — configs, data files, etc.
+
+For RAG indexing (`ragbot skills index`), every text file becomes a searchable chunk tagged with `skill_name`, `skill_relative_path`, `skill_file_kind ∈ {skill_md, reference, script, other}`. Markdown is chunked normally; scripts are stored as whole-file chunks so a query like "install autostart" can hit `install-autostart.sh` directly.
+
+For compilation (`ragbot compile`), the `sources.skills` block in `compile-config.yaml` opts in:
+
+```yaml
+sources:
+  local:
+    path: ./source
+  skills:
+    enabled: true
+    roots: []                 # extra roots beyond ~/.synthesis/skills, ~/.claude/skills
+    include: ["synthesis-*"]  # optional name-glob whitelist
+    exclude: []
+    include_references: true        # default true
+    include_scripts_inline: false   # default false; scripts are listed by name
+```
+
+SKILL.md and references go into the `instructions` category (compiled into the LLM-target output). Scripts are listed by name in a per-skill inventory file under `runbooks` so the LLM knows what tools exist without inlining executable code.
+
+CLI: `ragbot skills list`, `ragbot skills info <name>`, `ragbot skills index [--workspace skills]`.
+
+Backend code lives in `src/ragbot/skills/`.
+
+### Reasoning / Thinking Modes
+
+Models that advertise thinking support in `engines.yaml` (Claude Sonnet 4.6, Claude Opus 4.7, GPT-5.5, GPT-5.5-pro, Gemini 3 Flash / 3.1 Pro / 3.1 Flash Lite) are wired through LiteLLM's `reasoning_effort` parameter. LiteLLM normalises that into the provider-native shape (e.g., `thinking={"type": "adaptive"}` for Claude 4.x).
+
+Default policy:
+
+- **Flagship models** with thinking support → `reasoning_effort: medium` automatically.
+- **Non-flagship models** with thinking support → off by default.
+- Models without a `thinking:` block in `engines.yaml` → no thinking params sent.
+
+Override:
+
+- Per-call: pass `thinking_effort=` to `chat()` / `chat_stream()`. Accepted values: `high`, `medium`, `low`, `minimal`, `off`, `auto`.
+- Globally: set `RAGBOT_THINKING_EFFORT=...` env var.
+
+Implementation in `src/ragbot/core.py::_resolve_thinking_for_model`.
+
+### Cross-Workspace Search
+
+`get_relevant_context` automatically merges retrieved context from the user's selected workspace AND the canonical `skills` workspace (when it exists and has chunks). Each workspace's chunk identity, char ranges, and full-document logic remain isolated; the fan-out happens at the formatted-block level.
+
+API:
+
+- `rag.search_across_workspaces(workspaces, query, limit, content_type)` — vector search across workspaces, RRF-merged, results tagged with `metadata.source_workspace`.
+- `rag.get_relevant_context(workspace, query, additional_workspaces=[...])` — explicit fan-out (pass `[]` to opt out).
+- Auto-include policy: when `additional_workspaces is None` and the `skills` workspace has data, ragbot includes it automatically.
+
+### Vector Store Backends
+
+Ragbot uses an abstraction over the vector store. Two backends ship:
+
+- **pgvector** (default) — PostgreSQL with the `pgvector` extension. Native FTS via tsvector replaces in-process BM25. Selected when `RAGBOT_VECTOR_BACKEND=pgvector` (or unset) and `RAGBOT_DATABASE_URL` is reachable.
+- **qdrant** (legacy) — Embedded local-file Qdrant. Selected with `RAGBOT_VECTOR_BACKEND=qdrant`. Retained for back-compat; falls back to in-process BM25.
+
+Backend code lives in `src/ragbot/vectorstore/`. The schema (single shared `documents` + `chunks` table, scoped by `workspace` column, with HNSW + GIN indexes) is in `vectorstore/migrations/0001_initial.sql`. New migrations append numerically; the runner is idempotent.
+
+Diagnose with `ragbot db status`. Apply migrations explicitly with `ragbot db init`.
 - Workspaces discovered automatically from ai-knowledge-* repositories
 
 ### Configuration Functions (from engines.yaml)

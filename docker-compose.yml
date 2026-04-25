@@ -1,17 +1,51 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ragbot-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ragbot}
+      POSTGRES_USER: ${POSTGRES_USER:-ragbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragbot_dev_password_change_me}
+      # Listen on all interfaces inside the container; the network firewall
+      # is the docker-compose network boundary.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      # Expose to host for ragbot CLI running natively. Bind to 127.0.0.1 only.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ragbot-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ragbot} -d ${POSTGRES_DB:-ragbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - ragbot-network
+
   ragbot-api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: ragbot-api
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    environment:
+      # Default backend for new installs. Override to `qdrant` for legacy mode.
+      RAGBOT_VECTOR_BACKEND: ${RAGBOT_VECTOR_BACKEND:-pgvector}
+      RAGBOT_DATABASE_URL: ${RAGBOT_DATABASE_URL:-postgresql://ragbot:ragbot_dev_password_change_me@postgres:5432/ragbot}
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions
 
-      # Mount user config for API keys
-      - ~/.config/ragbot:/root/.config/ragbot:ro
+      # Mount the synthesis-engineering shared config home (read-only).
+      # Contains: keys.yaml (API keys), ragbot.yaml (user prefs),
+      # console.yaml (synthesis-console sources, used for repo discovery).
+      - ~/.synthesis:/root/.synthesis:ro
 
       # Mount workspaces for ai-knowledge repo discovery (repos distributed across workspaces)
       - ~/workspaces:/root/workspaces:ro
@@ -22,7 +56,7 @@ services:
       # Mount source code for development (optional - comment out for production)
       - ./src:/app/src:ro
 
-      # Qdrant vector database storage (for RAG)
+      # Qdrant vector database storage (legacy backend, retained for back-compat)
       - ragbot-qdrant:/app/qdrant_data
     restart: unless-stopped
     healthcheck:
@@ -58,6 +92,8 @@ services:
 
 volumes:
   ragbot-sessions:
+    driver: local
+  ragbot-postgres-data:
     driver: local
   ragbot-qdrant:
     driver: local

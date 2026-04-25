@@ -42,10 +42,14 @@ try:
 except ImportError:
     openai = None
 
+# Google Gen AI SDK (the supported successor to google-generativeai). The
+# legacy package is kept around as a transitive dep of older tools; this
+# code path uses the new SDK exclusively to avoid the EOL deprecation
+# warning emitted at import time.
 try:
-    import google.generativeai as genai
+    from google import genai as google_genai  # type: ignore
 except ImportError:
-    genai = None
+    google_genai = None  # type: ignore
 
 
 # Platform-specific constraints
@@ -209,16 +213,14 @@ def compile_with_google(content: str, model: str, api_key: str) -> str:
     Returns:
         Compiled instructions
     """
-    if genai is None:
-        raise ImportError("google-generativeai package not installed")
+    if google_genai is None:
+        raise ImportError("google-genai package not installed (pip install google-genai)")
 
-    genai.configure(api_key=api_key)
-
-    # Remove 'gemini/' prefix if present
+    # Strip the litellm-style 'gemini/' prefix; google-genai expects bare ids.
     if model.startswith('gemini/'):
-        model = model[7:]
+        model = model[len('gemini/'):]
 
-    gen_model = genai.GenerativeModel(model)
+    client = google_genai.Client(api_key=api_key)
 
     prompt = f"""{get_compilation_prompt('google')}
 
@@ -226,9 +228,10 @@ Please optimize these instructions for Gemini:
 
 {content}"""
 
-    response = gen_model.generate_content(prompt)
+    response = client.models.generate_content(model=model, contents=prompt)
 
-    return response.text
+    # The SDK exposes the consolidated string via the .text accessor.
+    return response.text or ""
 
 
 def compile_for_unsupported_platform(content: str, target_platform: str,

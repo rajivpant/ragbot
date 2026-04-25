@@ -33,6 +33,18 @@ async def get_config(settings: Settings = Depends(get_settings)):
     workspaces = discover_workspaces()
     keystore = get_keystore()
 
+    # Surface vector backend status alongside other config so the web UI can
+    # show which backend is active without a separate /health round-trip.
+    backend_info: dict = {}
+    try:
+        from ragbot.vectorstore import get_vector_store
+
+        vs = get_vector_store()
+        if vs is not None:
+            backend_info = vs.healthcheck()
+    except Exception as exc:  # pragma: no cover - defensive
+        backend_info = {"backend": "unknown", "ok": False, "reason": str(exc)}
+
     return ConfigResponse(
         version=VERSION,
         ai_knowledge_root=settings.ai_knowledge_root,
@@ -42,6 +54,7 @@ async def get_config(settings: Settings = Depends(get_settings)):
         default_workspace=get_default_workspace(),
         api_keys=check_api_keys(),
         workspaces_with_keys=keystore.list_workspaces_with_keys(),
+        vector_backend=backend_info,
     )
 
 

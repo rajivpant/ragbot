@@ -33,6 +33,21 @@ import json
 import math
 import logging
 from typing import Optional, Dict, List, Tuple, Any, Set
+
+# Vector store abstraction (pgvector + qdrant backends behind a common ABC).
+# Importing at module load time so callers can rely on get_vector_store().
+try:
+    from ragbot.vectorstore import (
+        get_vector_store,
+        Point as VectorStorePoint,
+        SearchHit as VectorStoreHit,
+    )
+    VECTOR_STORE_AVAILABLE = True
+except ImportError:  # pragma: no cover - import guard for partial installs
+    get_vector_store = None  # type: ignore
+    VectorStorePoint = None  # type: ignore
+    VectorStoreHit = None  # type: ignore
+    VECTOR_STORE_AVAILABLE = False
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -680,66 +695,60 @@ def hybrid_search(
     # For efficiency, we'll use the vector search results as the corpus
     # (This is a practical trade-off: full BM25 would require loading all docs)
 
-    client = _get_qdrant_client()
-    if not client:
+    if not VECTOR_STORE_AVAILABLE:
+        return vector_results
+    vs = get_vector_store()
+    if vs is None:
         return vector_results
 
-    collection_name = get_collection_name(workspace_name)
-
     try:
-        # Get documents for BM25 indexing
-        # We fetch more candidates for BM25 to search through
-        all_points = []
-        offset = None
-
-        # Limit scrolling to avoid memory issues
-        max_scroll = 500
-        while len(all_points) < max_scroll:
-            result = client.scroll(
-                collection_name=collection_name,
-                limit=100,
-                offset=offset,
-                with_payload=True,
-                with_vectors=False
-            )
-            points, next_offset = result
-            all_points.extend(points)
-            if next_offset is None:
-                break
-            offset = next_offset
-
-        if not all_points:
-            return vector_results
-
-        # Build BM25 index
-        bm25_docs = []
-        for point in all_points:
-            payload = point.payload
-            # Apply content_type filter
-            if content_type and payload.get('content_type') != content_type:
-                continue
-            bm25_docs.append({
-                'text': payload.get('text', ''),
-                'metadata': payload
-            })
-
-        if not bm25_docs:
-            return vector_results
-
-        bm25_index = BM25Index()
-        bm25_index.add_documents(bm25_docs)
-
-        # Search with BM25
-        bm25_results_raw = bm25_index.search(query, limit=limit)
-
-        # Convert to standard format
+        # Try native FTS first (pgvector). If the backend supports it, this
+        # is faster, more accurate, and avoids loading the corpus into memory.
         bm25_results = []
-        for doc, score in bm25_results_raw:
-            bm25_results.append({
-                'text': doc.get('text', ''),
-                'score': score,
-                'metadata': doc.get('metadata', {})
-            })
+        native_hits = vs.keyword_search(
+            workspace_name,
+            query,
+            limit=limit,
+            content_type=content_type,
+        )
+        if native_hits:
+            bm25_results = [
+                {
+                    'text': h.text,
+                    'score': h.score,
+                    'metadata': dict(h.metadata),
+                }
+                for h in native_hits
+            ]
+        else:
+            # Fallback: in-process BM25 over scrolled chunks (Qdrant path).
+            # Limit to 500 to bound memory.
+            scrolled = vs.scroll_documents(
+                workspace_name,
+                limit=500,
+                content_type=content_type,
+            )
+            if not scrolled:
+                return vector_results
+
+            bm25_docs = [
+                {'text': h.text, 'metadata': dict(h.metadata)}
+                for h in scrolled
+            ]
+            if not bm25_docs:
+                return vector_results
+
+            bm25_index = BM25Index()
+            bm25_index.add_documents(bm25_docs)
+            bm25_raw = bm25_index.search(query, limit=limit)
+            bm25_results = [
+                {
+                    'text': doc.get('text', ''),
+                    'score': score,
+                    'metadata': doc.get('metadata', {}),
+                }
+                for doc, score in bm25_raw
+            ]
 
         logger.info(f"Hybrid search: {len(vector_results)} vector, {len(bm25_results)} BM25")
 
@@ -1202,13 +1211,21 @@ def _get_embedding_model():
 
 
 def is_rag_available() -> bool:
-    """Check if RAG dependencies are available."""
+    """Check if RAG dependencies are available.
+
+    RAG requires (a) sentence-transformers for embeddings, and (b) a working
+    vector store backend. The active backend is decided by RAGBOT_VECTOR_BACKEND
+    (defaults to pgvector with qdrant fallback).
+    """
+
     try:
-        from qdrant_client import QdrantClient
-        from sentence_transformers import SentenceTransformer
-        return True
+        from sentence_transformers import SentenceTransformer  # noqa: F401
     except ImportError:
         return False
+    if not VECTOR_STORE_AVAILABLE:
+        return False
+    vs = get_vector_store()
+    return vs is not None
 
 
 def get_collection_name(workspace_name: str) -> str:
@@ -1220,46 +1237,26 @@ def get_collection_name(workspace_name: str) -> str:
 
 def init_collection(workspace_name: str, vector_size: int = 384) -> bool:
     """
-    Initialize a Qdrant collection for a workspace.
+    Initialize the workspace's storage in the configured vector backend.
 
     Args:
         workspace_name: Name of the workspace
         vector_size: Dimension of embedding vectors (384 for MiniLM)
 
     Returns:
-        True if collection is ready, False otherwise
+        True if storage is ready, False otherwise
     """
-    client = _get_qdrant_client()
-    if not client:
+    if not VECTOR_STORE_AVAILABLE:
         return False
-
-    try:
-        from qdrant_client.models import Distance, VectorParams
-
-        collection_name = get_collection_name(workspace_name)
-
-        # Check if collection exists
-        collections = client.get_collections().collections
-        collection_names = [c.name for c in collections]
-
-        if collection_name not in collection_names:
-            logger.info(f"Creating collection: {collection_name}")
-            client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(
-                    size=vector_size,
-                    distance=Distance.COSINE
-                )
-            )
-        return True
-    except Exception as e:
-        logger.error(f"Failed to initialize collection: {e}")
+    vs = get_vector_store()
+    if vs is None:
         return False
+    return vs.init_collection(workspace_name, vector_size=vector_size)
 
 
 def index_content(workspace_name: str, content_paths: list, content_type: str = 'datasets') -> dict:
     """
-    Index content into the vector store.
+    Index content into the configured vector store.
 
     Args:
         workspace_name: Name of the workspace
@@ -1273,19 +1270,20 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     if not _load_chunking():
         return {'error': 'Chunking module not available', 'indexed': 0}
 
-    client = _get_qdrant_client()
+    if not VECTOR_STORE_AVAILABLE:
+        return {'error': 'Vector store module unavailable', 'indexed': 0}
+
+    vs = get_vector_store()
     model = _get_embedding_model()
 
-    if not client or not model:
+    if vs is None or model is None:
         return {'error': 'RAG not available', 'indexed': 0}
 
-    collection_name = get_collection_name(workspace_name)
+    embedding_model_name = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 
-    # Ensure collection exists
+    # Ensure storage exists for this workspace
     if not init_collection(workspace_name, model.get_sentence_embedding_dimension()):
         return {'error': 'Failed to initialize collection', 'indexed': 0}
-
-    from qdrant_client.models import PointStruct
 
     # Configure chunking for RAG (smaller chunks, title extraction)
     config = ChunkConfig(
@@ -1298,18 +1296,15 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     # Chunk all files
     chunks = chunk_files(content_paths, config)
 
-    # Generate embeddings and create points
+    # Generate embeddings and build VectorStore Point objects
     points = []
-    for chunk in chunks:
-        # Build text for embedding that includes filename and title for better semantic matching
-        # This helps queries like "show me my biography" match documents about biography
+    for idx, chunk in enumerate(chunks):
         filename = chunk.metadata.get('filename', '')
         title = chunk.metadata.get('title', '')
 
-        # Create embedding text with document context
+        # Build embedding text with document context for better semantic matching
         embedding_parts = []
         if filename:
-            # Convert filename to readable form: rajiv-pant-biography.md -> rajiv pant biography
             readable_filename = filename.rsplit('.', 1)[0].replace('-', ' ').replace('_', ' ')
             embedding_parts.append(f"Document: {readable_filename}")
         if title:
@@ -1319,26 +1314,42 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
         embedding_text = '\n'.join(embedding_parts)
         embedding = model.encode(embedding_text).tolist()
 
-        point_id = get_qdrant_point_id(chunk)
-        # Store original text in payload for retrieval (not the embedding text)
-        payload = {**chunk.metadata, 'text': chunk.text}
-        points.append(PointStruct(
-            id=point_id,
+        # Strip large/duplicate fields from metadata (text + structural fields are stored
+        # in dedicated columns / payload keys; the rest goes into the JSONB metadata column).
+        chunk_meta = {
+            k: v
+            for k, v in chunk.metadata.items()
+            if k not in ('text', 'filename', 'title', 'content_type', 'category',
+                         'source_file', 'char_start', 'char_end', 'chunk_index')
+        }
+
+        point_id = get_qdrant_point_id(chunk) if get_qdrant_point_id else f"{workspace_name}-{idx}"
+        # Coerce non-string ids to a stable string for cross-backend compatibility.
+        chunk_uid = str(point_id)
+
+        points.append(VectorStorePoint(
+            chunk_uid=chunk_uid,
             vector=embedding,
-            payload=payload
+            text=chunk.text,
+            chunk_index=chunk.metadata.get('chunk_index', idx),
+            char_start=chunk.metadata.get('char_start'),
+            char_end=chunk.metadata.get('char_end'),
+            filename=filename or None,
+            title=title or None,
+            content_type=content_type,
+            source_path=chunk.metadata.get('source_file'),
+            embedding_model=embedding_model_name,
+            metadata=chunk_meta,
         ))
 
-    # Upsert points in batches
-    if points:
-        batch_size = 100
-        for i in range(0, len(points), batch_size):
-            batch = points[i:i + batch_size]
-            client.upsert(collection_name=collection_name, points=batch)
+    written = vs.upsert_points(workspace_name, points) if points else 0
 
     return {
-        'collection': collection_name,
-        'indexed': len(chunks),
-        'content_type': content_type
+        'backend': vs.backend_name,
+        'collection': get_collection_name(workspace_name),
+        'workspace': workspace_name,
+        'indexed': written,
+        'content_type': content_type,
     }
 
 
@@ -1359,48 +1370,25 @@ def find_full_document(workspace_name: str, document_hint: str,
     Returns:
         Dict with 'content', 'filename', 'source_file' if found, None otherwise
     """
-    client = _get_qdrant_client()
-    if not client:
+    if not VECTOR_STORE_AVAILABLE:
+        return None
+    vs = get_vector_store()
+    if vs is None:
         return None
 
-    collection_name = get_collection_name(workspace_name)
-
     try:
-        # Check if collection exists
-        collections = client.get_collections().collections
-        collection_names = [c.name for c in collections]
-        if collection_name not in collection_names:
-            return None
-
-        # Get all unique source files from the collection
-        # We scroll through to find documents matching the hint
-        all_points = []
-        offset = None
-        while True:
-            result = client.scroll(
-                collection_name=collection_name,
-                limit=100,
-                offset=offset,
-                with_payload=True,
-                with_vectors=False
-            )
-            points, next_offset = result
-            all_points.extend(points)
-            if next_offset is None:
-                break
-            offset = next_offset
-
-        if not all_points:
+        # Pull all chunks for this workspace via the abstraction. The cap of
+        # 5,000 matches the upper bound of the previous Qdrant scroll loop.
+        hits = vs.scroll_documents(workspace_name, limit=5000)
+        if not hits:
             return None
 
         # Group chunks by source file and score each file
         file_chunks: Dict[str, List] = {}
-        for point in all_points:
-            source_file = point.payload.get('source_file', '')
+        for hit in hits:
+            source_file = hit.metadata.get('source_file', '') or hit.metadata.get('source_path', '')
             if source_file:
-                if source_file not in file_chunks:
-                    file_chunks[source_file] = []
-                file_chunks[source_file].append(point.payload)
+                file_chunks.setdefault(source_file, []).append(hit.metadata)
 
         # Score each file based on how well it matches the hint and terms
         file_scores = []
@@ -1504,13 +1492,13 @@ def search(workspace_name: str, query: str, limit: int = 5,
     Returns:
         List of search results with text and metadata
     """
-    client = _get_qdrant_client()
+    if not VECTOR_STORE_AVAILABLE:
+        return []
+    vs = get_vector_store()
     model = _get_embedding_model()
 
-    if not client or not model:
+    if vs is None or model is None:
         return []
-
-    collection_name = get_collection_name(workspace_name)
 
     # Preprocess query for better matching
     if use_preprocessing:
@@ -1522,59 +1510,38 @@ def search(workspace_name: str, query: str, limit: int = 5,
         search_terms = set(query.lower().split())
 
     try:
-        # Check if collection exists
-        collections = client.get_collections().collections
-        collection_names = [c.name for c in collections]
-        if collection_name not in collection_names:
-            logger.warning(f"Collection {collection_name} not found")
-            return []
-
         # Generate query embedding using preprocessed query
         query_vector = model.encode(search_query).tolist()
 
-        # Build filter if content_type specified
-        search_filter = None
-        if content_type:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
-            search_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="content_type",
-                        match=MatchValue(value=content_type)
-                    )
-                ]
-            )
-
-        # Search using query_points (qdrant-client >= 1.10)
-        results = client.query_points(
-            collection_name=collection_name,
-            query=query_vector,
+        hits = vs.search(
+            workspace_name,
+            query_vector=query_vector,
             limit=limit,
-            query_filter=search_filter
+            content_type=content_type,
         )
+
+        if not hits:
+            return []
 
         # Format results
         formatted = []
-        for result in results.points:
-            # Get text directly from payload (stored during indexing)
-            # Fall back to file reading for backwards compatibility
-            text = result.payload.get('text', '')
+        for hit in hits:
+            text = hit.text
             if not text:
                 try:
-                    source_file = result.payload.get('source_file', '')
-                    char_start = result.payload.get('char_start', 0)
-                    char_end = result.payload.get('char_end', 0)
-
+                    source_file = hit.metadata.get('source_file', '') or hit.metadata.get('source_path', '')
+                    char_start = hit.metadata.get('char_start', 0) or 0
+                    char_end = hit.metadata.get('char_end', 0) or 0
                     with open(source_file, 'r', encoding='utf-8') as f:
                         content = f.read()
                         text = content[char_start:char_end]
-                except:
+                except Exception:
                     text = "[Content not available]"
 
             formatted.append({
                 'text': text,
-                'score': result.score,
-                'metadata': result.payload
+                'score': hit.score,
+                'metadata': dict(hit.metadata),
             })
 
         # Re-rank: boost results where query terms appear in filename or title
@@ -1583,8 +1550,10 @@ def search(workspace_name: str, query: str, limit: int = 5,
         # Use preprocessed search_terms which have contractions expanded and stop words removed
         query_terms = set(search_terms) if isinstance(search_terms, list) else search_terms
         for item in formatted:
-            filename = item['metadata'].get('filename', '').lower()
-            title = item['metadata'].get('title', '').lower()
+            # `.get(..., '')` doesn't help when the key is present-but-None
+            # (which happens for chunks indexed without a title). Coerce.
+            filename = (item['metadata'].get('filename') or '').lower()
+            title = (item['metadata'].get('title') or '').lower()
 
             # Check for exact term matches in filename
             filename_words = set(filename.replace('-', ' ').replace('_', ' ').replace('.md', '').split())
@@ -1610,11 +1579,63 @@ def search(workspace_name: str, query: str, limit: int = 5,
         return []
 
 
-def get_relevant_context(workspace_name: str, query: str,
+def search_across_workspaces(workspaces: List[str], query: str, limit: int = 5,
+                             content_type: Optional[str] = None,
+                             use_preprocessing: bool = True) -> list:
+    """Vector search across multiple workspaces, RRF-merged.
+
+    For each workspace, run the standard ``search`` and tag every result with
+    its source workspace. Then fuse rankings via reciprocal rank fusion so a
+    cross-workspace top-N reflects rank consistency, not raw scores (which
+    aren't directly comparable across workspaces with different corpus
+    distributions).
+
+    Returns the top ``limit`` results, each annotated with
+    ``metadata['source_workspace']``.
+    """
+    if not workspaces:
+        return []
+    if len(workspaces) == 1:
+        # Single-workspace path is identical to plain ``search``; preserves
+        # the original score for callers that depend on it.
+        results = search(workspaces[0], query, limit=limit,
+                         content_type=content_type,
+                         use_preprocessing=use_preprocessing)
+        for r in results:
+            r['metadata']['source_workspace'] = workspaces[0]
+        return results
+
+    per_workspace = []
+    for ws in workspaces:
+        ws_results = search(ws, query, limit=limit,
+                            content_type=content_type,
+                            use_preprocessing=use_preprocessing)
+        if not ws_results:
+            continue
+        for r in ws_results:
+            r['metadata']['source_workspace'] = ws
+        per_workspace.append([(r, r.get('score', 0.0)) for r in ws_results])
+
+    if not per_workspace:
+        return []
+
+    fused = reciprocal_rank_fusion(per_workspace)
+    output = []
+    for doc, rrf_score in fused[:limit]:
+        result = doc.copy()
+        result['rrf_score'] = rrf_score
+        if 'score' not in result:
+            result['score'] = rrf_score
+        output.append(result)
+    return output
+
+
+def get_relevant_context(workspace_name, query: str,
                          max_tokens: int = 16000,
                          user_model: Optional[str] = None,
                          use_phase2: bool = True,
-                         use_phase3: bool = True) -> str:
+                         use_phase3: bool = True,
+                         additional_workspaces: Optional[List[str]] = None) -> str:
     """
     Get relevant context for a query, formatted for LLM consumption.
 
@@ -1648,6 +1669,49 @@ def get_relevant_context(workspace_name: str, query: str,
     Returns:
         Formatted context string to include in the prompt
     """
+    # Cross-workspace fan-out: when additional_workspaces is provided (or
+    # auto-detected via the skills workspace), retrieve context from each in
+    # turn and concatenate the formatted blocks. Each block stays workspace-
+    # scoped so chunk identity, char ranges, and full-document retrieval
+    # behave correctly within their own corpus.
+    auto_extra: List[str] = []
+    if additional_workspaces is None:
+        # Auto-include the canonical "skills" workspace when it has content
+        # and it's not already the primary workspace.
+        if VECTOR_STORE_AVAILABLE and workspace_name != 'skills':
+            vs = get_vector_store()
+            if vs is not None:
+                info = vs.get_collection_info('skills')
+                if info and (info.get('count') or 0) > 0:
+                    auto_extra = ['skills']
+        effective_extra = auto_extra
+    else:
+        effective_extra = [w for w in additional_workspaces if w != workspace_name]
+
+    if effective_extra:
+        budget_per_ws = max(1024, max_tokens // (1 + len(effective_extra)))
+        primary = get_relevant_context(
+            workspace_name, query,
+            max_tokens=budget_per_ws,
+            user_model=user_model,
+            use_phase2=use_phase2,
+            use_phase3=use_phase3,
+            additional_workspaces=[],   # break recursion
+        )
+        blocks = [primary] if primary else []
+        for ws in effective_extra:
+            extra_block = get_relevant_context(
+                ws, query,
+                max_tokens=budget_per_ws,
+                user_model=user_model,
+                use_phase2=use_phase2,
+                use_phase3=use_phase3,
+                additional_workspaces=[],
+            )
+            if extra_block:
+                blocks.append(f"<!-- workspace:{ws} -->\n{extra_block}")
+        return '\n\n'.join(blocks) if blocks else ""
+
     # Step 1: Preprocess the query (Phase 1 or Phase 2)
     if use_phase2:
         query_info = enhanced_preprocess_query(
@@ -1851,28 +1915,189 @@ def get_index_status(workspace_name: str) -> tuple[bool, int]:
         Tuple of (is_indexed, chunk_count) where chunk_count is the number of
         vector points in the Qdrant collection.
     """
-    client = _get_qdrant_client()
-    if not client:
+    if not VECTOR_STORE_AVAILABLE:
         return False, 0
-
+    vs = get_vector_store()
+    if vs is None:
+        return False, 0
     try:
-        collection_name = get_collection_name(workspace_name)
-
-        # Check if collection exists
-        collections = client.get_collections().collections
-        collection_names = [c.name for c in collections]
-
-        if collection_name not in collection_names:
+        info = vs.get_collection_info(workspace_name)
+        if not info:
             return False, 0
-
-        # Get collection info
-        collection_info = client.get_collection(collection_name)
-        doc_count = collection_info.points_count
-
-        return doc_count > 0, doc_count
-    except Exception as e:
-        logger.error(f"Failed to get index status: {e}")
+        count = int(info.get('count') or 0)
+        return count > 0, count
+    except Exception as exc:
+        logger.error("Failed to get index status: %s", exc)
         return False, 0
+
+
+def _build_skill_chunks(skill, embedding_model_name: str, model) -> List["VectorStorePoint"]:
+    """Generate vector-store Points for every indexable file inside a skill.
+
+    Each chunk is tagged with ``skill_name`` plus a content_type derived
+    from the file's classification (``skill``, ``skill_reference``,
+    ``skill_script``, ``skill_other``). Markdown content is normally
+    chunked; scripts/other-text are stored as a single chunk per file
+    (their value is queryability, not semantic mid-document chunking).
+    """
+    if not _load_chunking():
+        return []
+    if not VECTOR_STORE_AVAILABLE:
+        return []
+
+    from ragbot.skills.model import SkillFileKind  # local to avoid module-load cost
+
+    points: List[VectorStorePoint] = []
+
+    kind_to_content_type = {
+        SkillFileKind.SKILL_MD: 'skill',
+        SkillFileKind.REFERENCE: 'skill_reference',
+        SkillFileKind.SCRIPT: 'skill_script',
+        SkillFileKind.OTHER: 'skill_other',
+    }
+
+    cfg_md = ChunkConfig(
+        chunk_size=500, chunk_overlap=50,
+        extract_title=True, category='skill',
+    )
+
+    for sf in skill.files:
+        if not sf.is_text or not sf.content:
+            continue
+        content_type = kind_to_content_type.get(sf.kind, 'skill_other')
+        ext = os.path.splitext(sf.relative_path)[1].lower()
+        is_markdown = ext in ('.md', '.markdown')
+
+        # Markdown gets the standard chunker. Scripts and other text become
+        # a single whole-file chunk so retrieval lands the entire artifact.
+        if is_markdown:
+            chunks = chunk_files([sf.absolute_path], cfg_md)
+        else:
+            # Synthesise a one-chunk record without invoking the chunker so
+            # we keep the original file content intact.
+            class _PseudoChunk:
+                def __init__(self, text, metadata):
+                    self.text = text
+                    self.metadata = metadata
+            md = {
+                'filename': os.path.basename(sf.relative_path),
+                'title': os.path.basename(sf.relative_path),
+                'category': 'skill_script' if sf.kind is SkillFileKind.SCRIPT else 'skill_other',
+                'source_file': sf.absolute_path,
+                'chunk_index': 0,
+                'char_start': 0,
+                'char_end': len(sf.content),
+            }
+            chunks = [_PseudoChunk(sf.content, md)]
+
+        for idx, chunk in enumerate(chunks):
+            filename = chunk.metadata.get('filename', os.path.basename(sf.relative_path))
+            title = chunk.metadata.get('title') or skill.name
+
+            embedding_parts = []
+            if filename:
+                readable = filename.rsplit('.', 1)[0].replace('-', ' ').replace('_', ' ')
+                embedding_parts.append(f"Skill: {skill.name}")
+                embedding_parts.append(f"Document: {readable}")
+            if title and title != filename:
+                embedding_parts.append(f"Title: {title}")
+            if skill.description:
+                embedding_parts.append(f"Skill description: {skill.description[:200]}")
+            embedding_parts.append(chunk.text)
+
+            embedding = model.encode('\n'.join(embedding_parts)).tolist()
+
+            chunk_uid_seed = f"{skill.name}::{sf.relative_path}::{idx}"
+            point_id = get_qdrant_point_id(chunk) if get_qdrant_point_id else chunk_uid_seed
+            chunk_uid = str(point_id) if point_id else chunk_uid_seed
+
+            metadata = {
+                'skill_name': skill.name,
+                'skill_path': skill.path,
+                'skill_version': skill.version,
+                'skill_relative_path': sf.relative_path,
+                'skill_file_kind': sf.kind.value,
+                'skill_description': skill.description,
+            }
+
+            points.append(VectorStorePoint(
+                chunk_uid=chunk_uid,
+                vector=embedding,
+                text=chunk.text,
+                chunk_index=idx,
+                char_start=chunk.metadata.get('char_start'),
+                char_end=chunk.metadata.get('char_end'),
+                filename=filename,
+                title=title,
+                content_type=content_type,
+                source_path=sf.absolute_path,
+                embedding_model=embedding_model_name,
+                metadata=metadata,
+            ))
+
+    return points
+
+
+def index_skills(workspace_name: str = 'skills', skill_roots: Optional[List[str]] = None,
+                 only: Optional[List[str]] = None, force: bool = False) -> dict:
+    """Index discovered Agent Skills into the configured vector store.
+
+    Args:
+        workspace_name: Vector-store workspace to index into (default ``skills``).
+            Skills typically live in a dedicated workspace so they can be
+            queried alongside any user workspace via cross-workspace search.
+        skill_roots: Override the discovery roots. ``None`` uses defaults.
+        only: Optional list of skill names to limit indexing to.
+        force: If True, clear the workspace before indexing.
+
+    Returns:
+        Dict with summary stats ``{backend, workspace, skills_indexed,
+        chunks_indexed, skipped, skill_names}``.
+    """
+    if not VECTOR_STORE_AVAILABLE:
+        return {'error': 'Vector store module unavailable', 'skills_indexed': 0, 'chunks_indexed': 0}
+
+    from ragbot.skills import discover_skills
+
+    vs = get_vector_store()
+    model = _get_embedding_model()
+    if vs is None or model is None:
+        return {'error': 'RAG not available', 'skills_indexed': 0, 'chunks_indexed': 0}
+
+    embedding_model_name = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+
+    if not init_collection(workspace_name, model.get_sentence_embedding_dimension()):
+        return {'error': 'Failed to initialize collection', 'skills_indexed': 0}
+
+    if force:
+        vs.delete_collection(workspace_name)
+        init_collection(workspace_name, model.get_sentence_embedding_dimension())
+
+    skills = discover_skills(roots=skill_roots) if skill_roots else discover_skills()
+    if only:
+        wanted = set(only)
+        skills = [s for s in skills if s.name in wanted]
+
+    total_chunks = 0
+    indexed_names: List[str] = []
+    skipped: List[str] = []
+    for skill in skills:
+        points = _build_skill_chunks(skill, embedding_model_name, model)
+        if not points:
+            skipped.append(skill.name)
+            continue
+        written = vs.upsert_points(workspace_name, points)
+        total_chunks += written
+        indexed_names.append(skill.name)
+
+    return {
+        'backend': vs.backend_name,
+        'workspace': workspace_name,
+        'skills_indexed': len(indexed_names),
+        'chunks_indexed': total_chunks,
+        'skipped': skipped,
+        'skill_names': indexed_names,
+    }
 
 
 def index_workspace_by_name(workspace_name: str, force: bool = False) -> int:
@@ -2353,15 +2578,16 @@ def clear_collection(workspace_name: str) -> bool:
     Returns:
         True if successful
     """
-    client = _get_qdrant_client()
-    if not client:
+    if not VECTOR_STORE_AVAILABLE:
         return False
-
+    vs = get_vector_store()
+    if vs is None:
+        return False
     try:
-        collection_name = get_collection_name(workspace_name)
-        client.delete_collection(collection_name)
-        logger.info(f"Cleared collection: {collection_name}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to clear collection: {e}")
+        ok = vs.delete_collection(workspace_name)
+        if ok:
+            logger.info("Cleared collection: %s (backend=%s)", workspace_name, vs.backend_name)
+        return ok
+    except Exception as exc:
+        logger.error("Failed to clear collection: %s", exc)
         return False

@@ -15,20 +15,39 @@ This guide explains how to run Ragbot.AI using Docker and Docker Compose for eas
 Create the keys configuration file:
 
 ```bash
-mkdir -p ~/.config/ragbot
-cat > ~/.config/ragbot/keys.yaml << 'EOF'
-# Ragbot API Keys
+mkdir -p ~/.synthesis
+cat > ~/.synthesis/keys.yaml << 'EOF'
+# Synthesis API Keys (shared across synthesis-engineering products: ragbot, ragenie, etc.)
 default:
   anthropic: "sk-ant-your-key-here"
   openai: "sk-your-key-here"
   google: "your-gemini-key-here"
 EOF
-chmod 600 ~/.config/ragbot/keys.yaml
+chmod 600 ~/.synthesis/keys.yaml
 ```
 
 Edit with your actual API keys.
 
-### 2. Build and Start the Web Interface
+### 2. Configure the Database (pgvector)
+
+Ragbot's default vector backend is PostgreSQL with the `pgvector` extension. Copy the env template and change the password before any non-local use:
+
+```bash
+cp .env.example .env
+# Edit .env and set POSTGRES_PASSWORD to a strong value.
+# RAGBOT_DATABASE_URL is auto-derived from POSTGRES_USER/POSTGRES_PASSWORD.
+```
+
+Docker Compose will start a Postgres 16 container (image `pgvector/pgvector:pg16`) alongside ragbot-api. The schema is applied automatically on first connection. Verify with:
+
+```bash
+docker compose up -d postgres
+docker compose exec postgres psql -U ragbot -d ragbot -c "SELECT extversion FROM pg_extension WHERE extname='vector';"
+```
+
+To opt into the legacy embedded Qdrant backend instead, set `RAGBOT_VECTOR_BACKEND=qdrant` in `.env`.
+
+### 3. Build and Start the Web Interface
 
 ```bash
 # Build the Docker image
@@ -104,7 +123,7 @@ docker-compose run --rm ragbot-cli -p "Analyze this data" -d /app/datasets
 
 ### API Keys
 
-API keys are stored in `~/.config/ragbot/keys.yaml`:
+API keys are stored in `~/.synthesis/keys.yaml` (shared across synthesis-engineering products):
 
 ```yaml
 # Ragbot API Keys
@@ -137,7 +156,7 @@ services:
       # Mount ai-knowledge repos
       - /path/to/ai-knowledge:/app/ai-knowledge:ro
       # Mount keys configuration
-      - ~/.config/ragbot:/root/.config/ragbot:ro
+      - ~/.synthesis:/root/.synthesis:ro
 ```
 
 The workspaces are discovered automatically based on the `ai-knowledge-*` naming convention.

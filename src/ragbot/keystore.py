@@ -1,10 +1,15 @@
 """
 Keystore and user configuration for Ragbot.
 
-Loads API keys from ~/.config/ragbot/keys.yaml with support for
-workspace-specific overrides.
+Configuration lives under ~/.synthesis/ — the shared config home for
+synthesis-engineering products (ragbot, ragenie, synthesis-console, ...).
 
-Also loads user preferences from ~/.config/ragbot/config.yaml.
+Files:
+    ~/.synthesis/keys.yaml    — API keys (shared across synthesis products)
+    ~/.synthesis/ragbot.yaml  — ragbot user preferences
+
+Legacy ~/.config/ragbot/{keys,config}.yaml is read as a fallback if the
+new location is missing, so existing setups keep working.
 
 Keys format:
     default:
@@ -16,7 +21,7 @@ Keys format:
       example-client:
         anthropic: "sk-ant-client-key..."
 
-Config format:
+User config format:
     default_workspace: personal
 """
 
@@ -25,17 +30,33 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 import yaml
 
-# Standard XDG config location
-CONFIG_DIR = Path.home() / ".config" / "ragbot"
-KEYSTORE_PATH = CONFIG_DIR / "keys.yaml"
-USER_CONFIG_PATH = CONFIG_DIR / "config.yaml"
+# Primary config location: ~/.synthesis/ (synthesis-engineering shared home)
+SYNTHESIS_DIR = Path.home() / ".synthesis"
+KEYSTORE_PATH = SYNTHESIS_DIR / "keys.yaml"
+USER_CONFIG_PATH = SYNTHESIS_DIR / "ragbot.yaml"
+
+# Back-compat alias: CONFIG_DIR was the old name for the active config dir.
+# Now points to ~/.synthesis/ (the new home).
+CONFIG_DIR = SYNTHESIS_DIR
+
+# Legacy fallback: ~/.config/ragbot/ (read-only fallback for back-compat)
+LEGACY_CONFIG_DIR = Path.home() / ".config" / "ragbot"
+LEGACY_KEYSTORE_PATH = LEGACY_CONFIG_DIR / "keys.yaml"
+LEGACY_USER_CONFIG_PATH = LEGACY_CONFIG_DIR / "config.yaml"
+
+
+def _resolve_with_fallback(primary: Path, legacy: Path) -> Path:
+    """Return primary if it exists, otherwise legacy. Used for back-compat."""
+    if primary.exists():
+        return primary
+    return legacy
 
 
 class Keystore:
     """API key management with workspace-specific overrides."""
 
     def __init__(self, path: Optional[Path] = None):
-        self.path = path or KEYSTORE_PATH
+        self.path = path or _resolve_with_fallback(KEYSTORE_PATH, LEGACY_KEYSTORE_PATH)
         self._data: Dict[str, Any] = {}
         self._loaded = False
 
@@ -194,22 +215,21 @@ def check_api_keys(workspace: Optional[str] = None) -> Dict[str, bool]:
 
 
 def ensure_keystore_dir() -> Path:
-    """Ensure ~/.config/ragbot/ directory exists."""
-    config_dir = Path.home() / ".config" / "ragbot"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return config_dir
+    """Ensure ~/.synthesis/ directory exists."""
+    SYNTHESIS_DIR.mkdir(parents=True, exist_ok=True)
+    return SYNTHESIS_DIR
 
 
 def create_example_keystore() -> Path:
     """Create an example keys.yaml file if none exists."""
     ensure_keystore_dir()
 
-    if KEYSTORE_PATH.exists():
-        return KEYSTORE_PATH
+    if KEYSTORE_PATH.exists() or LEGACY_KEYSTORE_PATH.exists():
+        return _resolve_with_fallback(KEYSTORE_PATH, LEGACY_KEYSTORE_PATH)
 
-    example = """# Ragbot API Keys
+    example = """# Synthesis API Keys (shared across synthesis-engineering products: ragbot, ragenie, etc.)
 # This file should NOT be committed to git.
-# Location: ~/.config/ragbot/keys.yaml
+# Location: ~/.synthesis/keys.yaml
 
 # Default keys used when no workspace-specific key exists
 default:
@@ -244,13 +264,14 @@ _user_config: Optional[Dict[str, Any]] = None
 
 
 def _load_user_config() -> Dict[str, Any]:
-    """Load user configuration from config.yaml."""
+    """Load user configuration from ~/.synthesis/ragbot.yaml (or legacy fallback)."""
     global _user_config
     if _user_config is not None:
         return _user_config
 
-    if USER_CONFIG_PATH.exists():
-        with open(USER_CONFIG_PATH) as f:
+    path = _resolve_with_fallback(USER_CONFIG_PATH, LEGACY_USER_CONFIG_PATH)
+    if path.exists():
+        with open(path) as f:
             _user_config = yaml.safe_load(f) or {}
     else:
         _user_config = {}

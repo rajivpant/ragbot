@@ -83,6 +83,8 @@ async def generate_chat_stream(request: ChatRequest):
             workspace_name=workspace_dir_name,
             use_rag=request.use_rag,
             rag_max_tokens=request.rag_max_tokens,
+            thinking_effort=request.thinking_effort,
+            additional_workspaces=request.additional_workspaces,
         ):
             yield {
                 "event": "message",
@@ -131,6 +133,8 @@ async def chat_endpoint(request: ChatRequest):
             workspace_name=workspace_dir_name,
             use_rag=request.use_rag,
             rag_max_tokens=request.rag_max_tokens,
+            thinking_effort=request.thinking_effort,
+            additional_workspaces=request.additional_workspaces,
         )
 
         return ChatResponse(

@@ -31,7 +31,7 @@ COPY ragbot ragbot_api ./
 RUN chmod +x ragbot ragbot_api
 
 RUN mkdir -p /root/.local/share/ragbot/sessions && \
-    mkdir -p /root/.config/ragbot && \
+    mkdir -p /root/.synthesis && \
     mkdir -p /app/ragbot-data
 
 EXPOSE 8000

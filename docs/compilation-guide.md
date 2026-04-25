@@ -172,7 +172,7 @@ When users switch models mid-conversation in the Web UI, the system automaticall
 The RAG system respects the inheritance configuration from `my-projects.yaml`. When you select a workspace in the UI or CLI, the RAG system:
 
 1. **Loads inheritance from centralized config** — Per ADR-006, inheritance configuration lives ONLY in `my-projects.yaml` in the personal repo
-2. **Resolves the full inheritance chain** — For example, `mcclatchy` inherits from `flatiron` -> `rajiv` -> `ragbot`
+2. **Resolves the full inheritance chain** — For example, `example-client` inherits from `example-company` -> `personal` -> `ragbot`
 3. **Indexes content from all ancestors** — The vector index includes chunks from the workspace AND all inherited workspaces
 4. **Enables cross-workspace queries** — You can ask about "ragbot" while in a client workspace because that content is inherited
 

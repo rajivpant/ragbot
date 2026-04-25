@@ -104,58 +104,71 @@ from .manifest import (
 # vectors.py removed — RAG indexing reads source directly via rag.py
 
 
-def _resolve_base_path() -> str:
-    """Resolve the base path for ai-knowledge repos.
+def _resolve_base_path() -> Optional[str]:
+    """Resolve the legacy base path for ai-knowledge repos, if one exists.
+
+    Returns the flat-parent path that contains ai-knowledge-* directories, if
+    such a layout is in use. Returns None when repos are scattered across
+    workspaces (the modern layout), in which case callers should use
+    resolve_repo_index() / get_repo_path() instead.
 
     Resolution order:
     1. RAGBOT_BASE_PATH environment variable
-    2. ~/ai-knowledge (user convention)
+    2. /app/ai-knowledge (Docker default)
+    3. ~/ai-knowledge (legacy convention)
     """
     env_path = os.environ.get('RAGBOT_BASE_PATH')
     if env_path:
-        return os.path.expanduser(env_path)
-    return os.path.expanduser('~/ai-knowledge')
+        expanded = os.path.expanduser(env_path)
+        if os.path.isdir(expanded):
+            return expanded
+    for candidate in ('/app/ai-knowledge', os.path.expanduser('~/ai-knowledge')):
+        if os.path.isdir(candidate):
+            return candidate
+    return None
 
 
-def get_personal_repo_path(base_path: str) -> Optional[str]:
+def get_repo_path(workspace_name: str, base_path: Optional[str] = None) -> Optional[str]:
+    """Look up the absolute path of an ai-knowledge repo by workspace name.
+
+    Uses ragbot.workspaces.resolve_repo_index for resolution, which handles
+    both the workspace-rooted layout and the legacy flat-parent layout.
+    """
+    from ragbot.workspaces import resolve_repo_index
+    return resolve_repo_index(base_path).get(workspace_name)
+
+
+def get_personal_repo_path(base_path: Optional[str] = None) -> Optional[str]:
     """
     Get the path to the personal repo using the user's configured default workspace.
 
-    This uses the user configuration from ~/.config/ragbot/config.yaml to determine
-    the user's personal workspace, then derives the repo path from that.
-
-    Falls back to searching for my-projects.yaml if no config is set.
+    Reads default_workspace from ~/.synthesis/ragbot.yaml, then resolves it
+    against the discovered repo index. Falls back to searching all discovered
+    repos for the one containing my-projects.yaml.
 
     Args:
-        base_path: Base path containing ai-knowledge-* directories
+        base_path: Optional flat-parent override (legacy mode).
 
     Returns:
-        Path to the personal repo, or None if not found
+        Path to the personal repo, or None if not found.
     """
-    # Import here to avoid circular imports
     from ragbot.keystore import get_default_workspace
+    from ragbot.workspaces import resolve_repo_index
 
-    if not os.path.isdir(base_path):
-        return None
+    index = resolve_repo_index(base_path)
 
-    # First, try to get the user's configured default workspace
+    # First, try the user's configured default workspace.
     default_workspace = get_default_workspace()
-    if default_workspace:
-        personal_repo_path = os.path.join(base_path, f'ai-knowledge-{default_workspace}')
-        if os.path.isdir(personal_repo_path):
-            # Verify it has my-projects.yaml (to confirm it's the personal repo)
-            config_path = find_inheritance_config(personal_repo_path)
-            if config_path:
-                return personal_repo_path
+    if default_workspace and default_workspace in index:
+        repo_path = index[default_workspace]
+        if find_inheritance_config(repo_path):
+            return repo_path
 
-    # Fallback: search all repos to find the one with my-projects.yaml
-    for item in os.listdir(base_path):
-        if item.startswith('ai-knowledge-'):
-            repo_path = os.path.join(base_path, item)
-            if os.path.isdir(repo_path):
-                config_path = find_inheritance_config(repo_path)
-                if config_path:
-                    return repo_path
+    # Fallback: any discovered repo that contains my-projects.yaml.
+    for repo_path in index.values():
+        if find_inheritance_config(repo_path):
+            return repo_path
+
     return None
 
 
@@ -274,7 +287,7 @@ def apply_context_to_assembled(assembled: Dict, context_def: Dict, source_path: 
 def assemble_inherited_content(
     project_name: str,
     inheritance_config: Dict,
-    base_path: str,
+    base_path: Optional[str] = None,
     include_patterns: List[str] = None,
     exclude_patterns: List[str] = None,
     verbose: bool = False
@@ -285,7 +298,9 @@ def assemble_inherited_content(
     Args:
         project_name: Name of the project to assemble
         inheritance_config: Loaded my-projects.yaml
-        base_path: Base path where ai-knowledge-* repos are located
+        base_path: Optional flat-parent override (legacy mode). If None, the
+            modern resolve_repo_index() is used as fallback when a project's
+            local_path is missing.
         include_patterns: File patterns to include
         exclude_patterns: File patterns to exclude
         verbose: Print verbose output
@@ -301,6 +316,9 @@ def assemble_inherited_content(
 
     assembled_list = []
 
+    # Lazy-built repo index for fallback lookups.
+    repo_index = None
+
     for proj_name in chain:
         # Get project config from inheritance config
         proj_config = inheritance_config.get('projects', {}).get(proj_name, {})
@@ -310,9 +328,17 @@ def assemble_inherited_content(
         if local_path.startswith('~'):
             local_path = os.path.expanduser(local_path)
 
-        # Fallback to convention-based path
+        # Fallback chain: my-projects.yaml local_path → flat parent (legacy) → repo index.
         if not local_path or not os.path.exists(local_path):
-            local_path = os.path.join(base_path, f'ai-knowledge-{proj_name}')
+            if base_path:
+                candidate = os.path.join(base_path, f'ai-knowledge-{proj_name}')
+                if os.path.exists(candidate):
+                    local_path = candidate
+            if not local_path or not os.path.exists(local_path):
+                if repo_index is None:
+                    from ragbot.workspaces import resolve_repo_index
+                    repo_index = resolve_repo_index(base_path)
+                local_path = repo_index.get(proj_name, local_path)
 
         if not os.path.exists(local_path):
             if verbose:
@@ -348,6 +374,146 @@ def assemble_inherited_content(
     # Merge all assembled content (earlier repos have lower priority)
     return merge_assembled_content(assembled_list)
 
+
+
+def assemble_skills_for_compilation(skills_config: dict, verbose: bool = False) -> dict:
+    """Assemble Agent Skill content for the compiler.
+
+    Returns a structure shaped like ``assemble_content``'s output so it can
+    be merged with local source content and fed into the same downstream
+    compile pipeline.
+
+    Schema for ``skills_config`` (mirrors the ``sources.skills`` block in
+    compile-config.yaml)::
+
+        enabled: bool                  # default True if section is present
+        roots: List[str]               # extra discovery roots beyond defaults
+        include: List[str]             # name globs to include (default: all)
+        exclude: List[str]             # name globs to exclude
+        include_references: bool       # default True
+        include_scripts_inline: bool   # default False — list scripts by name only
+
+    Each skill yields:
+        * one file_info per SKILL.md (category=instructions)
+        * one file_info per included reference (category=instructions)
+        * (optional) one file_info per inlined script (category=runbooks)
+        * (always) one synthetic 'inventory' file_info that lists scripts
+          and other artifacts by name (category=runbooks). Lets the LLM know
+          what's available without bloating context with executable code.
+    """
+
+    # Local import — `skills` module lives under the runtime package.
+    import sys as _sys
+    _src_path = os.path.join(os.path.dirname(__file__), '..')
+    if _src_path not in _sys.path:
+        _sys.path.insert(0, _src_path)
+    from ragbot.skills import discover_skills  # type: ignore
+    from compiler.assembler import count_tokens  # type: ignore
+
+    if not skills_config or skills_config.get('enabled') is False:
+        return {'files': [], 'by_category': {'instructions': [], 'runbooks': []}, 'total_tokens': 0}
+
+    extra_roots = skills_config.get('roots') or []
+    include_patterns = skills_config.get('include') or []
+    exclude_patterns = skills_config.get('exclude') or []
+    include_references = skills_config.get('include_references', True)
+    include_scripts_inline = skills_config.get('include_scripts_inline', False)
+
+    skills = discover_skills(extra=[os.path.expanduser(r) for r in extra_roots])
+
+    if include_patterns:
+        skills = [s for s in skills if any(fnmatch.fnmatch(s.name, p) for p in include_patterns)]
+    if exclude_patterns:
+        skills = [s for s in skills if not any(fnmatch.fnmatch(s.name, p) for p in exclude_patterns)]
+
+    if verbose:
+        print(f"Assembling {len(skills)} skill(s) for compilation")
+
+    result = {
+        'files': [],
+        'by_category': {'instructions': [], 'runbooks': []},
+        'total_tokens': 0,
+    }
+
+    def _push(content: str, category: str, relative_path: str, source_path: str):
+        tokens = count_tokens(content)
+        info = {
+            'path': source_path,
+            'relative_path': relative_path,
+            'content': content,
+            'tokens': tokens,
+            'category': category,
+        }
+        result['files'].append(info)
+        result['by_category'].setdefault(category, []).append(info)
+        result['total_tokens'] += tokens
+
+    for skill in skills:
+        # 1. SKILL.md → instructions. Front-load skill metadata as an H1.
+        skill_md_header = (
+            f"# Skill: {skill.name}\n\n"
+            f"**Description:** {skill.description}\n\n"
+            f"**Source:** {skill.path}\n\n"
+        )
+        if skill.version:
+            skill_md_header += f"**Version:** {skill.version}\n\n"
+        _push(
+            skill_md_header + skill.body,
+            'instructions',
+            f'skills/{skill.name}/SKILL.md',
+            skill.skill_md_path,
+        )
+
+        # 2. References → instructions (if enabled).
+        if include_references:
+            for ref in skill.references:
+                if not ref.is_text or not ref.content:
+                    continue
+                ref_header = (
+                    f"# Skill {skill.name} — Reference: {ref.relative_path}\n\n"
+                )
+                _push(
+                    ref_header + ref.content,
+                    'instructions',
+                    f'skills/{skill.name}/{ref.relative_path}',
+                    ref.absolute_path,
+                )
+
+        # 3. Scripts: optional inline body, always include an inventory.
+        if include_scripts_inline:
+            for script in skill.scripts:
+                if not script.is_text or not script.content:
+                    continue
+                _push(
+                    f"# Skill {skill.name} — Script: {script.relative_path}\n\n"
+                    f"```\n{script.content}\n```\n",
+                    'runbooks',
+                    f'skills/{skill.name}/{script.relative_path}',
+                    script.absolute_path,
+                )
+
+        if skill.scripts or skill.other_files:
+            inv_lines = [f"# Skill {skill.name} — File Inventory\n",
+                         f"This skill ships the following non-instruction artifacts.",
+                         f"They are available on disk at: `{skill.path}`.\n"]
+            if skill.scripts:
+                inv_lines.append("## Scripts\n")
+                for s in skill.scripts:
+                    inv_lines.append(f"- `{s.relative_path}` ({len(s.content)} chars)")
+                inv_lines.append("")
+            if skill.other_files:
+                inv_lines.append("## Other artifacts\n")
+                for o in skill.other_files:
+                    inv_lines.append(f"- `{o.relative_path}`")
+                inv_lines.append("")
+            _push(
+                '\n'.join(inv_lines),
+                'runbooks',
+                f'skills/{skill.name}/_inventory.md',
+                skill.path,
+            )
+
+    return result
 
 
 def compile_project(config: dict,
@@ -435,7 +601,7 @@ def compile_project(config: dict,
             if not personal_repo_path:
                 raise ValueError(
                     f"Cannot find personal repo. Either:\n"
-                    f"1. Set default_workspace in ~/.config/ragbot/config.yaml, or\n"
+                    f"1. Set default_workspace in ~/.synthesis/ragbot.yaml, or\n"
                     f"2. Ensure my-projects.yaml exists in one of the ai-knowledge-* "
                     f"directories under {base_path}"
                 )
@@ -518,6 +684,21 @@ def compile_project(config: dict,
         if verbose:
             print(f"Assembling content from {source_path}")
         assembled = assemble_content(source_path, include_patterns, exclude_patterns)
+
+    # Merge in Agent Skills if the compile-config opts in.
+    skills_config = (config.get('sources') or {}).get('skills')
+    if skills_config:
+        skill_assembled = assemble_skills_for_compilation(skills_config, verbose=verbose)
+        if skill_assembled['files']:
+            assembled['files'].extend(skill_assembled['files'])
+            for cat, items in skill_assembled['by_category'].items():
+                assembled['by_category'].setdefault(cat, []).extend(items)
+            assembled['total_tokens'] += skill_assembled['total_tokens']
+            if verbose:
+                print(
+                    f"Added {len(skill_assembled['files'])} skill file(s), "
+                    f"{skill_assembled['total_tokens']:,} tokens"
+                )
 
     if verbose:
         print(f"Total: {len(assembled['files'])} files, {assembled['total_tokens']:,} tokens")
@@ -662,33 +843,31 @@ def compile_project(config: dict,
     return result
 
 
-def compile_all_projects(base_path: str, **kwargs) -> dict:
+def compile_all_projects(base_path: Optional[str] = None, **kwargs) -> dict:
     """
-    Compile all AI Knowledge projects in a directory.
+    Compile all AI Knowledge projects discovered via the repo index.
 
     Args:
-        base_path: Path containing ai-knowledge-* repositories
+        base_path: Optional flat-parent override (legacy mode). When None,
+            uses resolve_repo_index() to find repos across ~/workspaces/* and
+            ~/.synthesis/console.yaml sources.
         **kwargs: Arguments passed to compile_project
 
     Returns:
         Dictionary with results for each project
     """
+    from ragbot.workspaces import resolve_repo_index
+
     results = {}
+    index = resolve_repo_index(base_path)
 
-    if not os.path.exists(base_path):
-        return {'error': f"Base path does not exist: {base_path}"}
+    if not index:
+        return {'error': "No ai-knowledge repos discovered"}
 
-    for name in os.listdir(base_path):
-        if not name.startswith('ai-knowledge-'):
-            continue
-
-        repo_path = os.path.join(base_path, name)
+    for project_name, repo_path in index.items():
         config_path = os.path.join(repo_path, 'compile-config.yaml')
-
         if not os.path.exists(config_path):
             continue
-
-        project_name = name.replace('ai-knowledge-', '')
 
         try:
             config = load_compile_config(repo_path)
@@ -750,8 +929,10 @@ def compile_all_with_inheritance(
         - total_compiled: Number of projects compiled
         - errors: List of any errors
     """
+    # base_path is optional in the modern layout; resolve_repo_index() handles
+    # the workspace-rooted layout and synthesis-console sources directly.
     if not base_path:
-        base_path = _resolve_base_path()
+        base_path = _resolve_base_path()  # may be None
 
     # Expand ~ in output path
     if output_repo_path.startswith('~'):
@@ -797,6 +978,9 @@ def compile_all_with_inheritance(
         print(f"Found {len(projects)} projects in my-projects.yaml")
         print(f"All with-inheritance output will go to: {output_repo_path}/compiled/")
 
+    # Lazy-built repo index for fallback lookups.
+    repo_index = None
+
     # Compile each project with inheritance into the output repo
     for project_name, project_config in projects.items():
         if verbose:
@@ -808,8 +992,18 @@ def compile_all_with_inheritance(
         local_path = project_config.get('local_path', '')
         if local_path.startswith('~'):
             local_path = os.path.expanduser(local_path)
+
+        # Fallback chain: local_path → flat parent (legacy) → repo index.
         if not local_path or not os.path.exists(local_path):
-            local_path = os.path.join(base_path, f'ai-knowledge-{project_name}')
+            if base_path:
+                candidate = os.path.join(base_path, f'ai-knowledge-{project_name}')
+                if os.path.exists(candidate):
+                    local_path = candidate
+            if not local_path or not os.path.exists(local_path):
+                if repo_index is None:
+                    from ragbot.workspaces import resolve_repo_index
+                    repo_index = resolve_repo_index(base_path)
+                local_path = repo_index.get(project_name, local_path)
 
         if not os.path.exists(local_path):
             results['errors'].append(f"Repo not found for {project_name}: {local_path}")

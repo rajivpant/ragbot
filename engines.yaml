@@ -1,51 +1,69 @@
-# engines.yaml is a YAML file that contains the configuration for the AI engines and models.
-# Note: The default max tokens is used when the max tokens is not specified in the request.
-# Updated: December 2025 with latest models
-# max_input_tokens: Maximum tokens for input (context window)
-# max_output_tokens: Maximum tokens the model can generate in response
-# default_max_tokens: Recommended default with safety margin (typically 80% of max_output_tokens)
+# engines.yaml — LLM engine configuration for Ragbot.
 #
-# Sources:
-# - Anthropic: https://docs.anthropic.com/en/docs/about-claude/models/overview
-# - OpenAI: https://platform.openai.com/docs/models
-# - Google: https://ai.google.dev/gemini-api/docs/models
+# Updated: April 2026 with the latest stable/preview models.
+# Older superseded models have been removed (no GPT-5.x earlier than 5.4,
+# no Claude 4.5, no Gemini 3 Pro Preview).
+#
+# Field reference:
+#   max_input_tokens   — context window
+#   max_output_tokens  — maximum tokens the model can generate in response
+#   default_max_tokens — recommended request default (typically ~80% of max_output_tokens)
+#   thinking           — adaptive/extended thinking metadata (informational; chat code may
+#                        opt into it via LiteLLM `thinking` parameter)
+#
+# Sources (April 24, 2026):
+#   Anthropic:  https://docs.anthropic.com/en/docs/about-claude/models/overview
+#   OpenAI:     https://openai.com/api/pricing/
+#   Google:     https://ai.google.dev/gemini-api/docs/changelog
+
 engines:
   - name: openai
     api_key_name: OPENAI_API_KEY
     models:
-      # GPT-5 Mini - Fast and cost-effective (note: only temperature=1 supported)
-      - name: gpt-5-mini
+      # GPT-5.4 mini — high-volume, cost-effective tier
+      # Released March 17, 2026. Pricing: $0.75/$4.50 per MTok.
+      - name: gpt-5.4-mini
         category: small
-        supports_system_role: true
-        max_temperature: 1
-        temperature: 1.0
-        max_input_tokens: 128000
-        max_output_tokens: 16384
-        default_max_tokens: 4096
-      # GPT-5.2 Instant - Fast responses (December 2025, only temperature=1 supported)
-      - name: gpt-5.2-chat-latest
-        category: medium
         supports_system_role: true
         max_temperature: 1
         temperature: 1.0
         max_input_tokens: 400000
         max_output_tokens: 128000
         default_max_tokens: 8192
-      # GPT-5.2 Thinking - Advanced reasoning model (December 2025)
-      - name: gpt-5.2
+      # GPT-5.5 — current frontier general-purpose model
+      # Released April 23, 2026. Pricing: $5/$30 per MTok. 1M context.
+      - name: gpt-5.5
+        category: medium
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 1.0
+        max_input_tokens: 1000000
+        max_output_tokens: 128000
+        default_max_tokens: 8192
+        thinking:
+          supported: true
+          modes: [minimal, low, medium, high]
+      # GPT-5.5 Pro — heaviest reasoning workloads
+      # Released April 23, 2026. Pricing: $30/$180 per MTok. 1M context.
+      - name: gpt-5.5-pro
         category: large
         is_flagship: true
         supports_system_role: true
         max_temperature: 1
         temperature: 1.0
-        max_input_tokens: 400000
+        max_input_tokens: 1000000
         max_output_tokens: 128000
         default_max_tokens: 8192
-    default_model: gpt-5.2-chat-latest
+        thinking:
+          supported: true
+          modes: [minimal, low, medium, high]
+    default_model: gpt-5.5
+
   - name: anthropic
     api_key_name: ANTHROPIC_API_KEY
     models:
-      # Claude Haiku 4.5 - Fast and cost-effective (October 2025)
+      # Claude Haiku 4.5 — fast, cost-effective tier
+      # Released October 1, 2025.
       - name: claude-haiku-4-5-20251001
         category: small
         supports_system_role: true
@@ -54,31 +72,42 @@ engines:
         max_input_tokens: 200000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      # Claude Sonnet 4.5 - Best balance of intelligence and speed (September 2025)
-      - name: claude-sonnet-4-5-20250929
+      # Claude Sonnet 4.6 — balanced intelligence and speed
+      # Released February 17, 2026. 1M context, adaptive thinking.
+      - name: claude-sonnet-4-6
         category: medium
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
-        max_input_tokens: 200000
+        max_input_tokens: 1000000
         max_output_tokens: 64000
         default_max_tokens: 8192
-      # Claude Opus 4.5 - Most intelligent model (November 2025)
-      - name: claude-opus-4-5-20251101
+        thinking:
+          supported: true
+          mode: adaptive
+      # Claude Opus 4.7 — most intelligent model, hardest agentic tasks
+      # Released April 16, 2026. 1M context, 128k output, adaptive thinking + task budgets.
+      - name: claude-opus-4-7
         category: large
         is_flagship: true
         supports_system_role: true
         max_temperature: 1
         temperature: 0.75
-        max_input_tokens: 200000
-        max_output_tokens: 64000
+        max_input_tokens: 1000000
+        max_output_tokens: 128000
         default_max_tokens: 8192
-    default_model: claude-sonnet-4-5-20250929
+        thinking:
+          supported: true
+          mode: adaptive
+          features: [task_budgets]
+    default_model: claude-sonnet-4-6
+
   - name: google
     api_key_name: GOOGLE_API_KEY
     models:
-      # Gemini 2.5 Flash Lite - Ultra-fast responses (stable)
-      - name: gemini/gemini-2.5-flash-lite
+      # Gemini 3.1 Flash Lite (preview) — most cost-effective, high-volume tier.
+      # 1M context, supports thinking levels (minimal/low/medium/high).
+      - name: gemini/gemini-3.1-flash-lite-preview
         category: small
         supports_system_role: true
         max_temperature: 2
@@ -86,8 +115,11 @@ engines:
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-      # Gemini 2.5 Flash - Balanced speed and capability (stable)
-      - name: gemini/gemini-2.5-flash
+        thinking:
+          supported: true
+          modes: [minimal, low, medium, high]
+      # Gemini 3 Flash (preview) — balanced speed and capability.
+      - name: gemini/gemini-3-flash-preview
         category: medium
         supports_system_role: true
         max_temperature: 2
@@ -95,8 +127,12 @@ engines:
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-      # Gemini 3 Pro Preview - Most intelligent model (November 2025)
-      - name: gemini/gemini-3-pro-preview
+        thinking:
+          supported: true
+          modes: [minimal, low, medium, high]
+      # Gemini 3.1 Pro (preview) — flagship, complex reasoning.
+      # Released February 19, 2026. 1M context, multimodal.
+      - name: gemini/gemini-3.1-pro-preview
         category: large
         is_flagship: true
         supports_system_role: true
@@ -105,10 +141,14 @@ engines:
         max_input_tokens: 1048576
         max_output_tokens: 65536
         default_max_tokens: 8192
-    default_model: gemini/gemini-2.5-flash
+        thinking:
+          supported: true
+          modes: [minimal, low, medium, high]
+    default_model: gemini/gemini-3-flash-preview
 
 default: anthropic
-# These are the preset creativity temperature settings for the engine and model.
+
+# Preset creativity temperature settings.
 temperature_settings:
   precise: 0.25
   balanced: 0.50
