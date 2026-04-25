@@ -81,6 +81,21 @@ Default discovery roots:
 
 When the `skills` workspace has indexed content, `ragbot chat` automatically merges its results with the user's selected workspace. Override per-call with `--no-skills` (opt out) or `--workspace foo --workspace bar` (explicit list).
 
+### LLM backend selection
+
+Ragbot v3.1+ routes every LLM call through a swappable backend interface (`src/ragbot/llm/`). Two backends ship:
+
+```bash
+# Default — wraps the LiteLLM SDK; best provider/model coverage.
+export RAGBOT_LLM_BACKEND=litellm
+
+# Opt-in — calls Anthropic / OpenAI / google-genai SDKs directly.
+# Smaller dependency chain; no third-party gateway.
+export RAGBOT_LLM_BACKEND=direct
+```
+
+Both backends honour the same provider quirks (GPT-5.x `max_completion_tokens`, Claude 4.7+ `thinking.type.adaptive`, Anthropic-thinking-requires-temp-1, etc.). Adding alternatives like Bifrost, Portkey, or OpenRouter is a single new file implementing `LLMBackend`.
+
 ### Reasoning / thinking modes
 
 Flagship models with thinking support (Claude Opus 4.7, GPT-5.5-pro, Gemini 3.1 Pro) automatically use `reasoning_effort: medium`. Non-flagship thinking-capable models (Claude Sonnet 4.6, GPT-5.5, etc.) default to off but accept overrides. Models without a `thinking` block in `engines.yaml` (e.g., Claude Haiku 4.5, GPT-5.4-mini) silently ignore the parameter.

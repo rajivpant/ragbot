@@ -1,3 +1,13 @@
+## What's New in v3.1
+
+Ragbot v3.1 (April 2026) adds an LLM backend abstraction that decouples ragbot from any single provider gateway:
+
+- **Swappable LLM backends** via `RAGBOT_LLM_BACKEND={litellm|direct}`. The default `litellm` backend keeps the broadest provider/model coverage; the `direct` backend calls Anthropic, OpenAI, and google-genai SDKs directly with no third-party dependency. Adding alternatives (Bifrost, Portkey, OpenRouter) is a one-file change.
+- **Web UI controls** for reasoning effort and the cross-workspace skills toggle, alongside the existing workspace/model picker.
+- **`/api/chat`** accepts `thinking_effort` and `additional_workspaces` fields directly.
+
+Strategic note on LiteLLM in 2026: it remains a defensible default because of provider/model coverage, but the March-2026 supply-chain incident (versions 1.82.7–1.82.8) and the API-compatibility lag for Claude 4.7+'s `thinking.type.adaptive` shape are real frictions. Pinning `>=1.83.0` avoids the compromised range; the abstraction layer makes a future swap a configuration change, not a code rewrite.
+
 ## What's New in v3.0
 
 Ragbot v3.0 (April 2026) ships three major upgrades over v2:

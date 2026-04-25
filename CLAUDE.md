@@ -144,6 +144,19 @@ CLI: `ragbot skills list`, `ragbot skills info <name>`, `ragbot skills index [--
 
 Backend code lives in `src/ragbot/skills/`.
 
+### LLM Backend Abstraction
+
+Ragbot routes every LLM call through a backend interface (`src/ragbot/llm/`) so the underlying provider gateway is swappable without touching the chat code path.
+
+Two backends ship:
+
+- **litellm** (default) — wraps `litellm.completion()`. Best provider/model coverage, handles long-tail provider quirks. Pinned `>=1.83.0` to avoid the March-2026 supply-chain incident range.
+- **direct** — opt-in. Calls each provider's official SDK directly: `anthropic`, `openai`, `google-genai`. Smaller dependency surface, no third-party gateway. Useful for users who want to retire LiteLLM, or for benchmarking.
+
+Selection: `RAGBOT_LLM_BACKEND={litellm|direct}` (default `litellm`). The cached singleton is exposed via `ragbot.llm.get_llm_backend()`.
+
+Adding a new backend (e.g., Bifrost, Portkey, OpenRouter) is a single file implementing `LLMBackend` plus one selection arm in `__init__.py`. The backend swallows provider quirks (GPT-5.x `max_completion_tokens`, Claude 4.7+ `thinking.type.adaptive`, Anthropic-thinking-requires-temp-1, etc.) so the chat code path stays clean.
+
 ### Reasoning / Thinking Modes
 
 Models that advertise thinking support in `engines.yaml` (Claude Sonnet 4.6, Claude Opus 4.7, GPT-5.5, GPT-5.5-pro, Gemini 3 Flash / 3.1 Pro / 3.1 Flash Lite) are wired through LiteLLM's `reasoning_effort` parameter. LiteLLM normalises that into the provider-native shape (e.g., `thinking={"type": "adaptive"}` for Claude 4.x).
