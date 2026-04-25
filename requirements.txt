@@ -24,6 +24,10 @@ langchain-openai>=1.2.0
 
 # --- RAG dependencies ----------------------------------------------------
 sentence-transformers>=5.4.0
+# transformers must keep up with sentence-transformers' tokenizers pin —
+# otherwise a stale transformers errors out at import time. Track 5.6+
+# which supports tokenizers 0.22.x.
+transformers>=5.6.0
 
 # --- Vector store backends -----------------------------------------------
 qdrant-client>=1.17.0           # legacy embedded backend, retained for back-compat

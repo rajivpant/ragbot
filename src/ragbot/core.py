@@ -5,13 +5,11 @@ to enable use as a library independent of the UI layer.
 """
 
 from typing import Optional, List, Dict, Callable, Iterator, Any
-import litellm
-from litellm import completion
 import tiktoken
 
-# Enable dropping of unsupported params for models that have different parameter names
-# (e.g., GPT-5 models use max_completion_tokens instead of max_tokens)
-litellm.drop_params = True
+# All LLM provider calls now go through the ragbot.llm abstraction. The
+# litellm SDK is used by the default backend (`LiteLLMBackend`); it is no
+# longer imported here directly.
 
 from .exceptions import ChatError
 from .keystore import get_api_key
@@ -80,10 +78,28 @@ def _resolve_thinking_for_model(
     if effort == "off":
         return {}
 
-    # Both Anthropic adaptive-mode models and discrete-level providers accept
-    # ``reasoning_effort`` via LiteLLM. LiteLLM maps it to the provider-native
-    # shape (e.g., thinking={"type": "adaptive"} for Claude 4.x).
-    return {"reasoning_effort": effort}
+    model_lower = model.lower()
+    is_anthropic = model_lower.startswith("anthropic/") or "claude" in model_lower
+
+    # Claude 4.7+ uses the new ``thinking.type.adaptive`` API; LiteLLM
+    # versions through 1.83.x still emit the older ``thinking.type.enabled``
+    # shape via reasoning_effort, which the Anthropic API now rejects for
+    # 4.7+. Bypass the mapper and pass the canonical adaptive shape
+    # directly. Older Claude (4.5, 4.6) and non-Anthropic providers continue
+    # to use reasoning_effort, which LiteLLM maps appropriately.
+    if is_anthropic and ("claude-4-7" in model_lower or "opus-4-7" in model_lower
+                         or "sonnet-4-7" in model_lower or "haiku-4-7" in model_lower):
+        return {"thinking": {"type": "adaptive"}, "temperature": 1.0}
+
+    out: Dict[str, Any] = {"reasoning_effort": effort}
+
+    # Anthropic constraint: extended thinking requires temperature=1. Other
+    # values are rejected by the API. Force the override here so callers
+    # don't have to remember the rule.
+    if is_anthropic:
+        out["temperature"] = 1.0
+
+    return out
 
 
 def _get_api_key_for_model(model: str, workspace: Optional[str] = None) -> Optional[str]:
@@ -407,48 +423,40 @@ def chat(
         # Get API key for the model
         api_key = _get_api_key_for_model(model, workspace_name)
 
-        # Build completion kwargs - handle model-specific parameter names
-        completion_kwargs = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "api_key": api_key
-        }
-
-        # All GPT-5.x models use max_completion_tokens instead of max_tokens
-        model_lower = model.lower()
-        if 'gpt-5' in model_lower or 'gpt5' in model_lower:
-            completion_kwargs["max_completion_tokens"] = max_tokens
-        else:
-            completion_kwargs["max_tokens"] = max_tokens
-
-        # Wire thinking / reasoning_effort for models that advertise it in
-        # engines.yaml. Per-call override comes from kwargs['thinking_effort'].
+        # Resolve reasoning/thinking parameters from engines.yaml + per-call
+        # override. Returns reasoning_effort (cross-provider) or thinking
+        # (provider-native shape) plus an optional temperature override
+        # (Anthropic requires temp=1 with extended thinking).
         thinking_kwargs = _resolve_thinking_for_model(
             model, requested_effort=thinking_effort,
         )
-        if thinking_kwargs:
-            completion_kwargs.update(thinking_kwargs)
+        effective_temperature = thinking_kwargs.get("temperature", temperature)
 
-        # Make API call
+        # Route through the LLM-backend abstraction. Backend is selected via
+        # RAGBOT_LLM_BACKEND (default: litellm). This decouples ragbot from
+        # any one provider gateway and enables swapping in alternatives
+        # (Bifrost, Portkey, direct SDKs) without touching this code path.
+        from .llm import get_llm_backend, LLMRequest
+
+        backend = get_llm_backend()
+        llm_request = LLMRequest(
+            model=model,
+            messages=messages,
+            temperature=effective_temperature,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            thinking=thinking_kwargs.get("thinking"),
+            reasoning_effort=thinking_kwargs.get("reasoning_effort"),
+        )
+
         if stream and stream_callback:
-            response_chunks = []
-            llm_response = completion(
-                **completion_kwargs,
-                stream=True
-            )
-
-            for chunk in llm_response:
-                if chunk and chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content:
-                        response_chunks.append(delta.content)
-                        stream_callback(delta.content)
-
-            return ''.join(response_chunks)
-        else:
-            llm_response = completion(**completion_kwargs)
-            return llm_response.get('choices', [{}])[0].get('message', {}).get('content', '')
+            return backend.stream(llm_request, on_chunk=stream_callback)
+        if stream:
+            # Stream requested but no callback — collect and return.
+            collected: List[str] = []
+            return backend.stream(llm_request, on_chunk=collected.append)
+        # Non-streaming path
+        return backend.complete(llm_request).text
 
     except Exception as e:
         raise ChatError(f"Chat failed: {e}") from e
@@ -575,34 +583,45 @@ def chat_stream(
     # Get API key for the model
     api_key = _get_api_key_for_model(model, workspace_name)
 
-    # Build completion kwargs - handle model-specific parameter names
-    completion_kwargs = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
-        "api_key": api_key
-    }
-
-    # All GPT-5.x models use max_completion_tokens instead of max_tokens
-    model_lower = model.lower()
-    if 'gpt-5' in model_lower or 'gpt5' in model_lower:
-        completion_kwargs["max_completion_tokens"] = max_tokens
-    else:
-        completion_kwargs["max_tokens"] = max_tokens
-
-    # Wire thinking / reasoning_effort for models that advertise it.
+    # Resolve reasoning/thinking parameters (provider-aware).
     thinking_kwargs = _resolve_thinking_for_model(
         model, requested_effort=kwargs.get('thinking_effort'),
     )
-    if thinking_kwargs:
-        completion_kwargs.update(thinking_kwargs)
+    effective_temperature = thinking_kwargs.get("temperature", temperature)
 
-    # Stream response
-    llm_response = completion(**completion_kwargs)
+    # Route through the LLM-backend abstraction.
+    from .llm import get_llm_backend, LLMRequest
 
-    for chunk in llm_response:
-        if chunk and chunk.choices and len(chunk.choices) > 0:
-            delta = chunk.choices[0].delta
-            if hasattr(delta, 'content') and delta.content:
-                yield delta.content
+    backend = get_llm_backend()
+    llm_request = LLMRequest(
+        model=model,
+        messages=messages,
+        temperature=effective_temperature,
+        max_tokens=max_tokens,
+        api_key=api_key,
+        thinking=thinking_kwargs.get("thinking"),
+        reasoning_effort=thinking_kwargs.get("reasoning_effort"),
+    )
+
+    # The backend's stream() takes an on_chunk callback; we need a generator
+    # for SSE consumers. Use a small queue-based bridge.
+    import queue, threading
+
+    q: "queue.Queue[Optional[str]]" = queue.Queue()
+
+    def on_chunk(text: str) -> None:
+        q.put(text)
+
+    def runner() -> None:
+        try:
+            backend.stream(llm_request, on_chunk=on_chunk)
+        finally:
+            q.put(None)  # sentinel: end of stream
+
+    threading.Thread(target=runner, daemon=True).start()
+
+    while True:
+        item = q.get()
+        if item is None:
+            break
+        yield item
