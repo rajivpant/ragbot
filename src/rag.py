@@ -1210,6 +1210,26 @@ def _get_embedding_model():
     return _embedding_model
 
 
+def _get_embedding_dimension(model) -> int:
+    """Return the embedding dimension regardless of sentence-transformers version.
+
+    The library renamed ``get_sentence_embedding_dimension`` →
+    ``get_embedding_dimension`` in 5.x and emits a FutureWarning on the old
+    name. We prefer the new method and fall back to the old one for older
+    library versions.
+    """
+
+    if hasattr(model, "get_embedding_dimension"):
+        return model.get_embedding_dimension()
+    # Fallback for older sentence-transformers versions; suppress the
+    # deprecation warning since this branch only runs on libraries that
+    # don't yet expose the new name.
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        return model.get_sentence_embedding_dimension()
+
+
 def is_rag_available() -> bool:
     """Check if RAG dependencies are available.
 
@@ -1282,7 +1302,7 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
     embedding_model_name = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 
     # Ensure storage exists for this workspace
-    if not init_collection(workspace_name, model.get_sentence_embedding_dimension()):
+    if not init_collection(workspace_name, _get_embedding_dimension(model)):
         return {'error': 'Failed to initialize collection', 'indexed': 0}
 
     # Configure chunking for RAG (smaller chunks, title extraction)
@@ -2066,12 +2086,12 @@ def index_skills(workspace_name: str = 'skills', skill_roots: Optional[List[str]
 
     embedding_model_name = os.environ.get('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 
-    if not init_collection(workspace_name, model.get_sentence_embedding_dimension()):
+    if not init_collection(workspace_name, _get_embedding_dimension(model)):
         return {'error': 'Failed to initialize collection', 'skills_indexed': 0}
 
     if force:
         vs.delete_collection(workspace_name)
-        init_collection(workspace_name, model.get_sentence_embedding_dimension())
+        init_collection(workspace_name, _get_embedding_dimension(model))
 
     skills = discover_skills(roots=skill_roots) if skill_roots else discover_skills()
     if only:
