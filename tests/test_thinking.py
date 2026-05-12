@@ -36,7 +36,15 @@ class TestResolveThinkingForModel:
     """Behavioural rules:
 
     * Flagship model with thinking metadata → default ``medium``.
-    * Non-flagship model with thinking metadata → default ``off``.
+    * Non-flagship model with thinking metadata:
+        - if engines.yaml declares a discrete ``modes:`` list and ``off`` is
+          NOT among them (OpenAI / Gemini style, where reasoning is always
+          on), default to the LOWEST listed mode (typically ``minimal``) so
+          the provider's own reasoning default doesn't consume the entire
+          output budget on long-context calls.
+        - otherwise (Claude with ``mode: adaptive`` or no modes listed) →
+          default to ``off`` (send no thinking params; provider's neutral
+          default applies).
     * Model without thinking metadata → never pass thinking params.
     * Explicit override (per-call) wins over both env and engines.yaml default.
     * Env-var override wins over engines.yaml default but loses to per-call.
@@ -111,3 +119,26 @@ class TestResolveThinkingForModel:
         monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
         out = _resolve_thinking_for_model("openai/gpt-5.5-pro")
         assert out == {"reasoning_effort": "medium"}
+
+    def test_openai_non_flagship_defaults_to_minimal(self, monkeypatch):
+        """GPT-5.5 (non-flagship, `modes: [minimal, low, medium, high]`,
+        no `off`) should default to the lowest listed mode so the provider's
+        own reasoning default doesn't consume the output-token budget on
+        long-context calls."""
+        monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
+        out = _resolve_thinking_for_model("openai/gpt-5.5")
+        assert out == {"reasoning_effort": "minimal"}
+
+    def test_gemini_non_flagship_defaults_to_minimal(self, monkeypatch):
+        """Gemini 3 Flash (non-flagship, same `modes:` shape as GPT-5.5)
+        gets the same lowest-mode default treatment."""
+        monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
+        out = _resolve_thinking_for_model("gemini/gemini-3-flash-preview")
+        assert out == {"reasoning_effort": "minimal"}
+
+    def test_per_call_off_still_disables_non_flagship_with_modes(self, monkeypatch):
+        """User can still pick ``off`` explicitly on a non-flagship GPT/Gemini
+        model — the per-call override beats the engines.yaml default policy."""
+        monkeypatch.delenv("RAGBOT_THINKING_EFFORT", raising=False)
+        out = _resolve_thinking_for_model("openai/gpt-5.5", requested_effort="off")
+        assert out == {}

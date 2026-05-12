@@ -71,9 +71,27 @@ def _resolve_thinking_for_model(
         return {}
 
     if effort is None or effort == "auto":
-        # Default policy: flagship → medium, others → off.
+        # Default policy:
+        #   • flagship models with thinking → medium
+        #   • non-flagship models that declare a discrete `modes:` list (e.g.
+        #     OpenAI / Gemini, where reasoning is always-on and "off" is not
+        #     a valid level) → the LOWEST listed mode, typically "minimal".
+        #     Sending nothing for these would let the provider apply its own
+        #     reasoning default, which on long-context RAG calls can consume
+        #     the entire output-token budget and produce empty content.
+        #   • everything else (Claude with `mode: adaptive`, or no thinking
+        #     metadata) → "off", which is handled below as "send no thinking
+        #     params at all" and lets the provider use its own neutral
+        #     default (Claude's adaptive mode is the safe choice there).
         is_flagship = bool(info.get("is_flagship"))
-        effort = "medium" if is_flagship else "off"
+        if is_flagship:
+            effort = "medium"
+        else:
+            modes = thinking_meta.get("modes") or []
+            if modes and "off" not in modes:
+                effort = modes[0]
+            else:
+                effort = "off"
 
     if effort == "off":
         return {}
