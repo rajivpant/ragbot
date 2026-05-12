@@ -191,6 +191,7 @@ def _normalize_model_id(provider: str, model_name: str) -> str:
     LiteLLM requires provider prefixes to route correctly:
     - Anthropic: 'anthropic/{model}'
     - OpenAI: 'openai/{model}'
+    - Ollama: 'ollama_chat/{model}' (local server, http://localhost:11434)
     - Google: Already prefixed with 'gemini/' in engines.yaml
 
     Args:
@@ -204,6 +205,8 @@ def _normalize_model_id(provider: str, model_name: str) -> str:
         return f"anthropic/{model_name}"
     if provider == 'openai':
         return f"openai/{model_name}"
+    if provider == 'ollama':
+        return f"ollama_chat/{model_name}"
     # Google models already have gemini/ prefix in engines.yaml
     return model_name
 

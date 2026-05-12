@@ -146,6 +146,41 @@ engines:
           modes: [minimal, low, medium, high]
     default_model: gemini/gemini-3-flash-preview
 
+  - name: ollama
+    # Local Ollama server (no API key required; uses MLX backend on Apple Silicon).
+    # Models are pulled with `ollama pull gemma4:<tag>` and served at
+    # http://localhost:11434. LiteLLM routes via the ollama_chat/ prefix
+    # added in config.py::_normalize_model_id.
+    models:
+      # Gemma 4 E4B — small/fast tier. Effective 4B params (Matformer).
+      - name: gemma4:e4b
+        category: small
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 128000
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+      # Gemma 4 26B MoE — medium tier. ~3.8B active params per token; high throughput.
+      - name: gemma4:26b
+        category: medium
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 128000
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+      # Gemma 4 31B Dense — large tier. Maximum quality.
+      - name: gemma4:31b
+        category: large
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 128000
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+    default_model: gemma4:31b
+
 default: anthropic
 
 # Preset creativity temperature settings.

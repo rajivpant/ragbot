@@ -114,7 +114,12 @@ class Keystore:
             Dict mapping provider names to availability boolean
         """
         providers = ["anthropic", "openai", "google", "aws_bedrock"]
-        return {p: self.has_key(p, workspace) for p in providers}
+        result = {p: self.has_key(p, workspace) for p in providers}
+        # Local providers (no API key needed) are always available when
+        # configured in engines.yaml. The actual reachability is verified at
+        # request time by LiteLLM/Ollama.
+        result["ollama"] = True
+        return result
 
     def get_key_status(self, workspace: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
         """

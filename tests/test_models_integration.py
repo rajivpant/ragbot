@@ -10,6 +10,7 @@ Skip expensive models: pytest tests/test_models_integration.py -v -m "not expens
 
 import pytest
 import os
+import subprocess
 import sys
 import time
 
@@ -43,6 +44,39 @@ def get_available_models():
 def model_is_expensive(model):
     """Check if a model is expensive (large/flagship)."""
     return model.get('is_flagship', False) or model.get('category') == 'large'
+
+
+def _ollama_pulled_models():
+    """Return set of model names currently pulled in local Ollama.
+
+    Returns None if the daemon isn't reachable or the CLI isn't installed.
+    """
+    try:
+        result = subprocess.run(
+            ['ollama', 'list'],
+            capture_output=True, text=True, timeout=3,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    names = set()
+    for line in result.stdout.strip().split('\n')[1:]:
+        parts = line.split()
+        if parts:
+            names.add(parts[0])
+    return names
+
+
+def _maybe_skip_ollama(model_info):
+    """Skip the test if the model is an Ollama model that isn't pulled locally."""
+    if not model_info['id'].startswith('ollama_chat/'):
+        return
+    pulled = _ollama_pulled_models()
+    if pulled is None:
+        pytest.skip(f"Ollama daemon unreachable; skipping {model_info['id']}")
+    if model_info['name'] not in pulled:
+        pytest.skip(f"Ollama model not pulled locally: {model_info['name']}")
 
 
 class TestModelsIntegration:
@@ -84,6 +118,9 @@ class TestModelsIntegration:
         """Each available model should return a valid response."""
         model_id = model_info['id']
 
+        # Skip Ollama models that aren't pulled locally
+        _maybe_skip_ollama(model_info)
+
         # Skip expensive models unless explicitly enabled
         if model_is_expensive(model_info):
             if not os.environ.get('TEST_EXPENSIVE_MODELS'):
@@ -107,6 +144,9 @@ class TestModelsIntegration:
     def test_model_streaming_works(self, model_info):
         """Models should work with streaming enabled."""
         model_id = model_info['id']
+
+        # Skip Ollama models that aren't pulled locally
+        _maybe_skip_ollama(model_info)
 
         # Skip expensive models
         if model_is_expensive(model_info):
