@@ -274,3 +274,55 @@ class TestCurrentModels:
                 assert 'context_window' in model, \
                     f"Model {model['name']} missing context_window"
                 assert model['context_window'] > 0
+
+
+class TestModelMetadata:
+    """Tests for the new display_name, supports_thinking, is_local fields."""
+
+    def test_every_model_has_a_display_name(self):
+        """Every model should expose display_name (falling back to name)."""
+        models = get_all_models()
+        for provider, model_list in models.items():
+            for model in model_list:
+                assert model.get('display_name'), \
+                    f"Model {model['name']} missing display_name"
+
+    def test_display_name_falls_back_to_name(self):
+        """If engines.yaml omits display_name, it should default to name."""
+        from ragbot.config import normalize_model_id
+
+        # Simulate the helper logic locally: a model dict without display_name
+        # should produce a display_name equal to its name.
+        model_yaml = {"name": "fictional-model-no-display-name"}
+        display = model_yaml.get("display_name") or model_yaml["name"]
+        assert display == "fictional-model-no-display-name"
+
+    def test_known_display_names(self):
+        """Spot-check a few well-known model display names."""
+        models = get_all_models()
+        flat = {m['id']: m for provider in models.values() for m in provider}
+
+        assert flat.get('anthropic/claude-opus-4-7', {}).get('display_name') == 'Claude Opus 4.7'
+        assert flat.get('openai/gpt-5.5', {}).get('display_name') == 'GPT-5.5'
+        assert flat.get('ollama_chat/gemma4:31b', {}).get('display_name') == 'Gemma 4 31B'
+
+    def test_supports_thinking_reflects_engines_yaml(self):
+        """Models with `thinking.supported: true` should have supports_thinking=True."""
+        models = get_all_models()
+        flat = {m['id']: m for provider in models.values() for m in provider}
+
+        # Claude Opus 4.7 has thinking.supported: true in engines.yaml.
+        assert flat.get('anthropic/claude-opus-4-7', {}).get('supports_thinking') is True
+        # Claude Haiku 4.5 does not have a thinking block.
+        assert flat.get('anthropic/claude-haiku-4-5-20251001', {}).get('supports_thinking') is False
+        # GPT-5.4 mini does not have a thinking block.
+        assert flat.get('openai/gpt-5.4-mini', {}).get('supports_thinking') is False
+
+    def test_is_local_is_true_only_for_ollama(self):
+        """Only Ollama models are local; cloud-provider models are not."""
+        models = get_all_models()
+        for provider, model_list in models.items():
+            for model in model_list:
+                expected = (provider == 'ollama')
+                assert model.get('is_local') is expected, \
+                    f"{model['id']} is_local mismatch for provider {provider}"

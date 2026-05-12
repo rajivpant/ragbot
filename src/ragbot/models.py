@@ -103,6 +103,9 @@ class ModelInfo(BaseModel):
     context_window: int
     supports_streaming: bool = True
     supports_system_role: bool = True
+    display_name: Optional[str] = None
+    supports_thinking: bool = False
+    is_local: bool = False
 
 
 class ModelsResponse(BaseModel):

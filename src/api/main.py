@@ -18,7 +18,7 @@ if src_dir not in sys.path:
 from ragbot import VERSION, HealthResponse
 
 from .dependencies import get_settings, check_rag_available
-from .routers import chat, workspaces, models, config
+from .routers import chat, workspaces, models, config, preferences
 
 
 @asynccontextmanager
@@ -56,6 +56,7 @@ app.include_router(chat.router)
 app.include_router(workspaces.router)
 app.include_router(models.router)
 app.include_router(config.router)
+app.include_router(preferences.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])

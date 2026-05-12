@@ -5,6 +5,7 @@
 # no Claude 4.5, no Gemini 3 Pro Preview).
 #
 # Field reference:
+#   display_name       — human-readable label shown in UIs (falls back to `name` if absent)
 #   max_input_tokens   — context window
 #   max_output_tokens  — maximum tokens the model can generate in response
 #   default_max_tokens — recommended request default (typically ~80% of max_output_tokens)
@@ -23,6 +24,7 @@ engines:
       # GPT-5.4 mini — high-volume, cost-effective tier
       # Released March 17, 2026. Pricing: $0.75/$4.50 per MTok.
       - name: gpt-5.4-mini
+        display_name: GPT-5.4 Mini
         category: small
         supports_system_role: true
         max_temperature: 1
@@ -33,6 +35,7 @@ engines:
       # GPT-5.5 — current frontier general-purpose model
       # Released April 23, 2026. Pricing: $5/$30 per MTok. 1M context.
       - name: gpt-5.5
+        display_name: GPT-5.5
         category: medium
         supports_system_role: true
         max_temperature: 1
@@ -46,6 +49,7 @@ engines:
       # GPT-5.5 Pro — heaviest reasoning workloads
       # Released April 23, 2026. Pricing: $30/$180 per MTok. 1M context.
       - name: gpt-5.5-pro
+        display_name: GPT-5.5 Pro
         category: large
         is_flagship: true
         supports_system_role: true
@@ -65,6 +69,7 @@ engines:
       # Claude Haiku 4.5 — fast, cost-effective tier
       # Released October 1, 2025.
       - name: claude-haiku-4-5-20251001
+        display_name: Claude Haiku 4.5
         category: small
         supports_system_role: true
         max_temperature: 1
@@ -75,6 +80,7 @@ engines:
       # Claude Sonnet 4.6 — balanced intelligence and speed
       # Released February 17, 2026. 1M context, adaptive thinking.
       - name: claude-sonnet-4-6
+        display_name: Claude Sonnet 4.6
         category: medium
         supports_system_role: true
         max_temperature: 1
@@ -88,6 +94,7 @@ engines:
       # Claude Opus 4.7 — most intelligent model, hardest agentic tasks
       # Released April 16, 2026. 1M context, 128k output, adaptive thinking + task budgets.
       - name: claude-opus-4-7
+        display_name: Claude Opus 4.7
         category: large
         is_flagship: true
         supports_system_role: true
@@ -108,6 +115,7 @@ engines:
       # Gemini 3.1 Flash Lite (preview) — most cost-effective, high-volume tier.
       # 1M context, supports thinking levels (minimal/low/medium/high).
       - name: gemini/gemini-3.1-flash-lite-preview
+        display_name: Gemini 3.1 Flash Lite
         category: small
         supports_system_role: true
         max_temperature: 2
@@ -120,6 +128,7 @@ engines:
           modes: [minimal, low, medium, high]
       # Gemini 3 Flash (preview) — balanced speed and capability.
       - name: gemini/gemini-3-flash-preview
+        display_name: Gemini 3 Flash
         category: medium
         supports_system_role: true
         max_temperature: 2
@@ -133,6 +142,7 @@ engines:
       # Gemini 3.1 Pro (preview) — flagship, complex reasoning.
       # Released February 19, 2026. 1M context, multimodal.
       - name: gemini/gemini-3.1-pro-preview
+        display_name: Gemini 3.1 Pro
         category: large
         is_flagship: true
         supports_system_role: true
@@ -150,10 +160,11 @@ engines:
     # Local Ollama server (no API key required; uses MLX backend on Apple Silicon).
     # Models are pulled with `ollama pull gemma4:<tag>` and served at
     # http://localhost:11434. LiteLLM routes via the ollama_chat/ prefix
-    # added in config.py::_normalize_model_id.
+    # added in config.py::normalize_model_id.
     models:
       # Gemma 4 E4B — small/fast tier. Effective 4B params (Matformer).
       - name: gemma4:e4b
+        display_name: Gemma 4 E4B
         category: small
         supports_system_role: true
         max_temperature: 1
@@ -163,6 +174,7 @@ engines:
         default_max_tokens: 4096
       # Gemma 4 26B MoE — medium tier. ~3.8B active params per token; high throughput.
       - name: gemma4:26b
+        display_name: Gemma 4 26B MoE
         category: medium
         supports_system_role: true
         max_temperature: 1
@@ -172,6 +184,7 @@ engines:
         default_max_tokens: 4096
       # Gemma 4 31B Dense — large tier. Maximum quality.
       - name: gemma4:31b
+        display_name: Gemma 4 31B
         category: large
         supports_system_role: true
         max_temperature: 1

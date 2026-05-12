@@ -240,9 +240,12 @@ def get_all_models() -> Dict[str, List[Dict[str, Any]]]:
 
         for model in engine.get('models', []):
             model_id = normalize_model_id(provider, model['name'])
+            thinking_meta = model.get('thinking') or {}
             models.append({
                 "id": model_id,
                 "name": model['name'],
+                # Human-readable label for UIs; falls back to the canonical name.
+                "display_name": model.get('display_name') or model['name'],
                 "category": model.get('category', 'medium'),
                 "context_window": model.get('max_input_tokens', 128000),
                 "max_output_tokens": model.get('max_output_tokens'),
@@ -254,7 +257,12 @@ def get_all_models() -> Dict[str, List[Dict[str, Any]]]:
                 "is_flagship": model.get('is_flagship', False),
                 # Forward thinking metadata (supported flag, mode, modes,
                 # features) so callers can decide how to set reasoning_effort.
-                "thinking": model.get('thinking') or {},
+                "thinking": thinking_meta,
+                # Convenience boolean for frontends that just want to know
+                # whether the model surfaces a thinking-effort control.
+                "supports_thinking": bool(thinking_meta.get('supported')),
+                # True for local providers (no API key required, runs on-device).
+                "is_local": provider == 'ollama',
             })
 
         if models:

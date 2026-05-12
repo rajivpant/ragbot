@@ -48,15 +48,20 @@ services:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions
 
-      # Mount the synthesis-engineering shared config home (read-only).
-      # Contains: keys.yaml (API keys), ragbot.yaml (user prefs),
+      # Mount the synthesis-engineering shared config home.
+      # Contains: keys.yaml (API keys, read at request time), ragbot.yaml
+      # (user prefs incl. default_workspace, pinned_models, recent_models),
       # console.yaml (synthesis-console sources, used for repo discovery).
-      - ~/.synthesis:/root/.synthesis:ro
+      # Mounted read-write so the preferences API can persist updates to
+      # ragbot.yaml. The host enforces 0600 on keys.yaml; the container
+      # runs the chat path which already reads keys, so the additional
+      # write capability does not materially weaken the threat model.
+      - ~/.synthesis:/root/.synthesis
 
       # Legacy config home (read-only fallback). The keystore reads
       # ~/.config/ragbot/keys.yaml when ~/.synthesis/keys.yaml is absent,
       # so existing setups that pre-date the synthesis-engineering move
-      # keep working without migration.
+      # keep working without migration. Writes always target ~/.synthesis/.
       - ~/.config/ragbot:/root/.config/ragbot:ro
 
       # Mount workspaces for ai-knowledge repo discovery (repos distributed across workspaces)

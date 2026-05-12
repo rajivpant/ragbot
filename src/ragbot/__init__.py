@@ -50,6 +50,12 @@ from .keystore import (
     USER_CONFIG_PATH,
     get_default_workspace,
     get_user_config,
+    set_user_config,
+    get_pinned_models,
+    set_pinned_models,
+    get_recent_models,
+    record_recent_model,
+    RECENT_MODELS_CAP,
     check_api_keys as keystore_check_api_keys,
 )
 
@@ -134,6 +140,12 @@ __all__ = [
     "USER_CONFIG_PATH",
     "get_default_workspace",
     "get_user_config",
+    "set_user_config",
+    "get_pinned_models",
+    "set_pinned_models",
+    "get_recent_models",
+    "record_recent_model",
+    "RECENT_MODELS_CAP",
     # Core
     "chat",
     "chat_stream",

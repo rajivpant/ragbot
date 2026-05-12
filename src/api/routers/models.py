@@ -29,7 +29,12 @@ PROVIDER_LABELS = {
     "openai": "OpenAI",
     "anthropic": "Anthropic",
     "google": "Google",
+    "ollama": "Ollama",
 }
+
+# Providers whose models run on the user's machine (no API key, no cloud egress).
+# Surfaced on /api/models/providers and per-model so the UI can show a local badge.
+LOCAL_PROVIDERS = {"ollama"}
 
 
 @router.get("", response_model=ModelsResponse)
@@ -47,6 +52,9 @@ async def list_models():
                 context_window=model["context_window"],
                 supports_streaming=model.get("supports_streaming", True),
                 supports_system_role=model.get("supports_system_role", True),
+                display_name=model.get("display_name") or model["name"],
+                supports_thinking=bool(model.get("supports_thinking", False)),
+                is_local=bool(model.get("is_local", provider in LOCAL_PROVIDERS)),
             ))
 
     return ModelsResponse(
@@ -76,6 +84,10 @@ async def list_all_models():
                 "max_output_tokens": model.get("max_output_tokens"),
                 "temperature": model.get("temperature"),
                 "max_temperature": model.get("max_temperature", 2),
+                "display_name": model.get("display_name") or model["name"],
+                "supports_thinking": bool(model.get("supports_thinking", False)),
+                "is_local": bool(model.get("is_local", provider in LOCAL_PROVIDERS)),
+                "is_flagship": bool(model.get("is_flagship", False)),
             })
 
     return {
@@ -94,6 +106,7 @@ async def list_providers():
             {
                 "id": p,
                 "name": PROVIDER_LABELS.get(p, p.title()),
+                "is_local": p in LOCAL_PROVIDERS,
             }
             for p in providers
         ]

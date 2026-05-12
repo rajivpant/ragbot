@@ -190,3 +190,92 @@ class TestCheckApiKeys:
         result = check_api_keys()
         for provider, has_key in result.items():
             assert isinstance(has_key, bool), f"{provider} should be bool"
+
+
+class TestUserConfigWrite:
+    """Tests for the user-config write path (~/.synthesis/ragbot.yaml).
+
+    Each test points the keystore at a tmp path via monkeypatch so the user's
+    real ~/.synthesis/ragbot.yaml is never touched.
+    """
+
+    @pytest.fixture(autouse=True)
+    def isolated_user_config(self, tmp_path, monkeypatch):
+        """Redirect USER_CONFIG_PATH and the synthesis dir to tmp_path."""
+        import ragbot.keystore as ks
+
+        monkeypatch.setattr(ks, "SYNTHESIS_DIR", tmp_path)
+        monkeypatch.setattr(ks, "USER_CONFIG_PATH", tmp_path / "ragbot.yaml")
+        monkeypatch.setattr(ks, "LEGACY_USER_CONFIG_PATH", tmp_path / "_legacy_does_not_exist.yaml")
+        monkeypatch.setattr(ks, "_user_config", None)
+        yield
+        monkeypatch.setattr(ks, "_user_config", None)
+
+    def test_save_and_load_roundtrip(self, tmp_path):
+        from ragbot.keystore import _save_user_config, _load_user_config
+
+        _save_user_config({"default_workspace": "personal", "pinned_models": ["a", "b"]})
+        loaded = _load_user_config()
+        assert loaded["default_workspace"] == "personal"
+        assert loaded["pinned_models"] == ["a", "b"]
+
+    def test_save_preserves_0600_permissions(self, tmp_path):
+        from ragbot.keystore import _save_user_config, USER_CONFIG_PATH
+
+        _save_user_config({"k": "v"})
+        mode = USER_CONFIG_PATH.stat().st_mode & 0o777
+        assert mode == 0o600, f"expected 0600, got {oct(mode)}"
+
+    def test_set_user_config_preserves_other_keys(self):
+        from ragbot.keystore import _save_user_config, set_user_config, _load_user_config
+
+        _save_user_config({"default_workspace": "personal"})
+        set_user_config("pinned_models", ["x"])
+        loaded = _load_user_config()
+        assert loaded["default_workspace"] == "personal"
+        assert loaded["pinned_models"] == ["x"]
+
+    def test_pinned_models_set_get_dedupes_and_preserves_order(self):
+        from ragbot.keystore import set_pinned_models, get_pinned_models
+
+        set_pinned_models(["a", "b", "a", "c", "b"])
+        assert get_pinned_models() == ["a", "b", "c"]
+
+    def test_pinned_models_default_empty(self):
+        from ragbot.keystore import get_pinned_models
+
+        assert get_pinned_models() == []
+
+    def test_pinned_models_ignores_non_strings(self):
+        from ragbot.keystore import set_pinned_models, get_pinned_models
+
+        set_pinned_models(["a", None, 42, "b"])  # type: ignore[list-item]
+        assert get_pinned_models() == ["a", "b"]
+
+    def test_record_recent_model_prepends_and_dedupes(self):
+        from ragbot.keystore import record_recent_model, get_recent_models
+
+        record_recent_model("a")
+        record_recent_model("b")
+        record_recent_model("c")
+        assert get_recent_models() == ["c", "b", "a"]
+        # Re-recording a model moves it to the front rather than duplicating.
+        record_recent_model("a")
+        assert get_recent_models() == ["a", "c", "b"]
+
+    def test_record_recent_model_caps_list(self):
+        from ragbot.keystore import record_recent_model, get_recent_models, RECENT_MODELS_CAP
+
+        for i in range(RECENT_MODELS_CAP + 5):
+            record_recent_model(f"model-{i}")
+        recent = get_recent_models()
+        assert len(recent) == RECENT_MODELS_CAP
+        # Newest is at the front.
+        assert recent[0] == f"model-{RECENT_MODELS_CAP + 4}"
+
+    def test_record_recent_model_ignores_empty_input(self):
+        from ragbot.keystore import record_recent_model, get_recent_models
+
+        record_recent_model("")
+        record_recent_model(None)  # type: ignore[arg-type]
+        assert get_recent_models() == []

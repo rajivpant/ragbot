@@ -320,3 +320,82 @@ def reload_user_config() -> None:
     global _user_config
     _user_config = None
     _load_user_config()
+
+
+# Cap for the recent-models list — kept short so the picker stays readable.
+RECENT_MODELS_CAP = 10
+
+
+def _save_user_config(config: Dict[str, Any]) -> None:
+    """Persist user configuration to ~/.synthesis/ragbot.yaml.
+
+    Writes are atomic (temp file + rename), preserve 0600 permissions, and
+    always target the canonical synthesis-engineering home regardless of
+    whether the read came from the legacy fallback. Invalidates the
+    in-memory cache so subsequent reads see the new state.
+    """
+    global _user_config
+
+    SYNTHESIS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = USER_CONFIG_PATH.with_suffix(USER_CONFIG_PATH.suffix + ".tmp")
+
+    # Create the temp file with restrictive permissions before writing the
+    # YAML content; os.replace is atomic on POSIX so partial writes never
+    # leave a malformed config in place.
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w") as f:
+            yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
+    except Exception:
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
+
+    os.replace(str(tmp), str(USER_CONFIG_PATH))
+    _user_config = config
+
+
+def set_user_config(key: str, value: Any) -> None:
+    """Set a single user-configuration key and persist."""
+    config = dict(_load_user_config())  # copy so we don't mutate the cache mid-write
+    config[key] = value
+    _save_user_config(config)
+
+
+def get_pinned_models() -> list:
+    """Return the user's pinned model IDs (canonical / normalized form)."""
+    raw = _load_user_config().get("pinned_models", [])
+    return [str(m) for m in raw if isinstance(m, str)]
+
+
+def set_pinned_models(model_ids: list) -> None:
+    """Replace the pinned-models list. Order is preserved; duplicates dropped."""
+    seen = set()
+    cleaned = []
+    for mid in model_ids:
+        if not isinstance(mid, str) or mid in seen:
+            continue
+        seen.add(mid)
+        cleaned.append(mid)
+    set_user_config("pinned_models", cleaned)
+
+
+def get_recent_models() -> list:
+    """Return the user's recently-used model IDs, newest first."""
+    raw = _load_user_config().get("recent_models", [])
+    return [str(m) for m in raw if isinstance(m, str)]
+
+
+def record_recent_model(model_id: str, *, cap: int = RECENT_MODELS_CAP) -> None:
+    """Record a model use. Moves the entry to the front and caps the list."""
+    if not isinstance(model_id, str) or not model_id:
+        return
+    current = get_recent_models()
+    # Move-to-front: drop any prior occurrence, prepend, then cap.
+    deduped = [mid for mid in current if mid != model_id]
+    new_list = [model_id] + deduped
+    if len(new_list) > cap:
+        new_list = new_list[:cap]
+    set_user_config("recent_models", new_list)
