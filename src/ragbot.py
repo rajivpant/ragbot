@@ -11,6 +11,7 @@ import openai
 import anthropic
 import litellm
 from helpers import load_files, load_config, print_saved_files, chat, load_workspaces_as_profiles
+from ragbot.config import normalize_model_id
 from ragbot.keystore import get_api_key
 from ragbot.workspaces import get_llm_specific_instruction_path, ENGINE_TO_INSTRUCTION_FILE
 
@@ -492,17 +493,8 @@ def run_chat(args):
     print(f"Creativity temperature setting: {temperature}")
     print(f"Max tokens setting: {max_tokens} (model max output: {max_output_tokens})")
 
-    # Convert engine/model to litellm format
-    litellm_model = model
-    if args.engine == 'anthropic':
-        if not model.startswith('anthropic/'):
-            litellm_model = f"anthropic/{model}"
-    elif args.engine == 'openai':
-        if not model.startswith('openai/') and not model.startswith('gpt') and not model.startswith('o1'):
-            litellm_model = f"openai/{model}"
-    elif args.engine == 'google':
-        if not model.startswith('gemini/'):
-            litellm_model = f"gemini/{model}"
+    # Convert engine/model to litellm format via the shared normalizer.
+    litellm_model = normalize_model_id(args.engine, model)
 
     # Stream callback for interactive mode
     def print_chunk(chunk):

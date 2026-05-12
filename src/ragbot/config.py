@@ -185,8 +185,12 @@ def load_data_config(data_root: str) -> Dict[str, Any]:
     return load_yaml_config(config_path)
 
 
-def _normalize_model_id(provider: str, model_name: str) -> str:
+def normalize_model_id(provider: str, model_name: str) -> str:
     """Normalize model ID format for LiteLLM.
+
+    Idempotent: if ``model_name`` is already prefixed with the correct
+    provider scheme, it is returned unchanged. Otherwise the prefix is
+    added. Safe to call on user-supplied model strings.
 
     LiteLLM requires provider prefixes to route correctly:
     - Anthropic: 'anthropic/{model}'
@@ -195,19 +199,27 @@ def _normalize_model_id(provider: str, model_name: str) -> str:
     - Google: Already prefixed with 'gemini/' in engines.yaml
 
     Args:
-        provider: Provider name
-        model_name: Model name from engines.yaml
+        provider: Provider name (from engines.yaml ``name`` field).
+        model_name: Model name from engines.yaml, or a user-supplied
+            override which may already include the provider prefix.
 
     Returns:
-        Normalized model ID for LiteLLM API use
+        Normalized model ID for LiteLLM API use.
     """
     if provider == 'anthropic':
+        if model_name.startswith('anthropic/'):
+            return model_name
         return f"anthropic/{model_name}"
     if provider == 'openai':
+        if model_name.startswith('openai/'):
+            return model_name
         return f"openai/{model_name}"
     if provider == 'ollama':
+        if model_name.startswith('ollama_chat/') or model_name.startswith('ollama/'):
+            return model_name
         return f"ollama_chat/{model_name}"
-    # Google models already have gemini/ prefix in engines.yaml
+    # Google models already have gemini/ prefix in engines.yaml; other
+    # providers pass through unchanged.
     return model_name
 
 
@@ -227,7 +239,7 @@ def get_all_models() -> Dict[str, List[Dict[str, Any]]]:
         models = []
 
         for model in engine.get('models', []):
-            model_id = _normalize_model_id(provider, model['name'])
+            model_id = normalize_model_id(provider, model['name'])
             models.append({
                 "id": model_id,
                 "name": model['name'],
@@ -308,7 +320,7 @@ def get_provider_for_model(model_id: str) -> str:
             if raw_model == model_name or raw_model == model_name_stripped:
                 return provider
             # Also check if the input was the full litellm format
-            if model_id == _normalize_model_id(provider, model['name']):
+            if model_id == normalize_model_id(provider, model['name']):
                 return provider
 
     # Fallback: check if the original model_id had a provider prefix we can trust
@@ -338,7 +350,7 @@ def get_default_model() -> str:
     if provider_config:
         default_model = provider_config.get('default_model')
         if default_model:
-            return _normalize_model_id(default_provider, default_model)
+            return normalize_model_id(default_provider, default_model)
 
     # Fallback: first model of default provider
     all_models = get_all_models()

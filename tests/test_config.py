@@ -22,7 +22,7 @@ from ragbot.config import (
     get_model_info,
     get_default_model,
     get_temperature_settings,
-    _normalize_model_id,
+    normalize_model_id,
 )
 
 
@@ -199,22 +199,47 @@ class TestGetTemperatureSettings:
 
 
 class TestNormalizeModelId:
-    """Tests for _normalize_model_id function."""
+    """Tests for normalize_model_id function."""
 
     def test_normalize_anthropic_model(self):
         """Anthropic models should get anthropic/ prefix."""
-        result = _normalize_model_id('anthropic', 'claude-3-sonnet')
+        result = normalize_model_id('anthropic', 'claude-3-sonnet')
         assert result == 'anthropic/claude-3-sonnet'
 
     def test_normalize_openai_model(self):
         """OpenAI models should get openai/ prefix."""
-        result = _normalize_model_id('openai', 'gpt-4')
+        result = normalize_model_id('openai', 'gpt-4')
         assert result == 'openai/gpt-4'
 
     def test_normalize_google_model_with_prefix(self):
         """Google models with gemini/ prefix should be unchanged."""
-        result = _normalize_model_id('google', 'gemini/gemini-2.5-flash')
+        result = normalize_model_id('google', 'gemini/gemini-2.5-flash')
         assert result == 'gemini/gemini-2.5-flash'
+
+    def test_normalize_ollama_model(self):
+        """Ollama models should get ollama_chat/ prefix."""
+        result = normalize_model_id('ollama', 'gemma4:31b')
+        assert result == 'ollama_chat/gemma4:31b'
+
+    def test_normalize_is_idempotent_anthropic(self):
+        """Already-prefixed Anthropic model should pass through."""
+        result = normalize_model_id('anthropic', 'anthropic/claude-3-sonnet')
+        assert result == 'anthropic/claude-3-sonnet'
+
+    def test_normalize_is_idempotent_openai(self):
+        """Already-prefixed OpenAI model should pass through."""
+        result = normalize_model_id('openai', 'openai/gpt-4')
+        assert result == 'openai/gpt-4'
+
+    def test_normalize_is_idempotent_ollama_chat(self):
+        """Already-prefixed Ollama (chat) model should pass through."""
+        result = normalize_model_id('ollama', 'ollama_chat/gemma4:e4b')
+        assert result == 'ollama_chat/gemma4:e4b'
+
+    def test_normalize_is_idempotent_ollama_completion(self):
+        """Already-prefixed Ollama (completion) model should pass through."""
+        result = normalize_model_id('ollama', 'ollama/gemma4:e4b')
+        assert result == 'ollama/gemma4:e4b'
 
 
 class TestCurrentModels:
