@@ -38,6 +38,12 @@ services:
       # Default backend for new installs. Override to `qdrant` for legacy mode.
       RAGBOT_VECTOR_BACKEND: ${RAGBOT_VECTOR_BACKEND:-pgvector}
       RAGBOT_DATABASE_URL: ${RAGBOT_DATABASE_URL:-postgresql://ragbot:ragbot_dev_password_change_me@postgres:5432/ragbot}
+      # Point LiteLLM at a host-side Ollama daemon (the container's own
+      # localhost is the container, not the host). host.docker.internal is
+      # the canonical hostname for the host on Docker Desktop (macOS,
+      # Windows) and recent Docker Engine on Linux. Override if Ollama runs
+      # elsewhere (e.g., a LAN-shared inference server).
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions
@@ -46,6 +52,12 @@ services:
       # Contains: keys.yaml (API keys), ragbot.yaml (user prefs),
       # console.yaml (synthesis-console sources, used for repo discovery).
       - ~/.synthesis:/root/.synthesis:ro
+
+      # Legacy config home (read-only fallback). The keystore reads
+      # ~/.config/ragbot/keys.yaml when ~/.synthesis/keys.yaml is absent,
+      # so existing setups that pre-date the synthesis-engineering move
+      # keep working without migration.
+      - ~/.config/ragbot:/root/.config/ragbot:ro
 
       # Mount workspaces for ai-knowledge repo discovery (repos distributed across workspaces)
       - ~/workspaces:/root/workspaces:ro

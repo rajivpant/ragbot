@@ -167,6 +167,17 @@ class Keystore:
                 "has_default_key": has_default_key,
             }
 
+        # Local providers (no API key needed) are always available when
+        # configured in engines.yaml. Mirror the get_configured_providers
+        # logic so the frontend's keys-status view and the available-models
+        # view agree.
+        result["ollama"] = {
+            "has_key": True,
+            "source": None,
+            "has_workspace_key": False,
+            "has_default_key": False,
+        }
+
         return result
 
     def list_workspaces_with_keys(self) -> list[str]:
