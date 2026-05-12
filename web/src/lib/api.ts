@@ -69,6 +69,13 @@ export interface ModelInfo {
   max_output_tokens?: number;
   temperature?: number;
   max_temperature?: number;
+  /** Human-readable label (e.g. "Claude Opus 4.7"). Falls back to `name` if absent. */
+  display_name?: string;
+  /** True when the model exposes a thinking-effort control. */
+  supports_thinking?: boolean;
+  /** True for local-runtime providers (Ollama). No API key needed; no cloud egress. */
+  is_local?: boolean;
+  is_flagship?: boolean;
 }
 
 export interface ConfigResponse {
@@ -131,12 +138,51 @@ export async function getModels(): Promise<{ models: ModelInfo[]; default_model:
 export interface ProviderInfo {
   id: string;
   name: string;
+  is_local?: boolean;
 }
 
 export async function getProviders(): Promise<{ providers: ProviderInfo[] }> {
   const res = await fetch(`${API_BASE}/api/models/providers`);
   if (!res.ok) throw new Error('Failed to fetch providers');
   return res.json();
+}
+
+// ----- Preferences (pinned / recent models) -----
+
+export async function getPinnedModels(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/preferences/pinned-models`);
+  if (!res.ok) throw new Error('Failed to fetch pinned models');
+  const data = await res.json();
+  return data.model_ids ?? [];
+}
+
+export async function setPinnedModels(modelIds: string[]): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/preferences/pinned-models`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_ids: modelIds }),
+  });
+  if (!res.ok) throw new Error('Failed to update pinned models');
+  const data = await res.json();
+  return data.model_ids ?? [];
+}
+
+export async function getRecentModels(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/preferences/recent-models`);
+  if (!res.ok) throw new Error('Failed to fetch recent models');
+  const data = await res.json();
+  return data.model_ids ?? [];
+}
+
+export async function recordRecentModel(modelId: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/preferences/recent-models`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: modelId }),
+  });
+  if (!res.ok) throw new Error('Failed to record recent model');
+  const data = await res.json();
+  return data.model_ids ?? [];
 }
 
 export async function getTemperatureSettings(): Promise<Record<string, number>> {

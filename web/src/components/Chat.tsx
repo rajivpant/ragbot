@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Message, chatStream, getConfig, type ThinkingEffort } from '@/lib/api';
+import { Message, chatStream, getConfig, recordRecentModel, type ThinkingEffort } from '@/lib/api';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SettingsPanel } from './SettingsPanel';
@@ -29,6 +29,9 @@ export function Chat() {
   // v3.2: server-reported demo mode. Surfaced as a banner so screenshots
   // taken with RAGBOT_DEMO=1 are unmistakably demo.
   const [demoMode, setDemoMode] = useState<boolean>(false);
+  // Counter incremented when ⌘K (Ctrl+K) is pressed outside a text input;
+  // SettingsPanel watches this to open the ModelPicker imperatively.
+  const [openModelPickerSignal, setOpenModelPickerSignal] = useState<number>(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +43,27 @@ export function Chat() {
       .catch(() => {
         /* ignore — banner just stays off if the call fails */
       });
+  }, []);
+
+  // ⌘K / Ctrl+K opens the ModelPicker imperatively, except when the user
+  // is typing into a text field (let the browser/component handle it there).
+  useEffect(() => {
+    const isTextTarget = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+      if (!isShortcut) return;
+      if (isTextTarget(e.target)) return;
+      e.preventDefault();
+      setOpenModelPickerSignal((n) => n + 1);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   // Calculate conversation stats
@@ -101,6 +125,15 @@ export function Chat() {
             };
           }
           return updated;
+        });
+      }
+
+      // Record this model in the server-side "recently used" list so the
+      // ModelPicker can surface it under Recent on next open. Best-effort:
+      // failure to record is silent (no user-facing error).
+      if (model) {
+        recordRecentModel(model).catch((err) => {
+          console.warn('Failed to record recent model:', err);
         });
       }
     } catch (error) {
@@ -193,6 +226,7 @@ export function Chat() {
           onThinkingEffortChange={setThinkingEffort}
           includeSkills={includeSkills}
           onIncludeSkillsChange={setIncludeSkills}
+          openModelPickerSignal={openModelPickerSignal}
         />
       )}
 

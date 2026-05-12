@@ -1,7 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getModels, getWorkspaces, getIndexStatus, indexWorkspace, getConfig, getProviders, getTemperatureSettings, getKeysStatus, type ModelInfo, type WorkspaceInfo, type IndexStatus, type ProviderInfo, type KeysStatusResponse, type KeyStatus, type ThinkingEffort } from '@/lib/api';
+import {
+  getModels,
+  getWorkspaces,
+  getIndexStatus,
+  indexWorkspace,
+  getConfig,
+  getProviders,
+  getTemperatureSettings,
+  getKeysStatus,
+  type ModelInfo,
+  type WorkspaceInfo,
+  type IndexStatus,
+  type ProviderInfo,
+  type KeysStatusResponse,
+  type KeyStatus,
+  type ThinkingEffort,
+} from '@/lib/api';
+import { ModelPicker } from './ModelPicker';
 
 interface SettingsPanelProps {
   workspace: string | undefined;
@@ -26,16 +43,9 @@ interface SettingsPanelProps {
   onThinkingEffortChange?: (effort: ThinkingEffort | undefined) => void;
   includeSkills?: boolean;
   onIncludeSkillsChange?: (include: boolean) => void;
+  // External open-the-picker signal (incremented by Chat.tsx on ⌘K).
+  openModelPickerSignal?: number;
 }
-
-// Category labels - these are UI display names, not configuration
-const CATEGORIES = ['small', 'medium', 'large', 'reasoning'];
-const CATEGORY_LABELS: Record<string, string> = {
-  small: 'Fast',
-  medium: 'Balanced',
-  large: 'Powerful',
-  reasoning: 'Reasoning',
-};
 
 const MAX_TOKEN_OPTIONS = [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536];
 
@@ -60,14 +70,13 @@ export function SettingsPanel({
   onThinkingEffortChange,
   includeSkills,
   onIncludeSkillsChange,
+  openModelPickerSignal,
 }: SettingsPanelProps) {
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [temperaturePresets, setTemperaturePresets] = useState<Record<string, number>>({});
-  const [defaultModel, setDefaultModel] = useState<string>('');
   const [keysStatus, setKeysStatus] = useState<KeysStatusResponse>({});
-  const [workspacesWithKeys, setWorkspacesWithKeys] = useState<string[]>([]);
   const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null);
   const [indexing, setIndexing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -75,10 +84,6 @@ export function SettingsPanel({
 
   // Key source overrides - user can override workspace keys with default keys
   const [keyOverrides, setKeyOverrides] = useState<Record<string, 'auto' | 'default'>>({});
-
-  // Derived state
-  const [provider, setProvider] = useState<string>('anthropic');
-  const [category, setCategory] = useState<string>('medium');
 
   // Load workspaces, models, providers, and config from API (all from engines.yaml)
   useEffect(() => {
@@ -93,26 +98,27 @@ export function SettingsPanel({
         ]);
         setWorkspaces(wsData);
         setModels(modelData.models);
-        setDefaultModel(modelData.default_model);
-        setWorkspacesWithKeys(configData.workspaces_with_keys || []);
         setProviders(providersData.providers);
         setTemperaturePresets(tempSettings);
 
         // Set default workspace if none selected and config has one
         const defaultWorkspaceName = configData.default_workspace;
         if (!workspace && defaultWorkspaceName) {
-          const defaultWs = wsData.find(w => w.dir_name === defaultWorkspaceName || w.name.toLowerCase() === defaultWorkspaceName.toLowerCase());
+          const defaultWs = wsData.find(
+            (w) =>
+              w.dir_name === defaultWorkspaceName ||
+              w.name.toLowerCase() === defaultWorkspaceName.toLowerCase(),
+          );
           if (defaultWs) {
             onWorkspaceChange(defaultWs.dir_name);
           }
         }
 
-        // Set default model if none selected
+        // Set default model if none selected. ModelPicker will also adopt
+        // the server default on its own load, but doing it here keeps the
+        // Thinking control rendering decision deterministic on first paint.
         if (!model && modelData.default_model) {
           onModelChange(modelData.default_model);
-          // Parse provider from default model
-          const defaultProvider = modelData.models.find(m => m.id === modelData.default_model)?.provider;
-          if (defaultProvider) setProvider(defaultProvider);
         }
       } catch (e) {
         console.error('Failed to load settings data:', e);
@@ -121,6 +127,7 @@ export function SettingsPanel({
       }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load keys status when workspace changes
@@ -132,33 +139,6 @@ export function SettingsPanel({
     // Reset key overrides when workspace changes
     setKeyOverrides({});
   }, [workspace]);
-
-  // When keys status loads, ensure selected provider has a key; if not, switch to one that does
-  useEffect(() => {
-    if (Object.keys(keysStatus).length === 0) return; // Keys not loaded yet
-    if (models.length === 0) return; // Models not loaded yet
-
-    // Check if current provider has a key
-    if (!keysStatus[provider]?.has_key) {
-      // Find first provider with a key
-      const providerWithKey = providers.find(p => keysStatus[p.id]?.has_key);
-      if (providerWithKey) {
-        // Inline provider change logic (can't call handleProviderChange as it's defined later)
-        const newProvider = providerWithKey.id;
-        setProvider(newProvider);
-        const newProviderModels = models.filter(m => m.provider === newProvider);
-        const newCategories = CATEGORIES.filter(cat =>
-          newProviderModels.some(m => (m.category || 'medium') === cat)
-        );
-        const newCategory = newCategories.includes(category) ? category : newCategories[0] || 'medium';
-        setCategory(newCategory);
-        const newCategoryModels = newProviderModels.filter(m => (m.category || 'medium') === newCategory);
-        if (newCategoryModels.length > 0) {
-          onModelChange(newCategoryModels[0].id);
-        }
-      }
-    }
-  }, [keysStatus, providers, models]);
 
   // Load index status when workspace changes
   useEffect(() => {
@@ -183,45 +163,6 @@ export function SettingsPanel({
     return status.source;
   };
 
-  // Check if provider has any key available
-  const hasKey = (providerId: string): boolean => {
-    const status = keysStatus[providerId];
-    return status?.has_key ?? false;
-  };
-
-  // Filter models by provider and category
-  const providerModels = models.filter(m => m.provider === provider);
-  const availableCategories = CATEGORIES.filter(cat =>
-    providerModels.some(m => (m.category || 'medium') === cat)
-  );
-  const categoryModels = providerModels.filter(m =>
-    (m.category || 'medium') === category
-  );
-
-  // When provider changes, update category and model
-  const handleProviderChange = (newProvider: string) => {
-    setProvider(newProvider);
-    const newProviderModels = models.filter(m => m.provider === newProvider);
-    const newCategories = CATEGORIES.filter(cat =>
-      newProviderModels.some(m => (m.category || 'medium') === cat)
-    );
-    const newCategory = newCategories.includes(category) ? category : newCategories[0] || 'medium';
-    setCategory(newCategory);
-    const newCategoryModels = newProviderModels.filter(m => (m.category || 'medium') === newCategory);
-    if (newCategoryModels.length > 0) {
-      onModelChange(newCategoryModels[0].id);
-    }
-  };
-
-  // When category changes, update model
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    const newCategoryModels = providerModels.filter(m => (m.category || 'medium') === newCategory);
-    if (newCategoryModels.length > 0) {
-      onModelChange(newCategoryModels[0].id);
-    }
-  };
-
   const handleIndex = async () => {
     if (!workspace) return;
     setIndexing(true);
@@ -236,8 +177,10 @@ export function SettingsPanel({
     }
   };
 
-  const selectedWorkspace = workspaces.find(w => w.dir_name === workspace);
-  const selectedModel = models.find(m => m.id === model);
+  const selectedWorkspace = workspaces.find((w) => w.dir_name === workspace);
+  const selectedModel = models.find((m) => m.id === model);
+  const showThinkingControl =
+    onThinkingEffortChange !== undefined && Boolean(selectedModel?.supports_thinking);
 
   if (loading) {
     return (
@@ -285,61 +228,35 @@ export function SettingsPanel({
             )}
           </div>
 
-          {/* Provider & Model */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Model
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={provider}
-                onChange={(e) => handleProviderChange(e.target.value)}
-                disabled={disabled}
-                className="rounded-lg border border-gray-300 dark:border-gray-600
-                           bg-white dark:bg-gray-800 px-2 py-2 text-sm w-28
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {providers.filter(p => hasKey(p.id)).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={category}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                disabled={disabled}
-                className="rounded-lg border border-gray-300 dark:border-gray-600
-                           bg-white dark:bg-gray-800 px-2 py-2 text-sm flex-1
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {availableCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <select
-              value={model || ''}
-              onChange={(e) => onModelChange(e.target.value)}
+          {/* Model + Thinking — single rich picker; Thinking renders only when supported. */}
+          <div className="flex flex-col gap-2">
+            <ModelPicker
+              value={model}
+              onChange={(id) => onModelChange(id)}
               disabled={disabled}
-              className="rounded-lg border border-gray-300 dark:border-gray-600
-                         bg-white dark:bg-gray-800 px-3 py-2 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {categoryModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            {selectedModel && (
-              <div className="text-xs text-gray-500 flex items-center gap-1">
-                {(selectedModel.context_window / 1000).toFixed(0)}K context
-                <span className={getEffectiveKeySource(selectedModel.provider) === 'workspace' ? 'text-blue-600 ml-1' : 'text-gray-400 ml-1'}>
-                  • {getEffectiveKeySource(selectedModel.provider)} key
-                </span>
+              openSignal={openModelPickerSignal}
+            />
+            {showThinkingControl && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">🧠 Thinking</span>
+                <select
+                  value={thinkingEffort ?? 'auto'}
+                  onChange={(e) => {
+                    const v = e.target.value as ThinkingEffort;
+                    onThinkingEffortChange?.(v === 'auto' ? undefined : v);
+                  }}
+                  disabled={disabled}
+                  className="rounded border border-gray-300 dark:border-gray-600
+                             bg-white dark:bg-gray-800 px-2 py-1 text-xs flex-1"
+                  title="Reasoning effort. Defaults: flagship → medium, others → off."
+                >
+                  <option value="auto">auto</option>
+                  <option value="off">off</option>
+                  <option value="minimal">minimal</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
               </div>
             )}
           </div>
@@ -471,31 +388,6 @@ export function SettingsPanel({
               </div>
             )}
 
-            {/* Reasoning / thinking effort (v3+) */}
-            {onThinkingEffortChange !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">🧠 Thinking</span>
-                <select
-                  value={thinkingEffort ?? 'auto'}
-                  onChange={(e) => {
-                    const v = e.target.value as ThinkingEffort;
-                    onThinkingEffortChange(v === 'auto' ? undefined : v);
-                  }}
-                  disabled={disabled}
-                  className="rounded border border-gray-300 dark:border-gray-600
-                             bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                  title="Reasoning effort. Defaults: flagship → medium, others → off."
-                >
-                  <option value="auto">auto</option>
-                  <option value="off">off</option>
-                  <option value="minimal">minimal</option>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                </select>
-              </div>
-            )}
-
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="ml-auto px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
@@ -535,8 +427,8 @@ export function SettingsPanel({
                   Model Info
                 </label>
                 <div className="text-xs text-gray-500 space-y-0.5">
-                  <div>Provider: {providers.find(p => p.id === provider)?.name || provider}</div>
-                  <div>Model: {selectedModel?.name || 'None'}</div>
+                  <div>Provider: {providers.find((p) => p.id === selectedModel?.provider)?.name || selectedModel?.provider || '-'}</div>
+                  <div>Model: {selectedModel?.display_name || selectedModel?.name || 'None'}</div>
                   <div>Context: {selectedModel ? `${(selectedModel.context_window / 1000).toFixed(0)}K` : '-'}</div>
                 </div>
               </div>
@@ -548,10 +440,11 @@ export function SettingsPanel({
                 </label>
                 <div className="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-2">
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    {providers.map(p => {
+                    {providers.map((p) => {
                       const status = keysStatus[p.id];
                       const effectiveSource = getEffectiveKeySource(p.id);
                       const canOverride = status?.has_workspace_key && status?.has_default_key;
+                      const isLocalProvider = Boolean(p.is_local);
 
                       return (
                         <div key={p.id} className="flex flex-col gap-1">
@@ -564,24 +457,33 @@ export function SettingsPanel({
                             <span className={status?.has_key ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}>
                               {p.name}
                             </span>
+                            {isLocalProvider && (
+                              <span className="text-[10px] text-gray-500" title="Runs locally; no API key required">
+                                · 🏠 local
+                              </span>
+                            )}
                           </div>
 
-                          {status?.has_key && (
+                          {status?.has_key && !isLocalProvider && (
                             <div className="flex items-center gap-1 pl-5">
-                              <span className={`text-[10px] px-1 py-0.5 rounded ${
-                                effectiveSource === 'workspace'
-                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                              }`}>
+                              <span
+                                className={`text-[10px] px-1 py-0.5 rounded ${
+                                  effectiveSource === 'workspace'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                }`}
+                              >
                                 {effectiveSource}
                               </span>
 
                               {canOverride && (
                                 <button
-                                  onClick={() => setKeyOverrides(prev => ({
-                                    ...prev,
-                                    [p.id]: prev[p.id] === 'default' ? 'auto' : 'default'
-                                  }))}
+                                  onClick={() =>
+                                    setKeyOverrides((prev) => ({
+                                      ...prev,
+                                      [p.id]: prev[p.id] === 'default' ? 'auto' : 'default',
+                                    }))
+                                  }
                                   className="text-[10px] text-blue-600 hover:text-blue-800 dark:text-blue-400 ml-1"
                                   title={keyOverrides[p.id] === 'default' ? 'Use workspace key' : 'Use default key'}
                                 >
@@ -591,7 +493,7 @@ export function SettingsPanel({
                             </div>
                           )}
 
-                          {!status?.has_key && (
+                          {!status?.has_key && !isLocalProvider && (
                             <div className="text-[10px] text-gray-400 pl-5">
                               no key configured
                             </div>
