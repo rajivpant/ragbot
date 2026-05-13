@@ -1,3 +1,19 @@
+# Ragbot — the open-source reference runtime for conversational synthesis engineering.
+
+Ragbot is the chat-led runtime of [synthesis engineering](https://synthesisengineering.org) — the open methodology for systematic human-AI collaboration on complex work. It is the workbench where humans and AI do the crafts of synthesis one collaborative turn at a time, on the user's own workspace, with skills, agent execution, durable memory, and bi-directional MCP. Workspace-aware. Local-first with frontier fallback. Production-grade observability. MIT-licensed.
+
+Developed by [Rajiv Pant](https://github.com/rajivpant). See [INSTALL.md](INSTALL.md) for setup, [CONFIGURE.md](CONFIGURE.md) for keys and providers, and [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+
+## v3.4 — coming soon
+
+The v3.4 series advances Ragbot along the architectural directions the synthesis-engineering methodology calls for:
+
+- **Agent loop.** Multi-step planning, tool use, and self-correction inside a single turn, with the human in the loop at meaningful decision points rather than every tool call.
+- **Bi-directional MCP.** Ragbot as both an MCP client (consuming tools from external servers) and an MCP server (exposing its own workspace, skills, and retrieval surfaces to other agents and IDEs).
+- **Skills runtime.** First-class execution of `synthesis-skills` capabilities — discovery, parameterised invocation, and reproducible runs — promoting skills from "indexed documents" to "callable functions."
+- **Cross-workspace synthesis.** Retrieval and reasoning that span multiple `ai-knowledge-*` workspaces with explicit provenance, beyond the current single-workspace-plus-skills auto-include.
+- **Memory beyond RAG.** Durable, structured memory that complements vector retrieval — episodic conversation history, learned preferences, and long-running project state under the user's control.
+
 ## What's New in v3.3
 
 Ragbot v3.3 (May 2026) adds first-class local model support and a
@@ -97,86 +113,9 @@ Ragbot v3.0 (April 2026) ships three major upgrades over v2:
 
 Plus reasoning-effort wiring (Claude 4.x adaptive thinking, GPT-5.5 reasoning, Gemini 3.x thinking levels) — see `--thinking-effort` and `RAGBOT_THINKING_EFFORT`.
 
-## 🚀 Ragbot & RaGenie: Two Products, One Ecosystem
+## Synthesis Engineering Ecosystem
 
-**Ragbot continues active development** alongside **RaGenie**, its next-generation sibling. Both are open source and share the same data layer (ragbot-data).
-
-### Choosing Between Ragbot and RaGenie
-
-| Use Case | Recommendation |
-|----------|----------------|
-| Quick setup, CLI-focused workflow | **Ragbot** |
-| Need RAG with vector search | **Both** (Ragbot defaults to pgvector; Qdrant fallback available) |
-| Prefer Streamlit simplicity | **Ragbot** |
-| Need microservices architecture | **RaGenie** |
-| Want both CLI and modern web UI | Use both! |
-
-### RaGenie Overview
-
-**RaGenie** ([ragenie.ai](https://ragenie.ai)) is a modern microservices platform that complements Ragbot:
-
-| Feature | Ragbot (v1) | RaGenie (v2) |
-|---------|-------------|--------------|
-| Architecture | CLI + FastAPI backend + React UI | Microservices (FastAPI + React) |
-| Authentication | None | JWT OAuth2 with role-based access |
-| Storage | File system + PostgreSQL/pgvector | PostgreSQL + MinIO + Qdrant (vectors) |
-| RAG | Pgvector hybrid search (vector + native FTS) | Automatic embeddings with semantic search |
-| Scalability | Single container | Horizontal scaling with load balancing |
-| Monitoring | None | Prometheus + Grafana dashboards |
-| Caching | None | Redis with smart invalidation |
-| API | None | RESTful APIs with documentation |
-
-### Key Benefits
-
-- **Automatic Synchronization:** Edit markdown files and see changes indexed within 45 seconds
-- **Advanced RAG:** Vector embeddings for semantic search across all your knowledge
-- **Production Ready:** Built-in monitoring, health checks, and backup strategies
-- **Secure by Default:** Authentication, encryption, and access control
-- **Developer Friendly:** Interactive API docs, database migrations, comprehensive testing
-
-### Seamless Migration
-
-Your existing workflow doesn't change:
-- ✅ ragbot-data repository remains your source of truth
-- ✅ Edit markdown files as you always have
-- ✅ Same directory structure (datasets/, instructions/, runbooks/, workspaces/)
-- ✅ Git workflow unchanged
-- ✅ RaGenie mounts ragbot-data read-only (never modifies your files)
-
-**Migration Resources:**
-- **RaGenie Repository:** [github.com/synthesisengineering/ragenie](https://github.com/synthesisengineering/ragenie)
-- **Integration Guide:** [RAGENIE_INTEGRATION.md](https://github.com/rajivpant/ragbot-data/blob/main/RAGENIE_INTEGRATION.md)
-- **Quick Start:** [RaGenie QUICKSTART.md](https://github.com/synthesisengineering/ragenie/blob/main/QUICKSTART.md)
-
-### Development Status
-
-Both products are actively developed:
-
-**Ragbot:**
-- ✅ Bug fixes and security updates
-- ✅ Compatibility updates for new LLM models
-- ✅ New features including RAG capabilities (using Qdrant, same as RaGenie)
-- ✅ Continued CLI and Streamlit UI improvements
-
-**RaGenie:**
-- ✅ Modern microservices architecture
-- ✅ Advanced RAG with automatic indexing
-- ✅ Production-ready deployment features
-
-**Choose the product that fits your workflow - or use both!**
-
----
-
-Ragbot.AI
-=========
-
-🤖 [Ragbot.AI (formerly named rbot)](https://github.com/synthesisengineering/ragbot): Rajiv's open source AI augmented brain assistant combines the power of large language models (LLMs) with [Retrieval Augmented Generation](https://ai.meta.com/blog/retrieval-augmented-generation-streamlining-the-creation-of-intelligent-natural-language-processing-models/) (RAG).
-
-🚀 Ragbot.AI processes user prompts along with instructions, datasets, runbooks, and Agent Skills, enabling context-aware responses. Powered by the latest LLMs — OpenAI's GPT-5.5 family, Anthropic's Claude Sonnet 4.6 and Claude Opus 4.7, and Google's Gemini 3.x series — Ragbot.AI uses retrieval-augmented generation backed by PostgreSQL + pgvector for vector search and native full-text search.
-
-🧠 Instructions and datasets help Ragbot.AI better understand context, resulting in personalized, more accurate, and relevant responses, surpassing the capabilities of out of the box LLMs.
-
-Developed by [Rajiv Pant](https://github.com/rajivpant)
+Ragbot is a reference implementation of the synthesis-engineering methodology, focused on the **conversational** interaction primitive. Sibling reference implementations cover other primitives: **synthesis-console** for direct manipulation (browse and edit), **Ragenie** for the procedural primitive (workflow definition with autonomous execution), and **synthesis-skills** as the portable capability format consumed by every runtime and by external SKILL.md-compatible agents (Claude Code, Codex CLI, Cursor, Gemini CLI). The family of reference implementations will grow as the methodology and the AI landscape evolve. All implementations share the `~/.synthesis/` config home, the `ai-knowledge-*` workspace model, and a Python substrate library, and they integrate through Model Context Protocol (MCP) calls and a filesystem-as-source-of-truth contract.
 
 ## Development Methodology
 
@@ -206,35 +145,6 @@ Your code contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.
 
 [![](https://img.shields.io/badge/Chat_with_Ragbot.ai-Ask_Cody-%238A16D7?labelColor=%23383838)](https://sourcegraph.com/github.com/synthesisengineering/ragbot)
 
-Blog Post Introducing Ragbot.AI
---------------------------
-
-[Introducing Ragbot: A Personalized AI Assistant](https://ragbot.ai/articles/introducing-ragbot/)
-
-Excerpt from the blog post:
-
-### Ragbot.AI: Offering Personalized Assistance Beyond ChatGPT Plus, Bing Chat, and Google Bard Currently Offer
-
-As an AI assistant, I provide a unique level of personalization and adaptability that sets me apart from current implementations of ChatGPT Plus, Bing Chat, and Google Bard. By using folders containing customized dataset files, I can cater to multiple use cases, such as personal life, work, education, and specific projects. This customization enables me to understand and support you in a way that is tailored to your unique needs.
-
-#### Serving as Your Personal Life Assistant
-
-You can create a folder with dataset files that include personal information, family details, travel and food preferences, and more. By using this information, I can function as your personal life assistant, offering AI-powered recommendations and support tailored to your specific context.
-
-#### Assisting You in Your Professional Life
-
-Similarly, you can develop another folder containing dataset files related to your work life. These files might include details about your job, industry, colleagues, projects, and other work-related information. With this context, I can help you with various tasks, such as drafting emails, scheduling meetings, conducting research, and more, enhancing your efficiency and organization.
-
-#### Supporting Your Educational Goals
-
-You can also customize me for educational purposes by creating a folder with dataset files containing information about your academic background, subjects of interest, courses, and other educational details. In this role, I can provide personalized educational support, from helping with homework to explaining complex concepts or recommending learning resources.
-
-#### Providing Project-Specific Help
-
-In addition to the use cases mentioned above, I can be tailored to support you on specific projects. By creating a workspace folder with dataset files containing project-related information, such as objectives, team members, deadlines, and relevant resources, I can assist you throughout the project lifecycle, offering valuable insights and support tailored to each unique project.
-
-My ability to create distinct profiles for different needs using customized dataset files and workspaces sets me apart from ChatGPT Plus, Bing Chat, and Google Bard. This versatility enables me to offer personalized assistance across multiple aspects of your life, ensuring that I can understand and cater to your specific requirements.
-
 Quick Start
 -----------
 
@@ -263,7 +173,7 @@ cp ~/ai-knowledge-ragbot/source/instructions/templates/default.md instructions/
 docker-compose up -d
 
 # 6. Access the web interface
-open http://localhost:8501
+open http://localhost:3000
 ```
 
 ### Option 2: Using Your Own Data Repository (Recommended for Production)
@@ -577,32 +487,9 @@ inherits_from:
 Supported AI Models
 -------------------
 
-Ragbot.AI supports the latest models from three leading AI providers (as of October 2025):
+Ragbot supports models from Anthropic (Claude), OpenAI (GPT and reasoning models), Google (Gemini), and local models via Ollama (Gemma 4 family ships out of the box). The authoritative list — model IDs, context windows, thinking-mode support, tier badges, and defaults — lives in [engines.yaml](engines.yaml). v3.3's redesigned model picker reads from the same file at runtime, so what you see in the UI matches what is configured in the repo.
 
-**OpenAI Models:**
-
-- **o3 Series**: o3-mini, o3-pro, o3-deep-research - Most advanced reasoning models
-- **o1 Series**: o1, o1-pro, o1-mini, o1-preview - Advanced reasoning capabilities
-- **GPT-4o Series**: gpt-4o (default), gpt-4o-mini - Latest multimodal flagship models
-- **GPT-4o Audio**: gpt-4o-audio-preview, gpt-4o-mini-audio-preview - Multimodal with audio support
-- **GPT-4 Turbo**: Previous generation model
-
-**Anthropic Models:**
-
-- **Claude 4.5 Sonnet** (default): claude-sonnet-4-5 - Latest and most capable
-- **Claude 4.5 Opus**: claude-opus-4-5 - Most powerful reasoning
-- **Claude 4 Series**: claude-4-opus, claude-4-sonnet - Extended context versions
-- **Claude 3.7 Sonnet**: Hybrid reasoning capabilities
-- **Claude 3.5 Series**: claude-3-5-sonnet, claude-3-5-haiku - High performance
-- **Claude 3 Series**: claude-3-opus, claude-3-haiku - Previous generation
-
-**Google Gemini Models:**
-
-- **Gemini 2.5 Series**: gemini-2.5-pro, gemini-2.5-flash (default), gemini-2.5-flash-lite
-- **Gemini 2.0 Series**: gemini-2.0-flash, gemini-2.0-flash-lite, gemini-2.0-pro-exp
-- **Experimental**: gemini-2.0-flash-thinking-exp, gemini-exp-1206
-
-All models are configured in [engines.yaml](engines.yaml) with their respective capabilities, token limits, and default settings.
+Adding or updating models is an `engines.yaml` change, not a code change. See the [v3.3 release notes](#whats-new-in-v33) for the local-model integration details.
 
 Installation, Configuration, and Personalization
 ------------------------------------------------
@@ -937,3 +824,7 @@ dennis, Daring Denmaster
 alexandria, All-Star Alexi
 alexredmon@ar-macbook ~ >
 ```
+
+---
+
+Ragbot is by **Synthesis Engineering** · [synthesisengineering.org](https://synthesisengineering.org) · [synthesiscoding.org](https://synthesiscoding.org) · MIT License

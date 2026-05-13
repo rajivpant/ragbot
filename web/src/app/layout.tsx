@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Ragbot",
-  description: "AI assistant with RAG-powered knowledge",
+  description: "Open-source reference runtime for conversational synthesis engineering.",
 };
 
 export default function RootLayout({

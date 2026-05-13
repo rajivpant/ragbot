@@ -275,6 +275,36 @@ export function Chat() {
           />
         </div>
       </div>
+
+      {/* Footer chrome — identifies Ragbot as the Synthesis Engineering
+          reference runtime. The two domain links use the vermillion accent. */}
+      <footer className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <div className="max-w-3xl mx-auto px-4 py-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+          Ragbot is by{' '}
+          <strong className="font-semibold text-gray-700 dark:text-gray-300">
+            Synthesis Engineering
+          </strong>
+          {' · '}
+          <a
+            href="https://synthesisengineering.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[color:var(--accent)] hover:text-[color:var(--accent-dark)] hover:underline"
+          >
+            synthesisengineering.org
+          </a>
+          {' · '}
+          <a
+            href="https://synthesiscoding.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[color:var(--accent)] hover:text-[color:var(--accent-dark)] hover:underline"
+          >
+            synthesiscoding.org
+          </a>
+          {' · MIT License'}
+        </div>
+      </footer>
     </div>
   );
 }

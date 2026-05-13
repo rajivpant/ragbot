@@ -349,9 +349,22 @@ export function ModelPicker({ value, onChange, disabled, openSignal, onOpenChang
                   No models match &ldquo;{query}&rdquo;.
                 </div>
               ) : (
-                sections.map((section) => (
+                sections.map((section) => {
+                  // Pinned and Recent group headers get the Synthesis
+                  // Engineering vermillion accent — a small visual reminder
+                  // of Ragbot's lineage. Provider section headers remain
+                  // neutral.
+                  const isCuratedSection =
+                    section.key === '__pinned' || section.key === '__recent';
+                  return (
                   <div key={section.key} className="py-1">
-                    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                    <div
+                      className={`px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 ${
+                        isCuratedSection
+                          ? 'text-[color:var(--accent)] dark:text-[color:var(--accent)]'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
                       {section.badge && <span aria-hidden>{section.badge}</span>}
                       <span>{section.label}</span>
                     </div>
@@ -370,10 +383,22 @@ export function ModelPicker({ value, onChange, disabled, openSignal, onOpenChang
                           aria-selected={isSelected}
                           onMouseEnter={() => setFocusedIndex(idx)}
                           onClick={() => selectModel(model)}
+                          // The selected row gets a vermillion left border and
+                          // an accent-light wash. Focus highlight (hover/keyboard)
+                          // stays neutral so we don't fight the selection cue.
+                          style={
+                            isSelected
+                              ? {
+                                  borderLeft: '3px solid var(--accent)',
+                                  paddingLeft: 'calc(0.75rem - 3px)',
+                                  backgroundColor: 'var(--accent-light)',
+                                }
+                              : undefined
+                          }
                           className={`flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer
-                                      ${isFocused ? 'bg-blue-50 dark:bg-blue-900/30' : ''}
+                                      ${isFocused && !isSelected ? 'bg-gray-100 dark:bg-gray-700/40' : ''}
                                       ${!isAvailable ? 'opacity-60 cursor-not-allowed' : ''}
-                                      ${isSelected ? 'font-semibold text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'}`}
+                                      ${isSelected ? 'font-semibold text-[color:var(--accent-dark)] dark:text-[color:var(--accent)]' : 'text-gray-900 dark:text-gray-100'}`}
                         >
                           <span className="w-4 text-center" aria-hidden>
                             {isSelected ? '●' : '○'}
@@ -414,7 +439,8 @@ export function ModelPicker({ value, onChange, disabled, openSignal, onOpenChang
                       );
                     })}
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 

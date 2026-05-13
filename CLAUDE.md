@@ -4,12 +4,15 @@
 
 This is a **PUBLIC** open source repository. Be careful not to include confidential information.
 
-## Product Relationship
+## Synthesis Engineering Ecosystem
 
-- **Ragbot**: Actively maintained and upgraded. Production-ready CLI and Streamlit UI.
-- **RaGenie**: Successor product with advanced RAG capabilities. Under development.
-- Both products share `ai-knowledge-*` repos as their data layer.
-- Both products will continue to be actively developed.
+Ragbot is the **conversational** reference implementation of the synthesis-engineering methodology. Sibling reference implementations cover other interaction primitives — keep them in mind when designing features so the ecosystem boundaries stay clean:
+
+- **synthesis-console** — direct manipulation (browse and edit).
+- **Ragenie** — procedural (workflow definition with autonomous execution).
+- **synthesis-skills** — portable capability format consumed by every runtime and by external SKILL.md-compatible agents (Claude Code, Codex CLI, Cursor, Gemini CLI).
+
+The family is open-ended and will grow. All implementations share the `~/.synthesis/` config home, the `ai-knowledge-*` workspace model, and a Python substrate library, and they integrate through Model Context Protocol (MCP) calls and a filesystem-as-source-of-truth contract. When in doubt about where a feature belongs: chat-led turns are Ragbot's territory; cross-runtime capabilities go into `synthesis-skills`; persistent state lives in `ai-knowledge-*` workspaces under the user's control.
 
 ## Architecture
 

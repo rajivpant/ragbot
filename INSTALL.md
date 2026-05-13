@@ -1,89 +1,94 @@
-Installation Instructions for RagBot.AI
-=======================================
+# Installing Ragbot
 
-Below are the step-by-step instructions for all the prerequisites needed to install RagBot.AI. Please follow the section that corresponds to your operating system: Mac, Windows, or Linux.
+Ragbot — the open-source reference runtime for conversational synthesis engineering.
 
-### Prerequisites
+This guide gets a working stack up on a single machine. For the configuration that follows — API keys, providers, workspace paths — see [CONFIGURE.md](CONFIGURE.md).
 
--   Python 3.8 or above
--   pip (Python package installer)
--   (Optional) Microsoft Visual Studio Code or any other Integrated Development Environment (IDE) of your choice.
+## Prerequisites
 
-#### MacOS
+- **Docker** with Compose v2 (Docker Desktop on macOS / Windows, or Docker Engine on Linux).
+- **Git**, for cloning the repository.
+- **At least one API key** for a hosted LLM provider (Anthropic, OpenAI, or Google), or a running [Ollama](https://ollama.com) on the host for local models. The Ollama path needs no API key.
 
-1.  Install Homebrew. It is a package manager for MacOS. You can install it by pasting the following command at a Terminal prompt:
+A Python toolchain is **not** required for the default install. If you intend to run the CLI directly on the host instead of inside the container, install **Python 3.12 or newer** from [python.org](https://www.python.org/downloads/) and use the project's `requirements.txt`.
 
-    ```bash
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    ```
-2.  Install Python 3 and pip using Homebrew:
+## Install via Docker (default)
 
-    ```bash
-    brew install python
-    ```
+```bash
+git clone https://github.com/synthesisengineering/ragbot.git
+cd ragbot
+cp .env.docker .env
+# Edit .env and add at least one provider API key.
 
+docker compose up -d
+```
 
-3.  (Optional) If you do not have an IDE installed or prefer to use Visual Studio Code, you can install it using the following command:
+The web UI is at <http://localhost:3000>. The API is at <http://localhost:8000>. The bundled Postgres + pgvector service starts automatically.
 
-    ```bash
-    brew install --cask visual-studio-code
-    ```
+To stop the stack:
 
-#### Windows
+```bash
+docker compose down
+```
 
-1.  Install Python and pip: Download the latest version of Python from the official website here: <https://www.python.org/downloads/windows/>
-2.  (Optional) Install Visual Studio Code: Download the installer from the official site: <https://code.visualstudio.com/download>
-3.  During the Python installation, make sure to check the box that says "Add Python to PATH" before you click on "Install Now".
+## Try demo mode
 
-#### Linux
+Demo mode runs against a bundled workspace and skill, hard-isolated from anything on the host. No keys are required beyond a provider API key for the LLM itself.
 
-1.  You can install Python and pip using the package manager that comes with your distribution. For Ubuntu, you can use the following commands:
+```bash
+RAGBOT_DEMO=1 docker compose up -d
+# Open http://localhost:3000 — a yellow demo-mode banner appears in the UI.
+```
 
-    ```bash
-    sudo apt-get update
-    sudo apt-get install python3
-    sudo apt-get install python3-pip
-    ```
+Unset `RAGBOT_DEMO` and bring the stack up again to return to your real workspaces.
 
-2.  (Optional) To install Visual Studio Code on Ubuntu, you can use the following commands:
+## Point Ragbot at your data
 
-    ```bash
-    sudo apt update
-    sudo apt install software-properties-common apt-transport-https wget
-    wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | sudo apt-key add -
-    sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
-    sudo apt update
-    sudo apt install code
-    ```
+Ragbot discovers `ai-knowledge-*` workspaces on the host. The default Docker Compose mounts `~/workspaces/` read-only into the container. Override paths in `docker-compose.override.yml`:
 
-For other Linux distributions, please follow the respective package manager commands to install Python, pip and Visual Studio Code.
+```bash
+cp docker-compose.override.example.yml docker-compose.override.yml
+# Edit to mount your knowledge directories.
+```
 
-### Running RagBot.AI
+See [README.md](README.md) for the workspace and `ai-knowledge` layout, and the configuration guide for details on `~/.synthesis/console.yaml` and per-workspace settings.
 
-Once you have Python and pip installed, you can download the RagBot.AI code from its GitHub repository and install its dependencies using pip.
+## Run the CLI
 
-1.  Clone the RagBot.AI repository from GitHub:
+The `ragbot` CLI is available inside the running container:
 
-    ```bash
-    git clone https://github.com/synthesisengineering/ragbot.git
-    ```
+```bash
+docker compose exec ragbot ragbot chat -profile personal -p "What are my travel preferences?"
+docker compose exec ragbot ragbot skills list
+docker compose exec ragbot ragbot db status
+```
 
-2.  Navigate to the RagBot.AI directory:
+To install the CLI on the host instead (requires Python 3.12+):
 
-    ```bash
-    cd ragbot
-    ```
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+ragbot --help
+```
 
-3.  Install the Python package dependencies including APIs to access LLM engines:
+## Configure API keys
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+Drop your provider keys into `~/.synthesis/keys.yaml` (shared across the synthesis-engineering tools) or set them in `.env` for Docker-only use. See [CONFIGURE.md](CONFIGURE.md) for the schema, per-workspace overrides, and the legacy `~/.config/ragbot/` fallback.
 
-4.  You're all set to configure, personalize, and run RagBot.AI!
-    Read the [configuration and personaliation guide](CONFIGURE.md) and the [main documentation](README.md).
+## Update Ragbot
 
-* * * * *
+```bash
+cd ragbot
+git pull
+docker compose pull
+docker compose up -d --build
+```
 
-Remember, while Visual Studio Code is a popular and powerful IDE, its installation is entirely optional. You may use any other text editor or IDE you're comfortable with to explore and contribute to the RagBot.AI project. Happy coding!
+## Troubleshooting
 
+- **Port conflicts.** If `3000` or `8000` is already in use, edit the published ports in `docker-compose.override.yml`.
+- **Ollama not reachable.** Inside the container, host Ollama is `host.docker.internal:11434` on macOS / Windows. On Linux, set `OLLAMA_API_BASE=http://<host-ip>:11434` in `.env`.
+- **No models in the picker.** Confirm at least one provider key in `.env` or `~/.synthesis/keys.yaml` and restart the stack.
+
+For deployment guidance and production hardening, see [README-DOCKER.md](README-DOCKER.md).

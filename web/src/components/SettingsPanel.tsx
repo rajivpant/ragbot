@@ -196,6 +196,21 @@ export function SettingsPanel({
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+      {/* Settings header — identifies Ragbot's lineage. */}
+      <div className="px-4 pt-3 pb-1 border-b border-[color:var(--accent-light)] dark:border-gray-700">
+        <div className="max-w-6xl mx-auto flex items-baseline gap-2">
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Settings
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            · Ragbot — by{' '}
+            <span className="text-[color:var(--accent)] font-medium">
+              Synthesis Engineering
+            </span>
+          </span>
+        </div>
+      </div>
+
       {/* Main Settings Row */}
       <div className="px-4 py-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-6xl mx-auto">

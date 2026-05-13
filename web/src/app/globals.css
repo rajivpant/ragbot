@@ -4,11 +4,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Synthesis Engineering accent palette — vermillion / cinnabar. */
+  --accent: #b8312f;
+  --accent-dark: #8e1d1b;
+  --accent-light: #fbecea;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-light: var(--accent-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -17,6 +24,9 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    /* Slightly lift the accent-light tint for dark mode so it reads as a
+       subtle wash rather than a hot bar. */
+    --accent-light: #2a1413;
   }
 }
 
