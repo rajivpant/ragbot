@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import yaml
 
-from .model import Skill, SkillFile, SkillFileKind
+from .model import Skill, SkillFile, SkillFileKind, SkillScope
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +198,13 @@ def parse_skill(directory: str) -> Optional[Skill]:
     name = str(frontmatter.get("name") or os.path.basename(directory))
     description = str(frontmatter.get("description") or "").strip()
 
+    # Scope: explicit frontmatter wins over path-convention inference.
+    path_scope = SkillScope.from_path_convention(directory)
+    scope = SkillScope.from_frontmatter(
+        frontmatter.get("scope"),
+        fallback=path_scope,
+    )
+
     files = _walk_skill_files(directory)
 
     return Skill(
@@ -207,5 +214,6 @@ def parse_skill(directory: str) -> Optional[Skill]:
         description=description,
         body=body.strip(),
         frontmatter=frontmatter,
+        scope=scope,
         files=files,
     )

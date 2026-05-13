@@ -93,3 +93,25 @@ def in_memory_tracer(_otel_session_exporter):
     """
     _otel_session_exporter.clear()
     return _otel_session_exporter
+
+
+# ---------------------------------------------------------------------------
+# Synthesis identity — hermetic test default
+# ---------------------------------------------------------------------------
+#
+# ``synthesis_engine.identity.get_personal_workspaces()`` reads from
+# ``~/.synthesis/identity.yaml`` by default, which on the operator's
+# machine declares their personal workspaces (e.g., ``rajiv``). Test runs
+# must not pick up that file or the test outcome depends on whose laptop
+# pytest runs on. The autouse fixture below points
+# ``SYNTHESIS_IDENTITY_CONFIG`` at a non-existent path so tests see an
+# empty personal-workspace list by default. Tests that need identity
+# behaviour set the env var to a tmp_path file themselves (see
+# ``tests/test_identity.py``).
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_synthesis_identity(monkeypatch, tmp_path_factory):
+    """Default SYNTHESIS_IDENTITY_CONFIG to a missing path for all tests."""
+    bogus = tmp_path_factory.mktemp("no_identity") / "missing.yaml"
+    monkeypatch.setenv("SYNTHESIS_IDENTITY_CONFIG", str(bogus))

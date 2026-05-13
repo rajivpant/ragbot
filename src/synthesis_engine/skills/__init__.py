@@ -26,9 +26,10 @@ from .discovery import (
     DEFAULT_SKILL_ROOTS,
     discover_skills,
     discover_skills_in_root,
+    get_skills_for_workspace,
     resolve_skill_roots,
 )
-from .model import Skill, SkillFile, SkillFileKind
+from .model import Skill, SkillFile, SkillFileKind, SkillScope
 from .parser import parse_skill, parse_skill_md
 
 __all__ = [
@@ -36,8 +37,10 @@ __all__ = [
     "Skill",
     "SkillFile",
     "SkillFileKind",
+    "SkillScope",
     "discover_skills",
     "discover_skills_in_root",
+    "get_skills_for_workspace",
     "parse_skill",
     "parse_skill_md",
     "resolve_skill_roots",
