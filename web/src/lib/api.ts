@@ -640,3 +640,131 @@ async function safeErrorDetail(res: Response): Promise<string> {
   }
   return res.statusText || `HTTP ${res.status}`;
 }
+
+// ----- Cross-workspace policy ------------------------------------------------
+//
+// Mirrors the `synthesis_engine.policy` substrate. The router exposes the
+// loaded RoutingPolicy per workspace, a dry-run cross-workspace boundary
+// check, and the recent audit log feed.
+
+export type Confidentiality =
+  | 'PUBLIC'
+  | 'PERSONAL'
+  | 'CLIENT_CONFIDENTIAL'
+  | 'AIR_GAPPED';
+
+export type FallbackBehavior = 'deny' | 'downgrade_to_local' | 'warn';
+
+export interface WorkspacePolicy {
+  workspace: string;
+  workspace_root: string;
+  routing_yaml_path: string;
+  routing_yaml_exists: boolean;
+  confidentiality: Confidentiality;
+  allowed_models: string[];
+  denied_models: string[];
+  local_only: boolean;
+  fallback_behavior: FallbackBehavior;
+}
+
+export interface CrossWorkspaceBoundary {
+  from_workspace: string;
+  to_workspace: string;
+  allowed: boolean;
+  reason: string;
+}
+
+export interface ModelRoutingVerdict {
+  workspace: string;
+  allowed: boolean;
+  reason: string;
+  fallback_behavior: FallbackBehavior;
+  suggested_fallback: string | null;
+}
+
+export interface ModelRoutingResult {
+  requested_model: string;
+  aggregate_allowed: boolean;
+  denying_workspace_count: number;
+  verdicts: ModelRoutingVerdict[];
+}
+
+export interface CrossWorkspaceCheck {
+  workspaces: string[];
+  allowed: boolean;
+  effective_confidentiality: Confidentiality;
+  requires_audit: boolean;
+  reason: string;
+  boundaries: CrossWorkspaceBoundary[];
+  policies: Record<
+    string,
+    {
+      confidentiality: Confidentiality;
+      fallback_behavior: FallbackBehavior;
+      local_only: boolean;
+    }
+  >;
+  model_routing?: ModelRoutingResult;
+}
+
+export interface AuditEntry {
+  timestamp_iso: string;
+  op_type: string;
+  workspaces: string[];
+  tools: string[];
+  model_id: string;
+  outcome: string;
+  args_summary: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface AuditRecentResponse {
+  entries: AuditEntry[];
+  limit: number;
+  count: number;
+}
+
+export async function getWorkspacePolicy(
+  workspace: string,
+): Promise<WorkspacePolicy> {
+  const res = await fetch(
+    `${API_BASE}/api/policy/workspaces/${encodeURIComponent(workspace)}`,
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to load policy for ${workspace}: ${detail}`);
+  }
+  return res.json();
+}
+
+export async function checkCrossWorkspace(
+  workspaces: string[],
+  options?: { requestedModel?: string },
+): Promise<CrossWorkspaceCheck> {
+  const params = new URLSearchParams();
+  params.set('workspaces', workspaces.join(','));
+  if (options?.requestedModel) {
+    params.set('requested_model', options.requestedModel);
+  }
+  const res = await fetch(
+    `${API_BASE}/api/policy/cross-workspace-check?${params.toString()}`,
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Cross-workspace check failed: ${detail}`);
+  }
+  return res.json();
+}
+
+export async function getAuditRecent(
+  limit: number = 100,
+): Promise<AuditRecentResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/policy/audit/recent?limit=${encodeURIComponent(String(limit))}`,
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to load audit feed: ${detail}`);
+  }
+  return res.json();
+}

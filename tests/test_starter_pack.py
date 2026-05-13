@@ -1,14 +1,15 @@
-"""Tests for the bundled starter-pack of universal skills (Phase 2 Agent C).
+"""Tests for the bundled starter-pack of universal skills (Phase 2 Agent C,
+extended in Phase 3 Agent C with ``cross-workspace-synthesis``).
 
-The starter pack ships five universal skills under
+The starter pack ships six universal skills under
 ``src/synthesis_engine/skills/starter_pack/``. These tests verify that:
 
 * Each SKILL.md parses cleanly through the existing parser.
 * Each skill is universally scoped via explicit frontmatter.
 * Skills declaring ``tools:`` expose the declarations on the parsed Skill.
-* ``list_starter_skill_paths()`` enumerates exactly the expected five.
-* ``discover_skills_in_root(starter_pack_root)`` finds all five.
-* ``get_skills_for_workspace("acme-news")`` returns all five via the
+* ``list_starter_skill_paths()`` enumerates exactly the expected six.
+* ``discover_skills_in_root(starter_pack_root)`` finds all six.
+* ``get_skills_for_workspace("acme-news")`` returns all six via the
   default discovery chain — and does not return them duplicated even
   though both the starter pack and any other roots may surface them.
 """
@@ -40,19 +41,21 @@ from synthesis_engine.skills.starter_pack import (  # noqa: E402
 )
 
 
-# The canonical five names the pack ships.
+# The canonical six names the pack ships.
 EXPECTED_NAMES: Set[str] = {
     "workspace-search-with-citations",
     "draft-and-revise",
     "fact-check-claims",
     "summarize-document",
     "agent-self-review",
+    "cross-workspace-synthesis",
 }
 
 # Skills declared to expose a ``tools:`` array in their frontmatter.
 SKILLS_WITH_TOOLS: Set[str] = {
     "workspace-search-with-citations",
     "fact-check-claims",
+    "cross-workspace-synthesis",
 }
 
 
@@ -150,9 +153,9 @@ class TestSkillsWithTools:
 
 
 class TestListStarterSkillPaths:
-    def test_returns_exactly_five_paths(self) -> None:
+    def test_returns_exactly_six_paths(self) -> None:
         paths = list_starter_skill_paths()
-        assert len(paths) == 5, f"Expected 5 starter skills, got {len(paths)}"
+        assert len(paths) == 6, f"Expected 6 starter skills, got {len(paths)}"
 
     def test_each_returned_path_exists_with_skill_md(self) -> None:
         paths = list_starter_skill_paths()
@@ -169,12 +172,12 @@ class TestListStarterSkillPaths:
 
 
 class TestDiscoverSkillsInStarterPackRoot:
-    def test_all_five_discovered_from_pack_root(self) -> None:
+    def test_all_six_discovered_from_pack_root(self) -> None:
         skills = discover_skills_in_root(starter_pack_root())
         names = {s.name for s in skills}
         assert names == EXPECTED_NAMES
 
-    def test_all_five_are_universal(self) -> None:
+    def test_all_six_are_universal(self) -> None:
         skills = discover_skills_in_root(starter_pack_root())
         for skill in skills:
             assert skill.scope.universal is True, (
@@ -189,7 +192,7 @@ class TestDiscoverSkillsInStarterPackRoot:
 
 
 class TestGetSkillsForWorkspaceIncludesStarterPack:
-    def test_all_five_visible_to_acme_news(self, fake_home: Path) -> None:
+    def test_all_six_visible_to_acme_news(self, fake_home: Path) -> None:
         """An ordinary (non-personal) workspace must see every starter
         skill via universal scope, without needing any installed roots.
         """

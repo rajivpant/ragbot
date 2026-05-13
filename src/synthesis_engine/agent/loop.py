@@ -34,7 +34,19 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    TYPE_CHECKING,
+)
+
+if TYPE_CHECKING:  # pragma: no cover - typing-only
+    from ..policy.confidentiality import ConfidentialityCheck
+    from ..policy.routing import RoutingPolicy
 
 from .checkpoints import CheckpointStore, FilesystemCheckpointStore
 from .grading import GradingResult, SelfGrader
@@ -54,6 +66,60 @@ from .state import (
     PlanStep,
     StepStatus,
 )
+
+# Cross-workspace policy substrate (Phase 3 Agent A). Imported lazily
+# inside the methods that need it because the policy package transitively
+# imports ``synthesis_engine.agent.permissions``, and an eager import at
+# the top of this module triggers a circular import (loop.py is loaded
+# during ``synthesis_engine.agent`` package init, before that package's
+# ``__init__.py`` finishes). The metadata-key constants are pure strings
+# so they're safe to import eagerly via a small re-export module — but we
+# keep the convention uniform and import everything lazily.
+
+# Sentinel: populated on first use by ``_policy_imports`` below.
+_POLICY_IMPORTS: Optional[Dict[str, Any]] = None
+
+
+def _policy_imports() -> Dict[str, Any]:
+    """Lazy import of the policy package to avoid a circular import.
+
+    The loop is loaded during ``synthesis_engine.agent`` package init;
+    ``synthesis_engine.policy`` imports back into
+    ``synthesis_engine.agent.permissions``, so the policy package can
+    only be imported after this module's ``__init__`` finishes. Every
+    routing-aware method calls this helper instead of touching a
+    module-level binding.
+    """
+
+    global _POLICY_IMPORTS
+    if _POLICY_IMPORTS is not None:
+        return _POLICY_IMPORTS
+    from ..policy import (  # noqa: WPS433
+        AuditEntry,
+        RoutingPolicy,
+        check_cross_workspace_op,
+        load_routing_policy,
+        record as record_audit,
+        redact_args,
+    )
+    from ..policy.confidentiality import (  # noqa: WPS433
+        ACTIVE_WORKSPACES_METADATA_KEY,
+        ROUTING_POLICIES_METADATA_KEY,
+        register_cross_workspace_gate,
+    )
+
+    _POLICY_IMPORTS = {
+        "AuditEntry": AuditEntry,
+        "RoutingPolicy": RoutingPolicy,
+        "check_cross_workspace_op": check_cross_workspace_op,
+        "load_routing_policy": load_routing_policy,
+        "record_audit": record_audit,
+        "redact_args": redact_args,
+        "ACTIVE_WORKSPACES_METADATA_KEY": ACTIVE_WORKSPACES_METADATA_KEY,
+        "ROUTING_POLICIES_METADATA_KEY": ROUTING_POLICIES_METADATA_KEY,
+        "register_cross_workspace_gate": register_cross_workspace_gate,
+    }
+    return _POLICY_IMPORTS
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +219,12 @@ class AgentLoop:
         self._sandbox: Sandbox = sandbox or DisabledSandbox()
         self._grader: Optional[SelfGrader] = grader
 
+        # Per-run cross-workspace policy map. Populated by
+        # :meth:`_configure_multi_workspace` on the routing-enforced
+        # path; otherwise stays empty so single-workspace runs continue
+        # to behave as before.
+        self._workspace_policies: Dict[str, "RoutingPolicy"] = {}
+
         # Dispatcher needs a back-reference to this loop. We lazy-import
         # to avoid an import cycle (dispatch.py imports AgentLoop only
         # under TYPE_CHECKING).
@@ -230,6 +302,10 @@ class AgentLoop:
         task: str,
         *,
         rubric: Optional[str] = None,
+        workspaces: Optional[List[str]] = None,
+        workspace_roots: Optional[Dict[str, str]] = None,
+        routing_enforced: bool = False,
+        cross_workspace_budget_tokens: int = 6000,
     ) -> GraphState:
         """Drive a fresh task from INIT to a terminal state.
 
@@ -243,6 +319,28 @@ class AgentLoop:
                 grader's suggested revisions in the failure context.
                 Requires that a :class:`SelfGrader` was passed at
                 construction.
+            workspaces: Ordered list of workspace names the loop is
+                authorized to touch. The first entry is the primary
+                workspace. When the list has length ≥ 2 (or when
+                ``routing_enforced=True``) the loop enters the routing-
+                enforced path: per-workspace :class:`RoutingPolicy`
+                objects are loaded, ``check_cross_workspace_op`` is
+                consulted before INIT proceeds, and every LLM call is
+                gated by ``get_routed_llm_backend``. A length-1 list
+                (or ``None``) preserves the existing single-workspace
+                behaviour exactly.
+            workspace_roots: Optional override mapping workspace name →
+                absolute filesystem path of the workspace root. When
+                omitted, the loop falls back to
+                ``~/workspaces/<name>/ai-knowledge-<name>`` and then
+                ``~/ai-knowledge-<name>``. Tests pass an explicit map.
+            routing_enforced: When True, force the routing-enforced
+                path even for length-0 or length-1 ``workspaces`` lists.
+                Used for single-workspace runs that nonetheless want
+                LLM-call gating against an explicit policy.
+            cross_workspace_budget_tokens: Total token budget for the
+                cross-workspace retrieval fan-out. Ignored on the
+                single-workspace path.
         """
 
         state = GraphState.new(task, max_iterations=self._max_iterations)
@@ -256,8 +354,37 @@ class AgentLoop:
             state.metadata["rubric"] = rubric
             state.metadata["pending_grade"] = True
             state.metadata["grading_rounds"] = 0
+
+        # Multi-workspace wiring. When the routing-enforced path is
+        # active we (a) load policies, (b) evaluate the cross-workspace
+        # boundary up front so an unsupported mix transitions to ERROR
+        # before any model call, and (c) record audit entries for the
+        # start AND for every model call AND for the terminal state.
+        if self._is_routing_enforced(workspaces, routing_enforced):
+            await self._configure_multi_workspace(
+                state,
+                workspaces=workspaces or [],
+                workspace_roots=workspace_roots,
+                budget_tokens=cross_workspace_budget_tokens,
+            )
+
         await self._checkpoints.save(state)
-        return await self._drive(state)
+
+        if state.current_state == AgentState.ERROR:
+            # The cross-workspace gate refused; the start entry already
+            # recorded the denial. Surface a terminal-state audit entry
+            # too so callers reading the JSONL log see the closure.
+            self._record_terminal_audit(state)
+            return state
+
+        result = await self._drive(state)
+
+        # Terminal-state audit for the routing-enforced path. The
+        # single-workspace path skips this so unchanged tests don't
+        # see new entries on their unrelated audit log.
+        if state.metadata.get("routing_enforced"):
+            self._record_terminal_audit(result)
+        return result
 
     async def drive_to_terminal(self, state: GraphState) -> GraphState:
         """Drive a pre-built state to a terminal state.
@@ -304,6 +431,268 @@ class AgentLoop:
         if state.is_terminal():
             return state
         return await self._drive(state)
+
+    # ----- multi-workspace helpers ------------------------------------------
+
+    @staticmethod
+    def _is_routing_enforced(
+        workspaces: Optional[List[str]], routing_enforced: bool,
+    ) -> bool:
+        """Decide whether the routing-enforced path applies for this run.
+
+        Activates when ``routing_enforced=True`` OR when ``workspaces``
+        has at least one entry. A length-1 list still activates so a
+        single-workspace run can opt into policy enforcement; the
+        cross-workspace boundary check is short-circuited for it inside
+        :func:`check_cross_workspace_op`.
+
+        ``workspaces=None`` AND ``routing_enforced=False`` (the default)
+        preserves the existing behaviour exactly.
+        """
+        if routing_enforced:
+            return True
+        return bool(workspaces)
+
+    async def _configure_multi_workspace(
+        self,
+        state: GraphState,
+        *,
+        workspaces: List[str],
+        workspace_roots: Optional[Dict[str, str]],
+        budget_tokens: int,
+    ) -> None:
+        """Load per-workspace policies + evaluate the cross-workspace boundary.
+
+        Populates ``state.metadata`` with:
+
+        * ``active_workspaces`` (List[str]) — de-duplicated, order-preserved.
+        * ``routing_policies`` (Dict[str, RoutingPolicy]) — keyed by name.
+        * ``effective_confidentiality`` (str) — strictest tag's name.
+        * ``cross_workspace_check`` (Dict) — serialised ConfidentialityCheck.
+        * ``routing_enforced`` (bool) — True once this method runs.
+        * ``cross_workspace_budget_tokens`` (int).
+
+        On a denied mix, sets ``state.current_state = ERROR`` and writes
+        a clear ``final_answer`` so the caller does not need to peek at
+        metadata to render the refusal.
+        """
+
+        seen: List[str] = []
+        for name in workspaces:
+            if isinstance(name, str) and name and name not in seen:
+                seen.append(name)
+
+        imports = _policy_imports()
+        load_routing_policy = imports["load_routing_policy"]
+        check_cross_workspace_op = imports["check_cross_workspace_op"]
+        AuditEntry = imports["AuditEntry"]
+        record_audit = imports["record_audit"]
+        redact_args = imports["redact_args"]
+
+        roots = dict(workspace_roots or {})
+        policies: Dict[str, "RoutingPolicy"] = {}
+        for name in seen:
+            root = roots.get(name) or self._default_workspace_root(name)
+            try:
+                policies[name] = load_routing_policy(root)
+            except Exception as exc:
+                # A malformed routing.yaml is fail-closed: treat the
+                # workspace as missing-policy, which the cross-workspace
+                # check will then map to AIR_GAPPED. Record the load
+                # failure on state.metadata so the operator can debug.
+                logger.warning(
+                    "Failed to load routing.yaml for workspace %r at %s: %s; "
+                    "treating as missing policy (fail-closed).",
+                    name, root, exc,
+                )
+                state.metadata.setdefault("routing_load_errors", {})[name] = str(exc)
+
+        check: "ConfidentialityCheck" = check_cross_workspace_op(seen, policies)
+
+        state.metadata["routing_enforced"] = True
+        state.metadata["active_workspaces"] = list(seen)
+        state.metadata["routing_policies_names"] = list(policies.keys())
+        state.metadata["effective_confidentiality"] = (
+            check.effective_confidentiality.name
+        )
+        state.metadata["cross_workspace_check"] = {
+            "allowed": check.allowed,
+            "effective_confidentiality": check.effective_confidentiality.name,
+            "requires_audit": check.requires_audit,
+            "reason": check.reason,
+            "boundaries": [
+                {
+                    "from_workspace": b.from_workspace,
+                    "to_workspace": b.to_workspace,
+                    "allowed": b.allowed,
+                    "reason": b.reason,
+                }
+                for b in check.boundaries
+            ],
+        }
+        state.metadata["cross_workspace_budget_tokens"] = int(budget_tokens)
+
+        # Stash live policies under a private key so the dispatchers can
+        # find them without re-loading. We don't surface this in
+        # to_dict() (RoutingPolicy is not JSON-friendly).
+        self._workspace_policies = policies
+
+        # Start-of-run audit entry.
+        record_audit(
+            AuditEntry.build(
+                op_type="cross_workspace_run_start",
+                workspaces=list(seen),
+                tools=[],
+                model_id="",
+                outcome="allowed" if check.allowed else "denied",
+                args_summary=redact_args({"task": state.original_task}),
+                metadata={
+                    "task_id": state.task_id,
+                    "effective_confidentiality": check.effective_confidentiality.name,
+                    "requires_audit": check.requires_audit,
+                    "reason": check.reason,
+                },
+            )
+        )
+
+        if not check.allowed:
+            state.current_state = AgentState.ERROR
+            state.error_message = (
+                f"Cross-workspace boundary refused this run: {check.reason}"
+            )
+            state.final_answer = state.error_message
+            state.add_turn(state.current_state, state.error_message)
+            return
+
+        # Install the gate against the wildcard tool so every TOOL_CALL
+        # routes through it. Single-workspace calls short-circuit inside
+        # the gate so this does not change single-workspace semantics.
+        try:
+            register_cross_workspace_gate = imports[
+                "register_cross_workspace_gate"
+            ]
+            register_cross_workspace_gate(self._permissions, tool_name="*")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Failed to register cross-workspace permission gate: %s", exc,
+            )
+
+    def _default_workspace_root(self, name: str) -> str:
+        """Resolve a workspace name to its on-disk root.
+
+        Tries ``~/workspaces/<name>/ai-knowledge-<name>`` first (the
+        workspace-rooted layout the rest of Ragbot uses), then
+        ``~/ai-knowledge-<name>`` (the legacy flat-parent layout).
+        Falls back to ``~/.synthesis/workspaces/<name>`` so the lookup
+        always returns a path even when neither exists; the policy
+        loader emits a one-time warning when ``routing.yaml`` is missing.
+        """
+        import os
+        from pathlib import Path
+
+        candidates = [
+            Path.home() / "workspaces" / name / f"ai-knowledge-{name}",
+            Path.home() / f"ai-knowledge-{name}",
+        ]
+        for path in candidates:
+            if path.is_dir():
+                return str(path)
+        return str(Path.home() / ".synthesis" / "workspaces" / name)
+
+    def _record_terminal_audit(self, state: GraphState) -> None:
+        """Record an audit entry for a terminal state of a routing-enforced run."""
+
+        try:
+            imports = _policy_imports()
+            AuditEntry = imports["AuditEntry"]
+            record_audit = imports["record_audit"]
+            record_audit(
+                AuditEntry.build(
+                    op_type="cross_workspace_run_terminal",
+                    workspaces=list(state.metadata.get("active_workspaces") or []),
+                    tools=[],
+                    model_id="",
+                    outcome={
+                        AgentState.DONE: "done",
+                        AgentState.DONE_GRADED: "done_graded",
+                        AgentState.ERROR: "error",
+                    }.get(state.current_state, "unknown"),
+                    args_summary="{}",
+                    metadata={
+                        "task_id": state.task_id,
+                        "current_state": state.current_state.value,
+                        "error_message": state.error_message,
+                        "effective_confidentiality": state.metadata.get(
+                            "effective_confidentiality"
+                        ),
+                    },
+                )
+            )
+        except Exception as exc:  # pragma: no cover - audit must not crash the loop
+            logger.warning("Failed to record terminal audit entry: %s", exc)
+
+    def _gate_metadata(
+        self, state: GraphState, step: PlanStep,
+    ) -> Dict[str, Any]:
+        """Build the permission-gate metadata for one tool dispatch.
+
+        Always includes ``step_id``. On the routing-enforced path also
+        carries ``active_workspaces`` + ``routing_policies`` so the
+        cross-workspace gate registered against ``*`` can evaluate the
+        boundary. Off the routing-enforced path the returned mapping is
+        identical to the pre-extension behaviour.
+        """
+        meta: Dict[str, Any] = {"step_id": step.step_id}
+        if state.metadata.get("routing_enforced"):
+            imports = _policy_imports()
+            meta[imports["ACTIVE_WORKSPACES_METADATA_KEY"]] = list(
+                state.metadata.get("active_workspaces") or []
+            )
+            meta[imports["ROUTING_POLICIES_METADATA_KEY"]] = (
+                self._workspace_policies
+            )
+        return meta
+
+    def _record_model_audit(
+        self,
+        *,
+        state: GraphState,
+        requested_model: str,
+        resolved_model: str,
+        outcome: str,
+        step_id: str,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an audit entry for one model call on a routing-enforced run."""
+
+        try:
+            imports = _policy_imports()
+            AuditEntry = imports["AuditEntry"]
+            record_audit = imports["record_audit"]
+            record_audit(
+                AuditEntry.build(
+                    op_type="model_call",
+                    workspaces=list(
+                        state.metadata.get("active_workspaces") or []
+                    ),
+                    tools=[],
+                    model_id=resolved_model,
+                    outcome=outcome,
+                    args_summary="{}",
+                    metadata={
+                        "task_id": state.task_id,
+                        "step_id": step_id,
+                        "requested_model": requested_model,
+                        "resolved_model": resolved_model,
+                        "effective_confidentiality": state.metadata.get(
+                            "effective_confidentiality"
+                        ),
+                        **(extra or {}),
+                    },
+                )
+            )
+        except Exception as exc:  # pragma: no cover - audit must not crash the loop
+            logger.warning("Failed to record model-call audit entry: %s", exc)
 
     # ----- internals --------------------------------------------------------
 
@@ -361,9 +750,31 @@ class AgentLoop:
     # ----- transition handlers ----------------------------------------------
 
     async def _handle_init(self, state: GraphState) -> GraphState:
-        """INIT -> PLAN (optionally with retrieved context attached)."""
+        """INIT -> PLAN (optionally with retrieved context attached).
 
-        if self._retriever is not None:
+        When the routing-enforced path is active AND at least one
+        workspace is declared, retrieval uses
+        :func:`memory.three_tier_retrieve_multi` so blocks tagged with
+        their source workspace are surfaced; the agent's answer can then
+        cite each block by origin. Single-workspace runs (the existing
+        behaviour) call the wired ``self._retriever`` exactly as before.
+        """
+
+        multi_active = (
+            state.metadata.get("routing_enforced")
+            and len(state.metadata.get("active_workspaces") or []) >= 1
+        )
+
+        if multi_active:
+            try:
+                context = await self._retrieve_multi_workspace(state)
+                state.retrieved_context = list(context or [])
+            except Exception as exc:
+                logger.warning(
+                    "Cross-workspace memory retrieval failed: %s", exc,
+                )
+                state.metadata["retrieval_error"] = str(exc)
+        elif self._retriever is not None:
             try:
                 context = await self._retriever(state.original_task)
                 state.retrieved_context = list(context or [])
@@ -377,6 +788,82 @@ class AgentLoop:
             f"INIT done; {len(state.retrieved_context)} context block(s) retrieved.",
         )
         return state
+
+    async def _retrieve_multi_workspace(
+        self, state: GraphState,
+    ) -> List[ContextBlock]:
+        """Fan retrieval across the run's active workspaces.
+
+        Imports the multi-workspace retriever lazily so test setups that
+        do not configure a memory backend still work; the function falls
+        back to the wired ``self._retriever`` when the memory module's
+        global backend is not available. Each retrieved block is
+        promoted to a :class:`ContextBlock` tagged with its source
+        workspace so the planner can cite by origin.
+        """
+
+        workspaces: List[str] = list(
+            state.metadata.get("active_workspaces") or []
+        )
+        if not workspaces:
+            return []
+
+        try:
+            from ..memory import (  # noqa: WPS433
+                get_memory,
+                three_tier_retrieve_multi,
+            )
+        except Exception:
+            # Memory module unavailable: fall back to the wired retriever.
+            if self._retriever is not None:
+                return await self._retriever(state.original_task)
+            return []
+
+        memory = get_memory()
+        if memory is None:
+            # No memory backend installed: fall back to the wired retriever.
+            if self._retriever is not None:
+                return await self._retriever(state.original_task)
+            return []
+
+        budget = int(
+            state.metadata.get("cross_workspace_budget_tokens") or 6000
+        )
+
+        # The retriever is synchronous; run it inline. It is a cheap
+        # in-process call (no network) so we don't need a thread pool.
+        try:
+            blocks = three_tier_retrieve_multi(
+                memory,
+                workspaces=workspaces,
+                query=state.original_task,
+                total_budget_tokens=budget,
+            )
+        except Exception as exc:
+            logger.warning(
+                "three_tier_retrieve_multi raised; falling back to "
+                "single-workspace retriever. error=%r", exc,
+            )
+            if self._retriever is not None:
+                return await self._retriever(state.original_task)
+            return []
+
+        out: List[ContextBlock] = []
+        for block in blocks:
+            out.append(
+                ContextBlock(
+                    text=block.text,
+                    source=f"{block.result.tier}:{block.source_workspace}",
+                    score=float(block.score),
+                    provenance={
+                        "source_workspace": block.source_workspace,
+                        "tier": block.result.tier,
+                        "workspace_rank": block.workspace_rank,
+                        "estimated_tokens": block.estimated_tokens,
+                    },
+                )
+            )
+        return out
 
     async def _handle_plan(self, state: GraphState) -> GraphState:
         """PLAN -> EXECUTE: ask the LLM for a plan and store it."""
@@ -689,7 +1176,7 @@ class AgentLoop:
                 arguments=inputs,
                 server_id="agent",
                 task_id=state.task_id,
-                metadata={"step_id": step.step_id},
+                metadata=self._gate_metadata(state, step),
             ),
         )
         if not verdict.allowed:
@@ -754,7 +1241,7 @@ class AgentLoop:
                 arguments=inputs,
                 server_id="agent",
                 task_id=state.task_id,
-                metadata={"step_id": step.step_id},
+                metadata=self._gate_metadata(state, step),
             ),
         )
         if not verdict.allowed:
@@ -826,7 +1313,10 @@ class AgentLoop:
                 "Plan requested a TOOL_CALL but no MCP client was wired."
             )
 
-        # Permission gate.
+        # Permission gate. On the routing-enforced path we also pipe the
+        # active workspaces + their loaded policies through the gate's
+        # metadata so the cross-workspace gate registered against ``*``
+        # can evaluate the boundary.
         server_id, tool_name = _split_tool_target(
             step.target, self._default_mcp_server
         )
@@ -838,7 +1328,7 @@ class AgentLoop:
                 arguments=inputs,
                 server_id=server_id,
                 task_id=state.task_id,
-                metadata={"step_id": step.step_id},
+                metadata=self._gate_metadata(state, step),
             ),
         )
         if not verdict.allowed:
@@ -876,7 +1366,52 @@ class AgentLoop:
             messages = [{"role": "user", "content": prompt}]
 
         # Allow per-step model overrides; otherwise use the configured planner_model.
-        model = step.target or inputs.get("model") or "default"
+        requested_model = step.target or inputs.get("model") or "default"
+
+        # Routing-policy gate. On the routing-enforced path consult the
+        # per-workspace policies before dispatching. The gate may
+        # downgrade the model (DOWNGRADE_TO_LOCAL), warn-and-proceed
+        # (WARN), or raise a ModelDeniedError (DENY) — in which case the
+        # standard step-retry path records the failure.
+        model = requested_model
+        if state.metadata.get("routing_enforced") and self._workspace_policies:
+            try:
+                from ..llm import (  # noqa: WPS433
+                    ModelDeniedError,
+                    get_routed_llm_backend,
+                )
+
+                _, resolved = get_routed_llm_backend(
+                    self._workspace_policies,
+                    requested_model,
+                    backend=self._llm,
+                )
+                model = resolved
+                self._record_model_audit(
+                    state=state,
+                    requested_model=requested_model,
+                    resolved_model=resolved,
+                    outcome=(
+                        "allowed"
+                        if resolved == requested_model
+                        else "downgraded"
+                    ),
+                    step_id=step.step_id,
+                )
+            except ModelDeniedError as exc:
+                self._record_model_audit(
+                    state=state,
+                    requested_model=requested_model,
+                    resolved_model=requested_model,
+                    outcome="denied",
+                    step_id=step.step_id,
+                    extra={
+                        "denying_workspace": exc.denying_workspace,
+                        "reason": exc.reason,
+                    },
+                )
+                raise
+
         provider = inputs.get("provider") or _provider_from_model(model)
         max_tokens = int(inputs.get("max_tokens", 1024))
         temperature = inputs.get("temperature")

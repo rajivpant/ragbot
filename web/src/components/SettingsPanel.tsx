@@ -20,6 +20,7 @@ import {
 } from '@/lib/api';
 import { ModelPicker } from './ModelPicker';
 import { McpServersPanel } from './McpServersPanel';
+import { PolicyPanel } from './PolicyPanel';
 import { SkillsPanel } from './SkillsPanel';
 
 interface SettingsPanelProps {
@@ -85,6 +86,7 @@ export function SettingsPanel({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showMcp, setShowMcp] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
+  const [showPolicy, setShowPolicy] = useState(false);
 
   // Key source overrides - user can override workspace keys with default keys
   const [keyOverrides, setKeyOverrides] = useState<Record<string, 'auto' | 'default'>>({});
@@ -463,6 +465,36 @@ export function SettingsPanel({
         {showSkills && (
           <div className="max-w-6xl mx-auto">
             <SkillsPanel workspace={workspace} disabled={disabled} />
+          </div>
+        )}
+      </div>
+
+      {/* Cross-workspace Policy — collapsible section. Surfaces the
+          synthesis-engine policy substrate: per-workspace routing rules,
+          effective confidentiality across the selected workspace mix,
+          model-routing verdicts, and the recent audit-log feed. */}
+      <div className="border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setShowPolicy((v) => !v)}
+          className="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700/40 transition-colors"
+          aria-expanded={showPolicy}
+        >
+          <span className="text-gray-400 text-xs w-3">{showPolicy ? '▼' : '▶'}</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            🛡️ Cross-workspace Policy
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            confidentiality, model routing, audit log
+          </span>
+        </button>
+        {showPolicy && (
+          <div className="max-w-6xl mx-auto">
+            <PolicyPanel
+              workspace={workspace}
+              model={model}
+              disabled={disabled}
+            />
           </div>
         )}
       </div>

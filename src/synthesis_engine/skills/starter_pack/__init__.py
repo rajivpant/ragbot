@@ -1,6 +1,6 @@
 """Starter pack of universal skills bundled with Ragbot.
 
-These five skills ship with every Ragbot installation. They are universal
+These six skills ship with every Ragbot installation. They are universal
 in scope (visible from every workspace) and form the baseline capability
 set the agent has out of the box, before the operator installs any of
 their own skills or any third-party skill packs.
@@ -13,6 +13,8 @@ distinct agent operation:
 * ``fact-check-claims`` — claim extraction and per-claim verdicts.
 * ``summarize-document`` — three-section structured summary.
 * ``agent-self-review`` — four-dimension rubric over the agent's turn.
+* ``cross-workspace-synthesis`` — multi-workspace synthesis with explicit
+  per-workspace citations, confidentiality enforcement, and an audit trail.
 
 Discovery
 ---------
@@ -24,8 +26,8 @@ paths to each skill directory in a stable order, suitable for feeding to
 :func:`synthesis_engine.skills.discovery.discover_skills_in_root` or
 :func:`synthesis_engine.skills.parser.parse_skill`.
 
-The five returned paths are the source of truth for what ships in the
-pack. Adding a sixth starter skill is a matter of dropping its directory
+The six returned paths are the source of truth for what ships in the
+pack. Adding a seventh starter skill is a matter of dropping its directory
 under this package and updating the ordered name list below.
 """
 
@@ -43,6 +45,7 @@ _STARTER_SKILL_NAMES: tuple = (
     "fact-check-claims",
     "summarize-document",
     "agent-self-review",
+    "cross-workspace-synthesis",
 )
 
 

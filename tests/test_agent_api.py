@@ -568,7 +568,11 @@ def test_api_state_shape_matches_graphstate_to_dict(client, tmp_path):
     api_state = final["state"]
 
     # Pull the same state from the underlying store and compare.
-    raw_state = asyncio.get_event_loop().run_until_complete(
+    # `asyncio.run` creates a fresh event loop per call, which is the
+    # right primitive for one-shot async work inside a sync test.
+    # `get_event_loop()` is deprecated in 3.12+ and breaks under
+    # certain pytest test orderings (the loop may be closed already).
+    raw_state = asyncio.run(
         loop.checkpoint_store.load(task_id, final["checkpoints"][-1])
     )
     direct = raw_state.to_dict()
