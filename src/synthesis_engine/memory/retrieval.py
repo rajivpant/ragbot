@@ -1,13 +1,29 @@
 """Three-tier retrieval merge across the memory tiers.
 
-Public entry point:
+Public entry points:
 
     >>> three_tier_retrieve(memory, query)
     [MemoryResult(tier='vector', ...), MemoryResult(tier='graph', ...), ...]
 
-The function pulls results from each enabled tier and merges them into a
-single ranked list with deduplication. Provenance is preserved per entry
-so the agent loop can cite the source of every fact it surfaces.
+    >>> three_tier_retrieve_multi(
+    ...     memory,
+    ...     workspaces=["acme-news", "acme-user"],
+    ...     query="who owns the migration plan?",
+    ...     total_budget_tokens=6000,
+    ... )
+    [RetrievedBlock(source_workspace='acme-news', ...), ...]
+
+The single-workspace function pulls results from each enabled tier and
+merges them into a single ranked list with deduplication. Provenance is
+preserved per entry so the agent loop can cite the source of every fact
+it surfaces.
+
+The multi-workspace function fans out across workspaces under a shared
+token budget, runs the single-workspace retriever per workspace, and
+returns blocks tagged with their source workspace so the agent's answer
+can cite each block by origin. Unused budget from sparse workspaces is
+redistributed proportionally so a thin workspace doesn't starve a rich
+one and a rich workspace doesn't drown out a thin one.
 
 Why a module-level function instead of a Memory method.
 
@@ -37,7 +53,8 @@ Ranking model.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from ..vectorstore import SearchHit
@@ -334,3 +351,250 @@ def _dedupe_results(results: List[MemoryResult]) -> List[MemoryResult]:
         if key not in by_key or r.score > by_key[key].score:
             by_key[key] = r
     return list(by_key.values())
+
+
+# ---------------------------------------------------------------------------
+# Cross-workspace retrieval (multi)
+# ---------------------------------------------------------------------------
+
+
+# Token-estimation heuristic: one token is roughly four characters of
+# English prose. Used to size the per-workspace cap and to estimate the
+# weight of a candidate block during budget allocation.
+_CHARS_PER_TOKEN = 4
+
+
+def _estimate_tokens(text: str) -> int:
+    """Cheap token estimate. Avoids a tokenizer dependency at this layer."""
+    if not text:
+        return 0
+    # Round up so a 1-char string still costs 1 token in budget accounting.
+    return max(1, (len(text) + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN)
+
+
+@dataclass
+class RetrievedBlock:
+    """One retrieval result tagged with its source workspace.
+
+    The agent's final answer iterates over a list of these and cites
+    each by ``source_workspace`` + the original ``MemoryResult`` shape.
+    The block is intentionally mutable so the budget allocator can
+    annotate it with the per-workspace rank in-place.
+    """
+
+    source_workspace: str
+    result: MemoryResult
+    estimated_tokens: int = 0
+    workspace_rank: int = 0  # 1-based position within the source workspace
+
+    @property
+    def score(self) -> float:
+        return self.result.score
+
+    @property
+    def text(self) -> str:
+        return self.result.text
+
+
+def _allocate_budgets(
+    workspaces: List[str],
+    candidates_by_workspace: Dict[str, List[RetrievedBlock]],
+    total_budget_tokens: int,
+    per_workspace_floor: int,
+) -> Dict[str, int]:
+    """Allocate per-workspace token budgets.
+
+    Algorithm:
+
+    1. Start with an equal split, floored at ``per_workspace_floor``.
+    2. If equal-split-after-floor exceeds the total budget, scale the
+       floor down proportionally (the floor is a target, not a guarantee
+       — when the budget is too tight, every workspace gets the same
+       reduced share).
+    3. Compute "demand" per workspace (sum of tokens of candidates).
+    4. Workspaces whose demand is below their allocation surrender the
+       slack to a redistribution pool.
+    5. Redistribute the pool to over-demand workspaces proportionally to
+       (demand - allocation).
+
+    The output sums to at most ``total_budget_tokens``.
+    """
+
+    n = len(workspaces)
+    if n == 0:
+        return {}
+
+    # Step 1+2: equal split with floor.
+    equal_share = total_budget_tokens // n if n > 0 else 0
+    target_floor = min(per_workspace_floor, equal_share) if equal_share > 0 else 0
+    allocations: Dict[str, int] = {
+        w: max(equal_share, target_floor) for w in workspaces
+    }
+    # Clip to total budget by reducing all uniformly if needed.
+    total_allocated = sum(allocations.values())
+    if total_allocated > total_budget_tokens and total_allocated > 0:
+        scale = total_budget_tokens / total_allocated
+        allocations = {w: int(v * scale) for w, v in allocations.items()}
+
+    # Step 3: demand.
+    demands: Dict[str, int] = {}
+    for w in workspaces:
+        demands[w] = sum(b.estimated_tokens for b in candidates_by_workspace.get(w, []))
+
+    # Step 4: collect slack.
+    slack = 0
+    for w in workspaces:
+        if demands[w] < allocations[w]:
+            slack += allocations[w] - demands[w]
+            allocations[w] = demands[w]
+
+    # Step 5: redistribute. "Over-demand" weight is (demand - allocation).
+    over_weights: Dict[str, int] = {
+        w: max(0, demands[w] - allocations[w]) for w in workspaces
+    }
+    total_weight = sum(over_weights.values())
+    if total_weight > 0 and slack > 0:
+        # Proportional distribution; remainder rolls to the heaviest.
+        distributed = 0
+        sorted_ws = sorted(
+            workspaces, key=lambda w: -over_weights[w]
+        )
+        for w in sorted_ws:
+            if over_weights[w] == 0:
+                continue
+            share = int(slack * over_weights[w] / total_weight)
+            allocations[w] += share
+            distributed += share
+        remainder = slack - distributed
+        if remainder > 0 and sorted_ws:
+            allocations[sorted_ws[0]] += remainder
+
+    return allocations
+
+
+def three_tier_retrieve_multi(
+    memory: "Memory",
+    workspaces: List[str],
+    query: str,
+    *,
+    total_budget_tokens: int = 6000,
+    per_workspace_floor: int = 800,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    vector_k: int = 10,
+    graph_depth: int = 2,
+    include_session: bool = True,
+    include_user: bool = True,
+    query_vector: Optional[List[float]] = None,
+) -> List[RetrievedBlock]:
+    """Three-tier retrieval fanned out across multiple workspaces.
+
+    For each workspace, the function calls :func:`three_tier_retrieve`
+    with a per-workspace :class:`MemoryQuery`, then merges the results
+    under a shared token budget. The budget is allocated equally per
+    workspace (clamped to ``per_workspace_floor`` minimum) and unused
+    budget from sparse workspaces is redistributed to data-rich ones.
+
+    Args:
+        memory: The Memory backend.
+        workspaces: Ordered list of workspace names to query. Duplicates
+            are removed in first-occurrence order. An empty list returns
+            an empty result.
+        query: The natural-language query.
+        total_budget_tokens: The aggregate budget across all workspaces.
+        per_workspace_floor: Minimum tokens reserved per workspace
+            before redistribution. Clamped down when
+            ``total_budget_tokens`` is too tight to honour the floor.
+        user_id, session_id, vector_k, graph_depth, include_session,
+        include_user, query_vector: Forwarded to the per-workspace
+            :class:`MemoryQuery`.
+
+    Returns:
+        A flat list of :class:`RetrievedBlock` instances, in workspace
+        order. Within each workspace, blocks retain the rank produced
+        by :func:`three_tier_retrieve` (score-descending).
+    """
+
+    # De-duplicate workspaces while preserving order.
+    seen: List[str] = []
+    for w in workspaces:
+        if isinstance(w, str) and w and w not in seen:
+            seen.append(w)
+    if not seen:
+        return []
+
+    # Per-workspace retrieve. We collect ALL candidates first, then
+    # apply the budget. A workspace that produces nothing simply has
+    # no blocks in the merged output.
+    candidates_by_workspace: Dict[str, List[RetrievedBlock]] = {}
+    for ws_name in seen:
+        ws_query = MemoryQuery(
+            text=query,
+            workspace=ws_name,
+            user_id=user_id,
+            session_id=session_id,
+            vector_k=vector_k,
+            graph_depth=graph_depth,
+            include_session=include_session,
+            include_user=include_user,
+        )
+        try:
+            ws_results = three_tier_retrieve(
+                memory, ws_query, query_vector=query_vector,
+            )
+        except Exception as exc:
+            logger.warning(
+                "three_tier_retrieve failed for workspace %r: %s; "
+                "continuing with the remaining workspaces.",
+                ws_name, exc,
+            )
+            ws_results = []
+
+        blocks: List[RetrievedBlock] = []
+        for rank, mr in enumerate(ws_results, start=1):
+            # Stamp source_workspace into the result's metadata so any
+            # downstream consumer that holds just the MemoryResult can
+            # still recover the origin.
+            mr.metadata.setdefault("source_workspace", ws_name)
+            blocks.append(
+                RetrievedBlock(
+                    source_workspace=ws_name,
+                    result=mr,
+                    estimated_tokens=_estimate_tokens(mr.text),
+                    workspace_rank=rank,
+                )
+            )
+        candidates_by_workspace[ws_name] = blocks
+
+    # Allocate the budget.
+    budgets = _allocate_budgets(
+        seen,
+        candidates_by_workspace,
+        total_budget_tokens=total_budget_tokens,
+        per_workspace_floor=per_workspace_floor,
+    )
+
+    # Apply per-workspace budget cap (greedy by score-descending rank).
+    merged: List[RetrievedBlock] = []
+    for ws_name in seen:
+        remaining = budgets.get(ws_name, 0)
+        for block in candidates_by_workspace.get(ws_name, []):
+            cost = block.estimated_tokens
+            if cost <= remaining:
+                merged.append(block)
+                remaining -= cost
+            elif remaining > 0 and not merged_has_blocks_from(merged, ws_name):
+                # Guarantee at least one block per workspace when the
+                # workspace has any candidates and any budget — this
+                # honours the floor in the worst case where a single
+                # block is bigger than the floor itself.
+                merged.append(block)
+                remaining = 0
+            # else: skip the block; we've exhausted this workspace's budget.
+
+    return merged
+
+
+def merged_has_blocks_from(merged: List[RetrievedBlock], workspace: str) -> bool:
+    """Return True if ``merged`` already contains a block from ``workspace``."""
+    return any(b.source_workspace == workspace for b in merged)

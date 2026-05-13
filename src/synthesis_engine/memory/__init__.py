@@ -46,7 +46,7 @@ from .models import (
     SessionMemory,
     UserMemory,
 )
-from .retrieval import three_tier_retrieve
+from .retrieval import RetrievedBlock, three_tier_retrieve, three_tier_retrieve_multi
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,7 @@ __all__ = [
     "MemoryTier",
     "Provenance",
     "Relation",
+    "RetrievedBlock",
     "SessionMemory",
     "UserMemory",
     "consolidate_session",
@@ -110,4 +111,5 @@ __all__ = [
     "require_provenance",
     "reset_memory",
     "three_tier_retrieve",
+    "three_tier_retrieve_multi",
 ]
