@@ -1,3 +1,57 @@
+## What's New in v3.3
+
+Ragbot v3.3 (May 2026) adds first-class local model support and a
+redesigned model picker:
+
+- **Local Gemma 4 via Ollama.** A new `ollama` engine ships Google's Gemma 4
+  family (E4B, 26B MoE, 31B Dense) as first-class models alongside Anthropic,
+  OpenAI, and Google. No API key required; LiteLLM routes via the
+  `ollama_chat/` prefix. The Docker stack reaches host Ollama via
+  `host.docker.internal:11434` out of the box (configurable with
+  `OLLAMA_API_BASE` if Ollama runs elsewhere on your LAN).
+- **Redesigned model picker.** A single rich dropdown replaces the
+  three-step Provider → Category → Model cascade. Display names
+  (`Claude Opus 4.7` instead of `claude-opus-4-7`). Pinned and Recent
+  sections at the top. Type-ahead search. `⌘K` / `Ctrl+K` global shortcut.
+  Per-row badges for tier (Fast / Balanced / Powerful), context window,
+  🧠 thinking, 🏠 local.
+- **User preferences API.** New `/api/preferences/pinned-models` and
+  `/api/preferences/recent-models` endpoints persist your model selections
+  across sessions in `~/.synthesis/ragbot.yaml`.
+- **Thinking control moved adjacent to Model.** Renders inline below the
+  picker, only for thinking-capable models — so the control isn't there
+  when it has no effect.
+- **Bug fix:** non-flagship GPT-5.x and Gemini models no longer return
+  empty content on long-context RAG calls. The default `reasoning_effort`
+  for these models is now the lowest declared mode (`minimal`) rather than
+  unset, so the provider's own reasoning default doesn't consume the entire
+  output-token budget.
+- **Security.** LiteLLM pinned `>=1.83.0` in requirements (excludes the
+  compromised 1.82.7 / 1.82.8 range from the March 2026 supply-chain
+  incident).
+
+![Ragbot v3.3 — settings panel with the new model picker](screenshots/v3.3/01-hero-model-picker.png)
+
+The model picker, opened — one dropdown grouped by provider with Pinned,
+Recent, type-ahead search, and capability badges:
+
+![Ragbot v3.3 — model picker open with Pinned, Recent, and by-provider sections](screenshots/v3.3/02-model-picker-open.png)
+
+Type-ahead filters across the full list. Searching `gemma` surfaces all
+three local Gemma 4 variants:
+
+![Ragbot v3.3 — model picker with type-ahead search filter](screenshots/v3.3/03-model-picker-filter.png)
+
+Selecting a local model surfaces the 🏠 badge on the trigger and hides the
+Thinking control (Gemma 4 doesn't expose thinking effort):
+
+![Ragbot v3.3 — local Gemma 4 31B selected](screenshots/v3.3/04-local-model-selected.png)
+
+Advanced panel — per-provider API-key status, including the new
+local-only Ollama entry:
+
+![Ragbot v3.3 — advanced settings with all four providers](screenshots/v3.3/05-advanced-settings.png)
+
 ## What's New in v3.2
 
 Ragbot v3.2 (April 2026) ships a one-command demo mode and a refreshed
@@ -556,21 +610,29 @@ Read the [installation guide](INSTALL.md) and the [configuration and personaliat
 
 Using the Web version
 ---------------------
-_The screenshots below were captured against the bundled demo workspace in v3.2 (April 2026). Open the [`screenshots/v3.2/`](screenshots/v3.2/) directory for the full set._
+_The screenshots below were captured against the bundled demo workspace.
+The model-picker and advanced-panel shots reflect v3.3 (May 2026); the
+chat-and-skills shots are still v3.2 captures since those features didn't
+change. The full sets are at [`screenshots/v3.3/`](screenshots/v3.3/) and
+[`screenshots/v3.2/`](screenshots/v3.2/)._
 
-**Settings panel and welcome state**
+**Settings panel and welcome state (v3.3)**
 
-![Ragbot Web UI — settings panel and welcome state](screenshots/v3.2/01-hero-settings-panel.png)
+![Ragbot Web UI — settings panel with the new model picker](screenshots/v3.3/01-hero-model-picker.png)
 
-**A chat that retrieves from the bundled sample documents**
+**Model picker open — Pinned, Recent, and by-provider sections (v3.3)**
+
+![Ragbot Web UI — model picker open](screenshots/v3.3/02-model-picker-open.png)
+
+**A chat that retrieves from the bundled sample documents (v3.2)**
 
 ![Ragbot Web UI — chat with RAG-augmented response](screenshots/v3.2/02-chat-with-response.png)
 
-**Advanced settings expanded**
+**Advanced settings expanded (v3.3)**
 
-![Ragbot Web UI — advanced settings expanded](screenshots/v3.2/03-advanced-settings.png)
+![Ragbot Web UI — advanced settings expanded, four providers configured](screenshots/v3.3/05-advanced-settings.png)
 
-**Cross-workspace skills auto-include**
+**Cross-workspace skills auto-include (v3.2)**
 
 A follow-up question retrieves from the bundled demo skill via the cross-workspace fan-out:
 
