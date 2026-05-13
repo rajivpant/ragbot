@@ -225,7 +225,7 @@ export function SettingsPanel({
               disabled={disabled}
               className="rounded-lg border border-gray-300 dark:border-gray-600
                          bg-white dark:bg-gray-800 px-3 py-2 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">Select workspace...</option>
               {workspaces.map((ws) => (
@@ -289,7 +289,7 @@ export function SettingsPanel({
                   disabled={disabled}
                   className={`flex-1 px-2 py-2 text-xs rounded-lg border transition-colors capitalize
                     ${Math.abs(temperature - val) < 0.05
-                      ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 text-blue-700 dark:text-blue-300'
+                      ? 'bg-accent-light border-accent text-accent-dark dark:text-accent'
                       : 'border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                 >
@@ -345,7 +345,7 @@ export function SettingsPanel({
                   checked={useRag}
                   onChange={(e) => onUseRagChange(e.target.checked)}
                   disabled={disabled || !selectedWorkspace?.has_datasets}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 text-accent focus:ring-accent"
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">Enable</span>
               </label>
@@ -396,7 +396,7 @@ export function SettingsPanel({
                     checked={includeSkills ?? true}
                     onChange={(e) => onIncludeSkillsChange(e.target.checked)}
                     disabled={disabled}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-accent focus:ring-accent"
                   />
                   <span className="text-sm text-gray-600 dark:text-gray-400">Auto-include</span>
                 </label>
@@ -484,7 +484,7 @@ export function SettingsPanel({
                               <span
                                 className={`text-[10px] px-1 py-0.5 rounded ${
                                   effectiveSource === 'workspace'
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                    ? 'bg-accent-light text-accent-dark dark:text-accent'
                                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                                 }`}
                               >
@@ -499,7 +499,7 @@ export function SettingsPanel({
                                       [p.id]: prev[p.id] === 'default' ? 'auto' : 'default',
                                     }))
                                   }
-                                  className="text-[10px] text-blue-600 hover:text-blue-800 dark:text-blue-400 ml-1"
+                                  className="text-[10px] text-accent hover:text-accent-dark ml-1"
                                   title={keyOverrides[p.id] === 'default' ? 'Use workspace key' : 'Use default key'}
                                 >
                                   [{keyOverrides[p.id] === 'default' ? 'use workspace' : 'use default'}]

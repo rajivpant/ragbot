@@ -76,7 +76,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
   if (isUser) {
     return (
       <div className="flex justify-end mb-4">
-        <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-blue-600 text-white">
+        <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-accent text-white">
           <div className="whitespace-pre-wrap">{message.content}</div>
         </div>
       </div>
@@ -98,9 +98,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
                         prose-code:bg-gray-200 dark:prose-code:bg-gray-700
                         prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
                         prose-pre:my-3 prose-pre:p-0 prose-pre:bg-transparent
-                        prose-a:text-blue-600 dark:prose-a:text-blue-400
+                        prose-a:text-accent hover:prose-a:text-accent-dark
                         prose-strong:font-semibold
-                        prose-blockquote:border-l-blue-500 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-900/20
+                        prose-blockquote:border-l-accent prose-blockquote:bg-accent-light
                         prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

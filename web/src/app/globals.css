@@ -24,6 +24,10 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    /* Brighten the accent itself in dark mode so vermillion text reads with
+       adequate contrast against the dark background (WCAG AA for body text). */
+    --accent: #e85856;
+    --accent-dark: #c43c3a;
     /* Slightly lift the accent-light tint for dark mode so it reads as a
        subtle wash rather than a hot bar. */
     --accent-light: #2a1413;

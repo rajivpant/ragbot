@@ -293,7 +293,7 @@ export function ModelPicker({ value, onChange, disabled, openSignal, onOpenChang
         aria-expanded={open}
         className="rounded-lg border border-gray-300 dark:border-gray-600
                    bg-white dark:bg-gray-800 px-3 py-2 text-left
-                   focus:outline-none focus:ring-2 focus:ring-blue-500
+                   focus:outline-none focus:ring-2 focus:ring-accent
                    disabled:opacity-50 disabled:cursor-not-allowed
                    flex items-center justify-between gap-2"
       >
@@ -339,7 +339,7 @@ export function ModelPicker({ value, onChange, disabled, openSignal, onOpenChang
                 placeholder="Search models…  (try 'opus', 'gemma', 'local')"
                 className="w-full rounded border border-gray-300 dark:border-gray-600
                            bg-white dark:bg-gray-900 px-2 py-1.5 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
 
