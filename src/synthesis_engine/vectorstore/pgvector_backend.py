@@ -22,6 +22,7 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..observability import record_retrieval_result, retrieval_span
 from . import Point, SearchHit, VectorStore
 
 logger = logging.getLogger(__name__)
@@ -291,41 +292,61 @@ class PgvectorBackend(VectorStore):
         limit: int = 10,
         content_type: Optional[str] = None,
     ) -> List[SearchHit]:
-        try:
-            with self._connection() as conn:
-                with conn.cursor() as cur:
-                    if content_type:
-                        cur.execute(
-                            """
-                            SELECT text,
-                                   1 - (embedding <=> %s::vector) AS score,
-                                   chunk_uid, chunk_index, char_start, char_end,
-                                   filename, title, content_type, metadata
-                            FROM chunks
-                            WHERE workspace = %s AND content_type = %s
-                            ORDER BY embedding <=> %s::vector
-                            LIMIT %s
-                            """,
-                            (query_vector, workspace, content_type, query_vector, limit),
+        with retrieval_span(
+            workspace=workspace,
+            k=limit,
+            tier="vector",
+            backend=self.backend_name,
+            content_type=content_type,
+            extra={"synthesis.retrieval.vector_dim": len(query_vector or [])},
+        ) as span:
+            try:
+                with self._connection() as conn:
+                    with conn.cursor() as cur:
+                        if content_type:
+                            cur.execute(
+                                """
+                                SELECT text,
+                                       1 - (embedding <=> %s::vector) AS score,
+                                       chunk_uid, chunk_index, char_start, char_end,
+                                       filename, title, content_type, metadata
+                                FROM chunks
+                                WHERE workspace = %s AND content_type = %s
+                                ORDER BY embedding <=> %s::vector
+                                LIMIT %s
+                                """,
+                                (query_vector, workspace, content_type, query_vector, limit),
+                            )
+                        else:
+                            cur.execute(
+                                """
+                                SELECT text,
+                                       1 - (embedding <=> %s::vector) AS score,
+                                       chunk_uid, chunk_index, char_start, char_end,
+                                       filename, title, content_type, metadata
+                                FROM chunks
+                                WHERE workspace = %s
+                                ORDER BY embedding <=> %s::vector
+                                LIMIT %s
+                                """,
+                                (query_vector, workspace, query_vector, limit),
+                            )
+                        hits = [_row_to_hit(row) for row in cur.fetchall()]
+                        top_score = hits[0].score if hits else None
+                        record_retrieval_result(
+                            span,
+                            result_count=len(hits),
+                            top_score=top_score,
+                            workspace=workspace,
+                            tier="vector",
                         )
-                    else:
-                        cur.execute(
-                            """
-                            SELECT text,
-                                   1 - (embedding <=> %s::vector) AS score,
-                                   chunk_uid, chunk_index, char_start, char_end,
-                                   filename, title, content_type, metadata
-                            FROM chunks
-                            WHERE workspace = %s
-                            ORDER BY embedding <=> %s::vector
-                            LIMIT %s
-                            """,
-                            (query_vector, workspace, query_vector, limit),
-                        )
-                    return [_row_to_hit(row) for row in cur.fetchall()]
-        except Exception as exc:
-            logger.error("PgvectorBackend.search failed: %s", exc)
-            return []
+                        return hits
+            except Exception as exc:
+                logger.error("PgvectorBackend.search failed: %s", exc)
+                record_retrieval_result(
+                    span, result_count=0, workspace=workspace, tier="vector",
+                )
+                return []
 
     def keyword_search(
         self,
@@ -336,44 +357,64 @@ class PgvectorBackend(VectorStore):
     ) -> List[SearchHit]:
         # Use websearch_to_tsquery: forgiving parser, handles bare strings
         # like "show me my biography" without forcing & between terms.
-        try:
-            with self._connection() as conn:
-                with conn.cursor() as cur:
-                    if content_type:
-                        cur.execute(
-                            """
-                            SELECT text,
-                                   ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score,
-                                   chunk_uid, chunk_index, char_start, char_end,
-                                   filename, title, content_type, metadata
-                            FROM chunks
-                            WHERE workspace = %s
-                              AND content_type = %s
-                              AND text_search @@ websearch_to_tsquery('english', %s)
-                            ORDER BY score DESC
-                            LIMIT %s
-                            """,
-                            (query, workspace, content_type, query, limit),
+        with retrieval_span(
+            workspace=workspace,
+            query=query,
+            k=limit,
+            tier="keyword",
+            backend=self.backend_name,
+            content_type=content_type,
+        ) as span:
+            try:
+                with self._connection() as conn:
+                    with conn.cursor() as cur:
+                        if content_type:
+                            cur.execute(
+                                """
+                                SELECT text,
+                                       ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score,
+                                       chunk_uid, chunk_index, char_start, char_end,
+                                       filename, title, content_type, metadata
+                                FROM chunks
+                                WHERE workspace = %s
+                                  AND content_type = %s
+                                  AND text_search @@ websearch_to_tsquery('english', %s)
+                                ORDER BY score DESC
+                                LIMIT %s
+                                """,
+                                (query, workspace, content_type, query, limit),
+                            )
+                        else:
+                            cur.execute(
+                                """
+                                SELECT text,
+                                       ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score,
+                                       chunk_uid, chunk_index, char_start, char_end,
+                                       filename, title, content_type, metadata
+                                FROM chunks
+                                WHERE workspace = %s
+                                  AND text_search @@ websearch_to_tsquery('english', %s)
+                                ORDER BY score DESC
+                                LIMIT %s
+                                """,
+                                (query, workspace, query, limit),
+                            )
+                        hits = [_row_to_hit(row) for row in cur.fetchall()]
+                        top_score = hits[0].score if hits else None
+                        record_retrieval_result(
+                            span,
+                            result_count=len(hits),
+                            top_score=top_score,
+                            workspace=workspace,
+                            tier="keyword",
                         )
-                    else:
-                        cur.execute(
-                            """
-                            SELECT text,
-                                   ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score,
-                                   chunk_uid, chunk_index, char_start, char_end,
-                                   filename, title, content_type, metadata
-                            FROM chunks
-                            WHERE workspace = %s
-                              AND text_search @@ websearch_to_tsquery('english', %s)
-                            ORDER BY score DESC
-                            LIMIT %s
-                            """,
-                            (query, workspace, query, limit),
-                        )
-                    return [_row_to_hit(row) for row in cur.fetchall()]
-        except Exception as exc:
-            logger.error("PgvectorBackend.keyword_search failed: %s", exc)
-            return []
+                        return hits
+            except Exception as exc:
+                logger.error("PgvectorBackend.keyword_search failed: %s", exc)
+                record_retrieval_result(
+                    span, result_count=0, workspace=workspace, tier="keyword",
+                )
+                return []
 
     def scroll_documents(
         self,

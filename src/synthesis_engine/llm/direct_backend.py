@@ -24,9 +24,33 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, Optional
 
+from ..observability import (
+    chat_completion_span,
+    record_llm_response,
+)
+from ..observability.attributes import (
+    PROVIDER_ANTHROPIC,
+    PROVIDER_GOOGLE,
+    PROVIDER_OPENAI,
+    PROVIDER_UNKNOWN,
+)
 from .base import LLMBackend, LLMRequest, LLMResponse, LLMUnavailableError
+from .cache_control import (
+    CacheConfig,
+    apply_cache_control_to_anthropic_system,
+    extract_cache_metadata,
+    is_eligible_for_cache,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _otel_provider(provider: str) -> str:
+    return {
+        "anthropic": PROVIDER_ANTHROPIC,
+        "openai": PROVIDER_OPENAI,
+        "google": PROVIDER_GOOGLE,
+    }.get(provider, PROVIDER_UNKNOWN)
 
 
 # ---------------------------------------------------------------------------
@@ -175,13 +199,26 @@ class DirectBackend(LLMBackend):
             else:
                 messages.append({"role": role, "content": content})
 
+        # Apply cache_control to system + large user messages. Anthropic
+        # is always cache-eligible (the predicate is provider-conditional;
+        # we're explicitly inside the anthropic branch here).
+        cache_cfg = CacheConfig.from_extra(request.extra)
+        if is_eligible_for_cache(request.model, cache_cfg):
+            system_out, messages, _stats = apply_cache_control_to_anthropic_system(
+                system or None,
+                messages,
+                cache_cfg,
+            )
+        else:
+            system_out = system or None
+
         kwargs: Dict[str, Any] = {
             "model": _strip_provider(request.model),
             "messages": messages,
             "max_tokens": request.max_tokens,
         }
-        if system:
-            kwargs["system"] = system
+        if system_out:
+            kwargs["system"] = system_out
 
         thinking = request.thinking
         if thinking is None and request.reasoning_effort:
@@ -199,54 +236,122 @@ class DirectBackend(LLMBackend):
         elif request.temperature is not None:
             kwargs["temperature"] = request.temperature
 
+        # Strip substrate-internal config keys from the passthrough.
         if request.extra:
-            kwargs.update(request.extra)
+            passthrough = {
+                k: v
+                for k, v in request.extra.items()
+                if k not in {
+                    "cache_control_enabled",
+                    "cache_min_block_tokens",
+                    "cache_ttl",
+                }
+            }
+            if passthrough:
+                kwargs.update(passthrough)
         return kwargs
 
     def _anthropic_complete(self, request: LLMRequest) -> LLMResponse:
-        client = self._get_anthropic_client(request.api_key)
-        kwargs = self._build_anthropic_kwargs(request)
-        msg = client.messages.create(**kwargs)
-        # `msg.content` is a list of content blocks; concatenate the text ones.
-        parts = []
-        for block in getattr(msg, "content", []) or []:
-            text = getattr(block, "text", None)
-            if text:
-                parts.append(text)
-        usage = getattr(msg, "usage", None)
-        return LLMResponse(
-            text="".join(parts),
-            model=getattr(msg, "model", request.model),
-            backend=self.backend_name,
-            finish_reason=getattr(msg, "stop_reason", None),
-            usage={
-                "prompt_tokens": int(getattr(usage, "input_tokens", 0) or 0),
-                "completion_tokens": int(getattr(usage, "output_tokens", 0) or 0),
-                "total_tokens": int(
-                    (getattr(usage, "input_tokens", 0) or 0)
-                    + (getattr(usage, "output_tokens", 0) or 0)
-                ),
-            } if usage else {},
-        )
+        cache_cfg = CacheConfig.from_extra(request.extra)
+        with chat_completion_span(
+            model=request.model,
+            provider=PROVIDER_ANTHROPIC,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=False,
+            backend_name=self.backend_name,
+            reasoning_effort=request.reasoning_effort,
+            cache_control_enabled=cache_cfg.enabled,
+        ) as span:
+            client = self._get_anthropic_client(request.api_key)
+            kwargs = self._build_anthropic_kwargs(request)
+            msg = client.messages.create(**kwargs)
+            # `msg.content` is a list of content blocks; concatenate the text ones.
+            parts = []
+            for block in getattr(msg, "content", []) or []:
+                text = getattr(block, "text", None)
+                if text:
+                    parts.append(text)
+            usage = getattr(msg, "usage", None)
+            cache_meta = extract_cache_metadata(usage)
+            response_model = getattr(msg, "model", request.model)
+            finish_reason = getattr(msg, "stop_reason", None)
+            record_llm_response(
+                span,
+                model=request.model,
+                provider=PROVIDER_ANTHROPIC,
+                response_model=response_model,
+                input_tokens=cache_meta.uncached_input_tokens,
+                output_tokens=cache_meta.output_tokens,
+                finish_reason=finish_reason,
+                cache_read_tokens=cache_meta.cache_read_input_tokens,
+                cache_creation_tokens=cache_meta.cache_creation_input_tokens,
+            )
+            usage_dict: Dict[str, int] = {
+                "prompt_tokens": cache_meta.uncached_input_tokens,
+                "completion_tokens": cache_meta.output_tokens,
+                "total_tokens": cache_meta.uncached_input_tokens + cache_meta.output_tokens,
+            }
+            if cache_meta.cache_read_input_tokens:
+                usage_dict["cache_read_input_tokens"] = cache_meta.cache_read_input_tokens
+            if cache_meta.cache_creation_input_tokens:
+                usage_dict["cache_creation_input_tokens"] = cache_meta.cache_creation_input_tokens
+            return LLMResponse(
+                text="".join(parts),
+                model=response_model,
+                backend=self.backend_name,
+                finish_reason=finish_reason,
+                usage=usage_dict if usage else {},
+            )
 
     def _anthropic_stream(
         self,
         request: LLMRequest,
         on_chunk: Callable[[str], None],
     ) -> str:
-        client = self._get_anthropic_client(request.api_key)
-        kwargs = self._build_anthropic_kwargs(request)
-        chunks = []
-        with client.messages.stream(**kwargs) as stream:
-            for text in stream.text_stream:
-                if not text:
-                    continue
-                chunks.append(text)
+        cache_cfg = CacheConfig.from_extra(request.extra)
+        with chat_completion_span(
+            model=request.model,
+            provider=PROVIDER_ANTHROPIC,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=True,
+            backend_name=self.backend_name,
+            reasoning_effort=request.reasoning_effort,
+            cache_control_enabled=cache_cfg.enabled,
+        ) as span:
+            client = self._get_anthropic_client(request.api_key)
+            kwargs = self._build_anthropic_kwargs(request)
+            chunks = []
+            final_message = None
+            with client.messages.stream(**kwargs) as stream:
+                for text in stream.text_stream:
+                    if not text:
+                        continue
+                    chunks.append(text)
+                    try:
+                        on_chunk(text)
+                    except Exception as exc:  # pragma: no cover
+                        logger.warning("on_chunk raised: %s", exc)
+                # After the stream completes the SDK exposes the final
+                # message (with usage) via get_final_message().
                 try:
-                    on_chunk(text)
-                except Exception as exc:  # pragma: no cover
-                    logger.warning("on_chunk raised: %s", exc)
-        return "".join(chunks)
+                    final_message = stream.get_final_message()
+                except Exception:  # pragma: no cover - sdk variation
+                    final_message = None
+            cache_meta = extract_cache_metadata(
+                getattr(final_message, "usage", None) if final_message else None,
+            )
+            record_llm_response(
+                span,
+                model=request.model,
+                provider=PROVIDER_ANTHROPIC,
+                input_tokens=cache_meta.uncached_input_tokens,
+                output_tokens=cache_meta.output_tokens,
+                cache_read_tokens=cache_meta.cache_read_input_tokens,
+                cache_creation_tokens=cache_meta.cache_creation_input_tokens,
+            )
+            return "".join(chunks)
 
     # ------------------------------------------------------------------
     # OpenAI
@@ -280,48 +385,102 @@ class DirectBackend(LLMBackend):
         if request.reasoning_effort:
             kwargs["reasoning_effort"] = request.reasoning_effort
         if request.extra:
-            kwargs.update(request.extra)
+            passthrough = {
+                k: v
+                for k, v in request.extra.items()
+                if k not in {
+                    "cache_control_enabled",
+                    "cache_min_block_tokens",
+                    "cache_ttl",
+                }
+            }
+            if passthrough:
+                kwargs.update(passthrough)
         return kwargs
 
     def _openai_complete(self, request: LLMRequest) -> LLMResponse:
-        client = self._get_openai_client(request.api_key)
-        kwargs = self._build_openai_kwargs(request)
-        resp = client.chat.completions.create(**kwargs)
-        choice = resp.choices[0] if resp.choices else None
-        text = choice.message.content if choice and choice.message else ""
-        usage = getattr(resp, "usage", None)
-        return LLMResponse(
-            text=text or "",
-            model=getattr(resp, "model", request.model),
-            backend=self.backend_name,
-            finish_reason=getattr(choice, "finish_reason", None) if choice else None,
-            usage={
-                "prompt_tokens": int(getattr(usage, "prompt_tokens", 0) or 0),
-                "completion_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
-                "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
-            } if usage else {},
-        )
+        with chat_completion_span(
+            model=request.model,
+            provider=PROVIDER_OPENAI,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=False,
+            backend_name=self.backend_name,
+            reasoning_effort=request.reasoning_effort,
+        ) as span:
+            client = self._get_openai_client(request.api_key)
+            kwargs = self._build_openai_kwargs(request)
+            resp = client.chat.completions.create(**kwargs)
+            choice = resp.choices[0] if resp.choices else None
+            text = choice.message.content if choice and choice.message else ""
+            usage = getattr(resp, "usage", None)
+            prompt_tok = int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0
+            completion_tok = int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0
+            total_tok = int(getattr(usage, "total_tokens", 0) or 0) if usage else 0
+            finish_reason = getattr(choice, "finish_reason", None) if choice else None
+            response_model = getattr(resp, "model", request.model)
+            record_llm_response(
+                span,
+                model=request.model,
+                provider=PROVIDER_OPENAI,
+                response_model=response_model,
+                input_tokens=prompt_tok,
+                output_tokens=completion_tok,
+                finish_reason=finish_reason,
+            )
+            return LLMResponse(
+                text=text or "",
+                model=response_model,
+                backend=self.backend_name,
+                finish_reason=finish_reason,
+                usage={
+                    "prompt_tokens": prompt_tok,
+                    "completion_tokens": completion_tok,
+                    "total_tokens": total_tok,
+                } if usage else {},
+            )
 
     def _openai_stream(
         self,
         request: LLMRequest,
         on_chunk: Callable[[str], None],
     ) -> str:
-        client = self._get_openai_client(request.api_key)
-        kwargs = self._build_openai_kwargs(request)
-        chunks = []
-        for chunk in client.chat.completions.create(**kwargs, stream=True):
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta
-            text = getattr(delta, "content", None)
-            if text:
-                chunks.append(text)
-                try:
-                    on_chunk(text)
-                except Exception as exc:  # pragma: no cover
-                    logger.warning("on_chunk raised: %s", exc)
-        return "".join(chunks)
+        with chat_completion_span(
+            model=request.model,
+            provider=PROVIDER_OPENAI,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=True,
+            backend_name=self.backend_name,
+            reasoning_effort=request.reasoning_effort,
+        ) as span:
+            client = self._get_openai_client(request.api_key)
+            kwargs = self._build_openai_kwargs(request)
+            chunks = []
+            final_usage = None
+            for chunk in client.chat.completions.create(**kwargs, stream=True):
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    final_usage = chunk_usage
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                text = getattr(delta, "content", None)
+                if text:
+                    chunks.append(text)
+                    try:
+                        on_chunk(text)
+                    except Exception as exc:  # pragma: no cover
+                        logger.warning("on_chunk raised: %s", exc)
+            if final_usage is not None:
+                record_llm_response(
+                    span,
+                    model=request.model,
+                    provider=PROVIDER_OPENAI,
+                    input_tokens=int(getattr(final_usage, "prompt_tokens", 0) or 0),
+                    output_tokens=int(getattr(final_usage, "completion_tokens", 0) or 0),
+                )
+            return "".join(chunks)
 
     # ------------------------------------------------------------------
     # Google (google-genai)
@@ -380,35 +539,83 @@ class DirectBackend(LLMBackend):
         return _strip_provider(request.model), "\n\n".join(contents) or "", config
 
     def _google_complete(self, request: LLMRequest) -> LLMResponse:
-        client = self._get_google_client(request.api_key)
-        model_id, contents, config = self._build_google_request(request)
-        kwargs: Dict[str, Any] = {"model": model_id, "contents": contents}
-        if config is not None:
-            kwargs["config"] = config
-        resp = client.models.generate_content(**kwargs)
-        return LLMResponse(
-            text=resp.text or "",
-            model=model_id,
-            backend=self.backend_name,
-        )
+        with chat_completion_span(
+            model=request.model,
+            provider=PROVIDER_GOOGLE,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=False,
+            backend_name=self.backend_name,
+            reasoning_effort=request.reasoning_effort,
+        ) as span:
+            client = self._get_google_client(request.api_key)
+            model_id, contents, config = self._build_google_request(request)
+            kwargs: Dict[str, Any] = {"model": model_id, "contents": contents}
+            if config is not None:
+                kwargs["config"] = config
+            resp = client.models.generate_content(**kwargs)
+            # google-genai exposes usage_metadata; pull token counts off it
+            # when present.
+            usage = getattr(resp, "usage_metadata", None)
+            input_toks = int(getattr(usage, "prompt_token_count", 0) or 0) if usage else 0
+            output_toks = int(getattr(usage, "candidates_token_count", 0) or 0) if usage else 0
+            record_llm_response(
+                span,
+                model=request.model,
+                provider=PROVIDER_GOOGLE,
+                response_model=model_id,
+                input_tokens=input_toks or None,
+                output_tokens=output_toks or None,
+            )
+            return LLMResponse(
+                text=resp.text or "",
+                model=model_id,
+                backend=self.backend_name,
+                usage={
+                    "prompt_tokens": input_toks,
+                    "completion_tokens": output_toks,
+                    "total_tokens": input_toks + output_toks,
+                } if usage else {},
+            )
 
     def _google_stream(
         self,
         request: LLMRequest,
         on_chunk: Callable[[str], None],
     ) -> str:
-        client = self._get_google_client(request.api_key)
-        model_id, contents, config = self._build_google_request(request)
-        kwargs: Dict[str, Any] = {"model": model_id, "contents": contents}
-        if config is not None:
-            kwargs["config"] = config
-        chunks = []
-        for chunk in client.models.generate_content_stream(**kwargs):
-            text = getattr(chunk, "text", None)
-            if text:
-                chunks.append(text)
-                try:
-                    on_chunk(text)
-                except Exception as exc:  # pragma: no cover
-                    logger.warning("on_chunk raised: %s", exc)
-        return "".join(chunks)
+        with chat_completion_span(
+            model=request.model,
+            provider=PROVIDER_GOOGLE,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=True,
+            backend_name=self.backend_name,
+            reasoning_effort=request.reasoning_effort,
+        ) as span:
+            client = self._get_google_client(request.api_key)
+            model_id, contents, config = self._build_google_request(request)
+            kwargs: Dict[str, Any] = {"model": model_id, "contents": contents}
+            if config is not None:
+                kwargs["config"] = config
+            chunks = []
+            final_usage = None
+            for chunk in client.models.generate_content_stream(**kwargs):
+                chunk_usage = getattr(chunk, "usage_metadata", None)
+                if chunk_usage is not None:
+                    final_usage = chunk_usage
+                text = getattr(chunk, "text", None)
+                if text:
+                    chunks.append(text)
+                    try:
+                        on_chunk(text)
+                    except Exception as exc:  # pragma: no cover
+                        logger.warning("on_chunk raised: %s", exc)
+            if final_usage is not None:
+                record_llm_response(
+                    span,
+                    model=request.model,
+                    provider=PROVIDER_GOOGLE,
+                    input_tokens=int(getattr(final_usage, "prompt_token_count", 0) or 0),
+                    output_tokens=int(getattr(final_usage, "candidates_token_count", 0) or 0),
+                )
+            return "".join(chunks)
