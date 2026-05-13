@@ -144,7 +144,7 @@ def get_meter_provider() -> Optional[Any]:
     return _get()
 
 
-def cache_stats_snapshot(window_seconds: Optional[float] = None) -> Dict[str, Any]:
+def cache_stats_capture(window_seconds: Optional[float] = None) -> Dict[str, Any]:
     """Return the rolling prompt-cache statistics.
 
     Parameters
@@ -472,6 +472,6 @@ def render_prometheus() -> Tuple[bytes, str]:
 __all__ = [
     "get_metrics_registry",
     "get_meter_provider",
-    "cache_stats_snapshot",
+    "cache_stats_capture",
     "render_prometheus",
 ]

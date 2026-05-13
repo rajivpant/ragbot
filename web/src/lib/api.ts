@@ -308,3 +308,198 @@ export async function indexWorkspace(name: string, force = false): Promise<void>
     throw new Error(`Indexing failed: ${res.statusText}`);
   }
 }
+
+// ----- MCP Servers -----
+//
+// Mirrors the `synthesis_engine.mcp` substrate. The backend persists user
+// edits to `~/.synthesis/mcp.yaml` and surfaces live connection state from
+// the in-process registry.
+
+export type McpTransport = 'stdio' | 'http' | 'sse';
+export type McpAuthMode = 'none' | 'oauth' | 'bearer';
+export type McpConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'error';
+
+export interface McpAuthConfig {
+  mode: McpAuthMode;
+  client_id_metadata_url?: string | null;
+  client_name?: string;
+  redirect_port?: number;
+  scope?: string | null;
+  /** Bearer token; backend redacts on read. Only present when the user types one in. */
+  token?: string | null;
+}
+
+export interface McpServer {
+  id: string;
+  name: string;
+  description?: string;
+  transport: McpTransport;
+  // stdio
+  command?: string | null;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string | null;
+  // http / sse
+  url?: string | null;
+  headers?: Record<string, string>;
+  // workspace gating
+  workspace_allow?: string[] | null;
+  workspace_deny?: string[];
+  // auth
+  auth?: McpAuthConfig;
+  // lifecycle
+  enabled: boolean;
+  timeout_seconds?: number;
+  // live state (server-populated; absent on POST/PUT requests)
+  connection_state?: McpConnectionState;
+  last_error?: string | null;
+  tool_count?: number;
+  resource_count?: number;
+  prompt_count?: number;
+}
+
+export interface McpTool {
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  input_schema?: Record<string, unknown> | null;
+}
+
+export interface McpResource {
+  uri: string;
+  name?: string | null;
+  description?: string | null;
+  mime_type?: string | null;
+}
+
+export interface McpPrompt {
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  arguments?: Array<{
+    name: string;
+    description?: string | null;
+    required?: boolean;
+  }>;
+}
+
+export interface McpServersResponse {
+  servers: McpServer[];
+}
+
+/**
+ * Payload accepted by `addMcpServer`. Mirrors `McpServer` but excludes the
+ * runtime/live-state fields the backend computes.
+ */
+export type McpServerInput = Omit<
+  McpServer,
+  'connection_state' | 'last_error' | 'tool_count' | 'resource_count' | 'prompt_count'
+>;
+
+export async function listMcpServers(): Promise<McpServer[]> {
+  const res = await fetch(`${API_BASE}/api/mcp/servers`);
+  if (!res.ok) throw new Error(`Failed to list MCP servers: ${res.statusText}`);
+  const data = (await res.json()) as McpServersResponse;
+  return data.servers ?? [];
+}
+
+export async function addMcpServer(server: McpServerInput): Promise<McpServer> {
+  const res = await fetch(`${API_BASE}/api/mcp/servers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(server),
+  });
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to add MCP server: ${detail}`);
+  }
+  return res.json();
+}
+
+export async function removeMcpServer(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/mcp/servers/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to remove MCP server: ${detail}`);
+  }
+}
+
+/**
+ * Flip the `enabled` flag on a server. Returns the updated server record so
+ * the caller can refresh its row without a separate `listMcpServers()` call.
+ */
+export async function toggleMcpServer(id: string): Promise<McpServer> {
+  const res = await fetch(
+    `${API_BASE}/api/mcp/servers/${encodeURIComponent(id)}/toggle`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to toggle MCP server: ${detail}`);
+  }
+  return res.json();
+}
+
+/**
+ * Trigger the OAuth browser flow for a remote server. The backend launches
+ * `LocalBrowserOAuthFlow`, opens the system browser, and listens on the
+ * configured loopback port. Returns once tokens have been stored or the
+ * flow errors. The UI can also poll `listMcpServers()` to watch the
+ * connection state transition through `connecting → connected`.
+ */
+export async function startMcpOAuth(id: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(
+    `${API_BASE}/api/mcp/servers/${encodeURIComponent(id)}/oauth`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    return { ok: false, error: detail };
+  }
+  return res.json();
+}
+
+export async function listMcpTools(id: string): Promise<McpTool[]> {
+  const res = await fetch(
+    `${API_BASE}/api/mcp/servers/${encodeURIComponent(id)}/tools`,
+  );
+  if (!res.ok) throw new Error(`Failed to list tools: ${res.statusText}`);
+  const data = await res.json();
+  return data.tools ?? [];
+}
+
+export async function listMcpResources(id: string): Promise<McpResource[]> {
+  const res = await fetch(
+    `${API_BASE}/api/mcp/servers/${encodeURIComponent(id)}/resources`,
+  );
+  if (!res.ok) throw new Error(`Failed to list resources: ${res.statusText}`);
+  const data = await res.json();
+  return data.resources ?? [];
+}
+
+export async function listMcpPrompts(id: string): Promise<McpPrompt[]> {
+  const res = await fetch(
+    `${API_BASE}/api/mcp/servers/${encodeURIComponent(id)}/prompts`,
+  );
+  if (!res.ok) throw new Error(`Failed to list prompts: ${res.statusText}`);
+  const data = await res.json();
+  return data.prompts ?? [];
+}
+
+/** Pull a structured `detail` from a FastAPI error, falling back to status text. */
+async function safeErrorDetail(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body && typeof body.detail === 'string') return body.detail;
+    if (body && body.detail) return JSON.stringify(body.detail);
+  } catch {
+    /* fall through */
+  }
+  return res.statusText || `HTTP ${res.status}`;
+}

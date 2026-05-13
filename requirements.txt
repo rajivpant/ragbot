@@ -40,6 +40,22 @@ uvicorn[standard]>=0.46.0
 sse-starlette>=3.3.0
 pydantic>=2.13.0
 
+# --- Model Context Protocol ----------------------------------------------
+# The official Python SDK powers synthesis_engine.mcp (client, six primitives,
+# OAuth, Tasks). Track 1.27+, which carries the Tasks experimental client.
+mcp>=1.27.0
+
+# --- Observability --------------------------------------------------------
+# OpenTelemetry GenAI semantic conventions drive synthesis_engine.observability.
+# The exporter extras are optional at runtime (the substrate degrades to
+# console/in-memory exporters when they're absent) but shipping them in the
+# default install gives every Ragbot user a working OTLP and Prometheus path.
+opentelemetry-api>=1.31.0
+opentelemetry-sdk>=1.31.0
+opentelemetry-exporter-otlp-proto-grpc>=1.31.0
+opentelemetry-exporter-prometheus>=0.52b0
+prometheus-client>=0.22.0
+
 # --- General ---------------------------------------------------------------
 appdirs
 babel>=2.18.0

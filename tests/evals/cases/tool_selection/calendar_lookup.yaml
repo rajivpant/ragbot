@@ -1,0 +1,24 @@
+# Tool-selection eval — given a prompt where the right tool is unambiguous,
+# does the agent pick it (and pass the required arguments)?
+#
+# The agent under test exposes three tools:
+#   - calendar_lookup(date)
+#   - calculator(expression)
+#   - web_search(query)
+#
+# A prompt asking "what's on my calendar tomorrow" should route to
+# `calendar_lookup` with a `date` argument. Anything else is a routing
+# failure.
+
+id: tool_selection_calendar_lookup
+description: Agent picks `calendar_lookup` when asked about tomorrow's schedule.
+prompt: |
+  What's on my calendar tomorrow? Respond with a JSON tool call.
+evaluator: tool_match
+expected:
+  tool: calendar_lookup
+  required_args:
+    - date
+inline_response: |
+  {"tool": "calendar_lookup", "arguments": {"date": "tomorrow"}}
+quick: true

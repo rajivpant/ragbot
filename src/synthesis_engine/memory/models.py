@@ -234,7 +234,7 @@ class MemoryQuery(BaseModel):
     workspace: str
     user_id: Optional[str] = None
     session_id: Optional[str] = None
-    vector_k: int = Field(default=10, ge=1, le=200)
+    vector_k: int = Field(default=10, ge=0, le=200)
     graph_depth: int = Field(default=2, ge=0, le=5)
     include_session: bool = True
     include_user: bool = True

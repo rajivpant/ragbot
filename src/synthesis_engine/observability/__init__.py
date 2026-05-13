@@ -101,7 +101,7 @@ from .metrics import (
     get_metrics_registry,
     get_meter_provider,
     render_prometheus,
-    cache_stats_snapshot,
+    cache_stats_capture,
 )
 from .tracer import (
     init_tracer,
@@ -131,7 +131,7 @@ __all__ = [
     "get_metrics_registry",
     "get_meter_provider",
     "render_prometheus",
-    "cache_stats_snapshot",
+    "cache_stats_capture",
     # Standard OTEL GenAI attributes
     "GEN_AI_SYSTEM",
     "GEN_AI_PROVIDER_NAME",

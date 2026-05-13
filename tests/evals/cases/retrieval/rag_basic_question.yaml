@@ -1,0 +1,31 @@
+# Retrieval eval — does the agent ground its answer in the right chunks?
+#
+# The fixture corpus (rag_corpus_small.md) contains four labelled chunks.
+# A correct grounded answer to "What is RAG?" should cite at least chunk-1
+# (definition) and chunk-2 (motivation), and must not invent chunks that
+# do not exist in the fixture.
+
+id: rag_basic_question
+description: Agent answers "What is RAG?" by citing the definition and motivation chunks.
+prompt: |
+  What is Retrieval-Augmented Generation and why does it matter? Cite the
+  chunks you used by their chunk-N identifier.
+evaluator: citation_match
+fixture: rag_corpus_small.md
+expected:
+  required_citations:
+    - chunk-1
+    - chunk-2
+  forbidden_citations:
+    - chunk-99
+# Deterministic stand-in response. The harness consumes this directly so
+# the eval is reproducible without spending tokens. To exercise a live
+# model, set `live: true` and clear `inline_response`.
+inline_response: |
+  Retrieval-Augmented Generation (RAG) is a technique that augments a
+  generative language model with a retrieval step that pulls relevant
+  context from a knowledge corpus at query time (chunk-1). It matters
+  because it mitigates hallucination and the staleness of the model's
+  training data — by retrieving up-to-date documents at inference time,
+  RAG narrows both gaps (chunk-2).
+quick: true

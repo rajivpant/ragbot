@@ -19,6 +19,7 @@ import {
   type ThinkingEffort,
 } from '@/lib/api';
 import { ModelPicker } from './ModelPicker';
+import { McpServersPanel } from './McpServersPanel';
 
 interface SettingsPanelProps {
   workspace: string | undefined;
@@ -81,6 +82,7 @@ export function SettingsPanel({
   const [indexing, setIndexing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showMcp, setShowMcp] = useState(false);
 
   // Key source overrides - user can override workspace keys with default keys
   const [keyOverrides, setKeyOverrides] = useState<Record<string, 'auto' | 'default'>>({});
@@ -411,6 +413,30 @@ export function SettingsPanel({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* MCP Servers — collapsible section. Default-collapsed to keep the
+          settings panel compact; click the header to reveal the panel. */}
+      <div className="border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setShowMcp((v) => !v)}
+          className="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700/40 transition-colors"
+          aria-expanded={showMcp}
+        >
+          <span className="text-gray-400 text-xs w-3">{showMcp ? '▼' : '▶'}</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            🔌 MCP Servers
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            external tools, resources, and prompts via Model Context Protocol
+          </span>
+        </button>
+        {showMcp && (
+          <div className="max-w-6xl mx-auto">
+            <McpServersPanel disabled={disabled} />
+          </div>
+        )}
       </div>
 
       {/* Advanced Settings */}

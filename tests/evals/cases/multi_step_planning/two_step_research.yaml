@@ -1,0 +1,33 @@
+# Multi-step planning eval — a two-step task that requires the agent to
+# first retrieve, then summarize. The evaluator is intentionally simple
+# (keyword_match) so the case stays reproducible; the value of the case is
+# that the response demonstrates both the retrieval step and the summary
+# step (rather than answering from parametric memory only).
+
+id: multi_step_two_step_research
+description: Agent plans a retrieve-then-summarize flow for a small research task.
+prompt: |
+  I need a one-paragraph summary of why RAG matters for production
+  chatbots. First retrieve the relevant context from the fixture corpus,
+  then summarize. Mention both steps explicitly in your response.
+evaluator: keyword_match
+fixture: rag_corpus_small.md
+expected:
+  must_contain:
+    - "retriev"
+    - "summar"
+    - "hallucin"
+    - "staleness"
+  must_not_contain: []
+inline_response: |
+  Step 1: Retrieve. I queried the fixture corpus for "why RAG matters"
+  and pulled chunk-2 ("Why RAG matters") plus chunk-1 ("What is RAG?")
+  for context.
+
+  Step 2: Summarize. RAG matters for production chatbots because it
+  mitigates the two failure modes of pure-LLM systems — hallucination on
+  facts outside training data, and staleness when the model's training
+  cutoff predates the user's question. Retrieving up-to-date documents
+  at inference time narrows both gaps, grounding the response in a
+  corpus the operator controls.
+quick: true
