@@ -38,8 +38,8 @@ from ragbot import (
     get_workspace,
     get_workspace_info,
     list_workspace_info,
-    # Exceptions
-    RagbotError,
+    # Exceptions (substrate hierarchy; base SynthesisError is imported
+    # directly from synthesis_engine.exceptions when needed).
     ConfigurationError,
     WorkspaceError,
     WorkspaceNotFoundError,

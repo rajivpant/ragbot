@@ -25,6 +25,7 @@ import os
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
+from ..discovery import SCOPE_SKILL_ROOTS, apply_discovery_filter
 from .model import Skill
 from .parser import parse_skill
 
@@ -96,25 +97,20 @@ def discover_skills(
     plugin glob + ``extra``) is used. On name collision later roots win,
     matching the override semantics documented in the module docstring.
 
-    When ``RAGBOT_DEMO=1`` is set and ``roots`` is None, only the
-    bundled demo skills directory is scanned. This keeps demo screenshots
-    free of any real skill names that happen to be installed on the host.
+    Runtimes can override the default chain by registering a filter for
+    the ``"skill_roots"`` scope via
+    :func:`synthesis_engine.discovery.set_discovery_filter`. When such a
+    filter is active and returns a non-None list, that list replaces the
+    default chain. ``roots`` (explicit caller argument) always wins over
+    any registered filter; tests use this to bypass runtime overrides.
     """
 
-    # Demo mode short-circuit. Honour explicit ``roots`` (so tests can
-    # bypass demo) but otherwise replace the default chain entirely.
-    # NOTE: substrate-to-runtime back-reference; see workspaces.py for the
-    # same pattern and the follow-up note.
-    if roots is None:
-        from ragbot.demo import is_demo_mode, demo_skills_path
-
-        if is_demo_mode():
-            demo_path = demo_skills_path()
-            targets = [str(demo_path)] if demo_path is not None else []
-        else:
-            targets = resolve_skill_roots(extra=extra)
-    else:
+    if roots is not None:
         targets = [os.path.abspath(os.path.expanduser(r)) for r in roots]
+    else:
+        # Default chain, possibly overridden by a runtime-registered filter.
+        default_targets = resolve_skill_roots(extra=extra)
+        targets = apply_discovery_filter(SCOPE_SKILL_ROOTS, default_targets)
 
     by_name: Dict[str, Skill] = {}
     for root in targets:

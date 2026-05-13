@@ -23,6 +23,12 @@ Example usage:
     )
 """
 
+# Register demo-mode discovery filters with the substrate before anything
+# else touches discovery. The filters themselves are dynamic — they read
+# ``is_demo_mode()`` at call time, so toggling the env var between calls
+# works without re-importing the package.
+from . import _demo_registration  # noqa: F401  (side-effect import)
+
 from synthesis_engine.config import (
     VERSION,
     DEFAULT_MAX_TOKENS,
@@ -85,7 +91,6 @@ from synthesis_engine.workspaces import (
 )
 
 from synthesis_engine.exceptions import (
-    RagbotError,
     ConfigurationError,
     WorkspaceError,
     WorkspaceNotFoundError,
@@ -160,8 +165,9 @@ __all__ = [
     "list_workspace_info",
     "get_llm_specific_instruction_path",
     "ENGINE_TO_INSTRUCTION_FILE",
-    # Exceptions
-    "RagbotError",
+    # Exceptions (substrate hierarchy; base class SynthesisError lives in
+    # synthesis_engine.exceptions and is not re-exported here — runtime code
+    # that needs the base type imports it directly from the substrate).
     "ConfigurationError",
     "WorkspaceError",
     "WorkspaceNotFoundError",

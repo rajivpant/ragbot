@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 import yaml
 
+from .discovery import SCOPE_WORKSPACES, apply_discovery_filter
 from .exceptions import WorkspaceError, WorkspaceNotFoundError
 from .models import WorkspaceInfo
 
@@ -159,25 +160,18 @@ def resolve_repo_index(base_path: Optional[str] = None) -> Dict[str, str]:
     Private repos (-private suffix or .ai-knowledge-private-owner sentinel)
     are filtered out unless RAGBOT_OWNER_CONTEXT=1.
 
-    When ``RAGBOT_DEMO=1`` is set, this function bypasses every other
-    source and returns ONLY the bundled demo workspace. This is the
-    backstop that prevents real workspace names from appearing in
-    screenshot captures or in evaluator-mode runs.
+    Runtimes can override discovery entirely by registering a filter for
+    the ``"workspaces"`` scope via
+    :func:`synthesis_engine.discovery.set_discovery_filter`. When such a
+    filter is active and returns a non-None dict, that dict short-circuits
+    every other source. Ragbot uses this to hard-isolate demo mode to
+    the bundled workspace.
     """
-    # Demo mode: hard-isolate to the bundled workspace. No fallbacks.
-    # NOTE: this is a substrate-to-runtime back-reference. The demo concept
-    # is currently a Ragbot-specific feature (RAGBOT_DEMO env var, paths
-    # rooted at the Ragbot repo's ``demo/`` directory). When the substrate
-    # is extracted to its own package, this hook needs to be inverted —
-    # the runtime should register a demo-discovery handler rather than the
-    # substrate importing the runtime. Tracked as a Phase 1.x follow-up.
-    from ragbot.demo import is_demo_mode, demo_workspace_path, DEMO_WORKSPACE_NAME
-
-    if is_demo_mode():
-        path = demo_workspace_path()
-        if path is None:
-            return {}
-        return {DEMO_WORKSPACE_NAME: str(path)}
+    # Runtime-registered filter takes precedence. The filter returns the
+    # full replacement index (or None to defer to the substrate default).
+    override = apply_discovery_filter(SCOPE_WORKSPACES, None)
+    if override is not None:
+        return override
 
     owner_context = _is_owner_context()
 

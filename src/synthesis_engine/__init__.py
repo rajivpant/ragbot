@@ -10,7 +10,7 @@ Public submodules:
     config       — engines.yaml loading, model/provider resolution, temperature defaults
     workspaces   — ai-knowledge-* discovery, profiles, instruction-path resolution
     keystore     — API key resolution from ~/.synthesis/, user-config helpers
-    exceptions   — base error hierarchy (RagbotError → ConfigurationError, etc.)
+    exceptions   — base error hierarchy (SynthesisError → ConfigurationError, etc.)
     models       — substrate-level Pydantic types (WorkspaceInfo, WorkspaceList, ModelInfo)
     llm          — pluggable LLM backend interface (LiteLLM, direct SDK)
     vectorstore  — pluggable vector store interface (pgvector, qdrant)
