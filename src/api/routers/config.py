@@ -37,7 +37,7 @@ async def get_config(settings: Settings = Depends(get_settings)):
     # show which backend is active without a separate /health round-trip.
     backend_info: dict = {}
     try:
-        from ragbot.vectorstore import get_vector_store
+        from synthesis_engine.vectorstore import get_vector_store
 
         vs = get_vector_store()
         if vs is not None:
@@ -52,7 +52,7 @@ async def get_config(settings: Settings = Depends(get_settings)):
     # Same demo-mode count override as in /health.
     if demo_active:
         try:
-            from ragbot.vectorstore import get_vector_store as _vs
+            from synthesis_engine.vectorstore import get_vector_store as _vs
 
             v = _vs()
             allowed = {DEMO_WORKSPACE_NAME, DEMO_SKILLS_WORKSPACE_NAME}

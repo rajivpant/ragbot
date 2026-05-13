@@ -1,8 +1,23 @@
-"""Pydantic models for the Ragbot library."""
+"""Pydantic models for the Ragbot runtime.
+
+Substrate-level types (`WorkspaceInfo`, `WorkspaceList`) live in
+`synthesis_engine.models` and are re-exported here so existing
+`from ragbot import WorkspaceInfo` consumers continue to work without
+caring whether a type is substrate or runtime-specific.
+
+Runtime-specific shapes — chat requests/responses, index requests, config
+responses, health responses — stay defined here because they describe
+Ragbot's HTTP/CLI surface, not the substrate.
+"""
 
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from enum import Enum
+
+# Re-export substrate types so `ragbot.WorkspaceInfo` and
+# `ragbot.WorkspaceList` continue to be importable from the runtime's
+# public surface.
+from synthesis_engine.models import WorkspaceInfo, WorkspaceList
 
 
 class MessageRole(str, Enum):
@@ -60,26 +75,6 @@ class ChatResponse(BaseModel):
     model: str
     workspace: Optional[str] = None
     tokens_used: Optional[int] = None
-
-
-class WorkspaceInfo(BaseModel):
-    """Information about a workspace."""
-    name: str = Field(..., description="Display name")
-    dir_name: str = Field(..., description="Directory name")
-    description: Optional[str] = None
-    status: str = Field("active", description="Workspace status")
-    type: str = Field("project", description="Workspace type")
-    inherits_from: List[str] = Field(default_factory=list)
-    has_instructions: bool = False
-    has_datasets: bool = False
-    has_source: bool = False
-    repo_path: Optional[str] = None
-
-
-class WorkspaceList(BaseModel):
-    """List of workspaces response."""
-    workspaces: List[WorkspaceInfo]
-    count: int
 
 
 class IndexStatus(BaseModel):

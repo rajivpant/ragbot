@@ -96,7 +96,7 @@ def create_parser() -> argparse.ArgumentParser:
 
 def find_project_repo(project_name: str, base_path: Optional[str] = None) -> str:
     """Find the repository path for a project name."""
-    from ragbot.workspaces import resolve_repo_index
+    from synthesis_engine.workspaces import resolve_repo_index
 
     repo_path = resolve_repo_index(base_path).get(project_name)
     if repo_path and os.path.exists(repo_path):

@@ -11,7 +11,7 @@ _SRC = os.path.join(os.path.dirname(__file__), '..', 'src')
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from ragbot.llm import (  # noqa: E402
+from synthesis_engine.llm import (  # noqa: E402
     LLMBackend,
     LLMRequest,
     LLMResponse,
@@ -105,7 +105,7 @@ class TestLiteLLMKwargsBuilder:
     """Verify the request → litellm.completion kwargs translation."""
 
     def _build(self, **overrides):
-        from ragbot.llm.litellm_backend import _build_completion_kwargs
+        from synthesis_engine.llm.litellm_backend import _build_completion_kwargs
         req = LLMRequest(model="anthropic/claude-sonnet-4-6", messages=[{"role": "user", "content": "hi"}])
         for k, v in overrides.items():
             setattr(req, k, v)
@@ -117,7 +117,7 @@ class TestLiteLLMKwargsBuilder:
         assert "max_completion_tokens" not in out
 
     def test_max_completion_tokens_for_gpt5(self):
-        from ragbot.llm.litellm_backend import _build_completion_kwargs
+        from synthesis_engine.llm.litellm_backend import _build_completion_kwargs
         req = LLMRequest(model="openai/gpt-5.5", messages=[], max_tokens=512)
         out = _build_completion_kwargs(req)
         assert out["max_completion_tokens"] == 512
@@ -129,7 +129,7 @@ class TestLiteLLMKwargsBuilder:
         assert out["temperature"] == 1.0
 
     def test_claude_4_7_uses_adaptive_thinking_shape(self):
-        from ragbot.llm.litellm_backend import _build_completion_kwargs
+        from synthesis_engine.llm.litellm_backend import _build_completion_kwargs
         req = LLMRequest(
             model="anthropic/claude-opus-4-7",
             messages=[],
@@ -147,7 +147,7 @@ class TestLiteLLMKwargsBuilder:
         assert out["temperature"] == 1.0  # anthropic forces temp=1
 
     def test_gemini_reasoning_effort_does_not_force_temperature(self):
-        from ragbot.llm.litellm_backend import _build_completion_kwargs
+        from synthesis_engine.llm.litellm_backend import _build_completion_kwargs
         req = LLMRequest(
             model="gemini/gemini-3.1-pro-preview",
             messages=[],

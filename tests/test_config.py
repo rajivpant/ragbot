@@ -14,7 +14,7 @@ src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from ragbot.config import (
+from synthesis_engine.config import (
     load_engines_config,
     get_providers,
     get_provider_config,
@@ -289,7 +289,7 @@ class TestModelMetadata:
 
     def test_display_name_falls_back_to_name(self):
         """If engines.yaml omits display_name, it should default to name."""
-        from ragbot.config import normalize_model_id
+        from synthesis_engine.config import normalize_model_id
 
         # Simulate the helper logic locally: a model dict without display_name
         # should produce a display_name equal to its name.

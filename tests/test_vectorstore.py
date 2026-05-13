@@ -20,7 +20,7 @@ _SRC = os.path.join(os.path.dirname(__file__), '..', 'src')
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from ragbot.vectorstore import (  # noqa: E402
+from synthesis_engine.vectorstore import (  # noqa: E402
     Point,
     SearchHit,
     VectorStore,

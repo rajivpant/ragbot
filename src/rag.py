@@ -37,7 +37,7 @@ from typing import Optional, Dict, List, Tuple, Any, Set
 # Vector store abstraction (pgvector + qdrant backends behind a common ABC).
 # Importing at module load time so callers can rely on get_vector_store().
 try:
-    from ragbot.vectorstore import (
+    from synthesis_engine.vectorstore import (
         get_vector_store,
         Point as VectorStorePoint,
         SearchHit as VectorStoreHit,
@@ -807,9 +807,9 @@ def _get_fast_model(user_model: Optional[str] = None) -> Optional[str]:
     try:
         # Import config functions - handle both package and standalone usage
         try:
-            from ragbot.config import get_fast_model_for_provider, get_default_model
+            from synthesis_engine.config import get_fast_model_for_provider, get_default_model
         except ImportError:
-            from .ragbot.config import get_fast_model_for_provider, get_default_model
+            from .synthesis_engine.config import get_fast_model_for_provider, get_default_model
 
         if user_model:
             fast_model = get_fast_model_for_provider(user_model)
@@ -850,19 +850,19 @@ def _call_fast_llm(prompt: str, user_model: Optional[str] = None,
 
         # Get API key for the provider
         try:
-            from ragbot.config import get_provider_for_model
-            from ragbot.keystore import get_api_key
+            from synthesis_engine.config import get_provider_for_model
+            from synthesis_engine.keystore import get_api_key
         except ImportError:
-            from .ragbot.config import get_provider_for_model
-            from .ragbot.keystore import get_api_key
+            from .synthesis_engine.config import get_provider_for_model
+            from .synthesis_engine.keystore import get_api_key
 
         provider = get_provider_for_model(fast_model)
 
         # Get API key name from engines.yaml
         try:
-            from ragbot.config import get_provider_config
+            from synthesis_engine.config import get_provider_config
         except ImportError:
-            from .ragbot.config import get_provider_config
+            from .synthesis_engine.config import get_provider_config
 
         provider_config = get_provider_config(provider)
         if provider_config:
@@ -1980,7 +1980,7 @@ def _build_skill_chunks(skill, embedding_model_name: str, model) -> List["Vector
     if not VECTOR_STORE_AVAILABLE:
         return []
 
-    from ragbot.skills.model import SkillFileKind  # local to avoid module-load cost
+    from synthesis_engine.skills.model import SkillFileKind  # local to avoid module-load cost
 
     points: List[VectorStorePoint] = []
 
@@ -2092,7 +2092,7 @@ def index_skills(workspace_name: str = 'skills', skill_roots: Optional[List[str]
     if not VECTOR_STORE_AVAILABLE:
         return {'error': 'Vector store module unavailable', 'skills_indexed': 0, 'chunks_indexed': 0}
 
-    from ragbot.skills import discover_skills
+    from synthesis_engine.skills import discover_skills
 
     vs = get_vector_store()
     model = _get_embedding_model()

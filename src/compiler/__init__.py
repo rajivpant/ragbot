@@ -134,7 +134,7 @@ def get_repo_path(workspace_name: str, base_path: Optional[str] = None) -> Optio
     Uses ragbot.workspaces.resolve_repo_index for resolution, which handles
     both the workspace-rooted layout and the legacy flat-parent layout.
     """
-    from ragbot.workspaces import resolve_repo_index
+    from synthesis_engine.workspaces import resolve_repo_index
     return resolve_repo_index(base_path).get(workspace_name)
 
 
@@ -152,8 +152,8 @@ def get_personal_repo_path(base_path: Optional[str] = None) -> Optional[str]:
     Returns:
         Path to the personal repo, or None if not found.
     """
-    from ragbot.keystore import get_default_workspace
-    from ragbot.workspaces import resolve_repo_index
+    from synthesis_engine.keystore import get_default_workspace
+    from synthesis_engine.workspaces import resolve_repo_index
 
     index = resolve_repo_index(base_path)
 
@@ -336,7 +336,7 @@ def assemble_inherited_content(
                     local_path = candidate
             if not local_path or not os.path.exists(local_path):
                 if repo_index is None:
-                    from ragbot.workspaces import resolve_repo_index
+                    from synthesis_engine.workspaces import resolve_repo_index
                     repo_index = resolve_repo_index(base_path)
                 local_path = repo_index.get(proj_name, local_path)
 
@@ -407,7 +407,7 @@ def assemble_skills_for_compilation(skills_config: dict, verbose: bool = False) 
     _src_path = os.path.join(os.path.dirname(__file__), '..')
     if _src_path not in _sys.path:
         _sys.path.insert(0, _src_path)
-    from ragbot.skills import discover_skills  # type: ignore
+    from synthesis_engine.skills import discover_skills  # type: ignore
     from compiler.assembler import count_tokens  # type: ignore
 
     if not skills_config or skills_config.get('enabled') is False:
@@ -856,7 +856,7 @@ def compile_all_projects(base_path: Optional[str] = None, **kwargs) -> dict:
     Returns:
         Dictionary with results for each project
     """
-    from ragbot.workspaces import resolve_repo_index
+    from synthesis_engine.workspaces import resolve_repo_index
 
     results = {}
     index = resolve_repo_index(base_path)
@@ -1001,7 +1001,7 @@ def compile_all_with_inheritance(
                     local_path = candidate
             if not local_path or not os.path.exists(local_path):
                 if repo_index is None:
-                    from ragbot.workspaces import resolve_repo_index
+                    from synthesis_engine.workspaces import resolve_repo_index
                     repo_index = resolve_repo_index(base_path)
                 local_path = repo_index.get(project_name, local_path)
 

@@ -103,8 +103,10 @@ def discover_skills(
 
     # Demo mode short-circuit. Honour explicit ``roots`` (so tests can
     # bypass demo) but otherwise replace the default chain entirely.
+    # NOTE: substrate-to-runtime back-reference; see workspaces.py for the
+    # same pattern and the follow-up note.
     if roots is None:
-        from ..demo import is_demo_mode, demo_skills_path
+        from ragbot.demo import is_demo_mode, demo_skills_path
 
         if is_demo_mode():
             demo_path = demo_skills_path()

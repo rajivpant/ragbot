@@ -11,9 +11,9 @@ import openai
 import anthropic
 import litellm
 from helpers import load_files, load_config, print_saved_files, chat, load_workspaces_as_profiles
-from ragbot.config import normalize_model_id
-from ragbot.keystore import get_api_key
-from ragbot.workspaces import get_llm_specific_instruction_path, ENGINE_TO_INSTRUCTION_FILE
+from synthesis_engine.config import normalize_model_id
+from synthesis_engine.keystore import get_api_key
+from synthesis_engine.workspaces import get_llm_specific_instruction_path, ENGINE_TO_INSTRUCTION_FILE
 
 appname = "ragbot"
 appauthor = "Rajiv Pant"
@@ -575,7 +575,7 @@ def run_chat(args):
 
 def run_skills_list(args):
     """Print discovered skills."""
-    from ragbot.skills import discover_skills
+    from synthesis_engine.skills import discover_skills
 
     skills = discover_skills()
     if not skills:
@@ -605,7 +605,7 @@ def run_skills_list(args):
 
 def run_skills_info(args):
     """Show full details for one skill."""
-    from ragbot.skills import discover_skills
+    from synthesis_engine.skills import discover_skills
 
     target = args.name
     skills = discover_skills()
@@ -660,7 +660,7 @@ def run_db_status(args):
     workspace, so screenshots taken with ``RAGBOT_DEMO=1`` cannot leak
     real workspace names that happen to exist on the same vector store.
     """
-    from ragbot.vectorstore import get_vector_store
+    from synthesis_engine.vectorstore import get_vector_store
     from ragbot.demo import is_demo_mode, DEMO_WORKSPACE_NAME
 
     vs = get_vector_store()
@@ -696,7 +696,7 @@ def run_db_status(args):
 
 def run_db_init(args):
     """Apply schema migrations explicitly (idempotent)."""
-    from ragbot.vectorstore import get_vector_store
+    from synthesis_engine.vectorstore import get_vector_store
 
     vs = get_vector_store()
     if vs is None:
@@ -733,7 +733,7 @@ def run_compile(args):
 
     def find_project_repo(project_name, base_path):
         """Find the repository path for a project name."""
-        from ragbot.workspaces import resolve_repo_index
+        from synthesis_engine.workspaces import resolve_repo_index
         repo_path = resolve_repo_index(base_path).get(project_name)
         if repo_path and os.path.exists(repo_path):
             return repo_path

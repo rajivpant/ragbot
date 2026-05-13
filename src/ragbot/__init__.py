@@ -23,7 +23,7 @@ Example usage:
     )
 """
 
-from .config import (
+from synthesis_engine.config import (
     VERSION,
     DEFAULT_MAX_TOKENS,
     DEFAULT_TEMPERATURE,
@@ -41,7 +41,7 @@ from .config import (
     load_data_config,
 )
 
-from .keystore import (
+from synthesis_engine.keystore import (
     get_api_key,
     get_keystore,
     Keystore,
@@ -70,7 +70,7 @@ from .core import (
     compact_history,
 )
 
-from .workspaces import (
+from synthesis_engine.workspaces import (
     discover_workspaces,
     discover_ai_knowledge_repos,
     find_ai_knowledge_root,
@@ -84,7 +84,7 @@ from .workspaces import (
     ENGINE_TO_INSTRUCTION_FILE,
 )
 
-from .exceptions import (
+from synthesis_engine.exceptions import (
     RagbotError,
     ConfigurationError,
     WorkspaceError,

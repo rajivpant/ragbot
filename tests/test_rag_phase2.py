@@ -347,7 +347,7 @@ class TestProviderAgnosticIntegration:
 
     def test_fast_model_uses_small_category(self):
         """Fast model should use 'small' category models."""
-        from ragbot.config import get_model_by_category
+        from synthesis_engine.config import get_model_by_category
 
         # Verify we're using category-based selection
         anthropic_small = get_model_by_category('anthropic', 'small')

@@ -1,8 +1,13 @@
-"""Custom exceptions for the Ragbot library."""
+"""Shared exception hierarchy for synthesis-engineering runtimes."""
 
 
 class RagbotError(Exception):
-    """Base exception for all Ragbot errors."""
+    """Base exception for synthesis-engine errors.
+
+    Named `RagbotError` because Ragbot was the first runtime built on this
+    substrate. Treat it as the substrate's base exception: any synthesis
+    runtime surfaces errors through this hierarchy.
+    """
     pass
 
 

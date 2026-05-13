@@ -19,7 +19,7 @@ src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from ragbot.config import get_all_models, get_default_model, check_api_keys
+from synthesis_engine.config import get_all_models, get_default_model, check_api_keys
 from ragbot.core import chat, chat_stream
 
 

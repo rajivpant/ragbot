@@ -21,7 +21,7 @@ pytest.importorskip("sse_starlette", reason="API tests require sse_starlette (in
 @pytest.fixture()
 def isolated_synthesis_home(tmp_path, monkeypatch):
     """Redirect the synthesis config home and reset the cached user config."""
-    import ragbot.keystore as ks
+    import synthesis_engine.keystore as ks
 
     monkeypatch.setattr(ks, "SYNTHESIS_DIR", tmp_path)
     monkeypatch.setattr(ks, "USER_CONFIG_PATH", tmp_path / "ragbot.yaml")
@@ -83,7 +83,7 @@ class TestRecentModelsEndpoint:
         assert r.json()["model_ids"] == ["a", "b"]
 
     def test_post_caps_at_recent_models_cap(self, client):
-        from ragbot.keystore import RECENT_MODELS_CAP
+        from synthesis_engine.keystore import RECENT_MODELS_CAP
 
         for i in range(RECENT_MODELS_CAP + 5):
             client.post("/api/preferences/recent-models", json={"model_id": f"m-{i}"})

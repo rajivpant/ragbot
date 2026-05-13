@@ -11,9 +11,9 @@ import tiktoken
 # litellm SDK is used by the default backend (`LiteLLMBackend`); it is no
 # longer imported here directly.
 
-from .exceptions import ChatError
-from .keystore import get_api_key
-from .config import get_default_model, get_model_info, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_MAX_INPUT_TOKENS
+from synthesis_engine.exceptions import ChatError
+from synthesis_engine.keystore import get_api_key
+from synthesis_engine.config import get_default_model, get_model_info, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_MAX_INPUT_TOKENS
 
 
 # Recognised effort levels (highest to lowest "off"). Aligned with the
@@ -54,7 +54,7 @@ def _resolve_thinking_for_model(
     """
 
     import os
-    from .config import get_model_info as _get_model_info  # local to avoid cycles
+    from synthesis_engine.config import get_model_info as _get_model_info  # local to avoid cycles
 
     # 1) Explicit per-call override
     effort = _normalise_effort(requested_effort)
@@ -248,7 +248,7 @@ def _get_engine_from_model(model: str) -> str:
     Returns:
         Engine name ('anthropic', 'openai', or 'google')
     """
-    from .config import get_provider_for_model
+    from synthesis_engine.config import get_provider_for_model
     return get_provider_for_model(model or "")
 
 
@@ -271,7 +271,7 @@ def _load_llm_specific_instructions(workspace_name: str, model: str) -> str:
         Instructions content as string, or empty string if not found
     """
     try:
-        from .workspaces import get_llm_specific_instruction_path
+        from synthesis_engine.workspaces import get_llm_specific_instruction_path
         import os
 
         engine = _get_engine_from_model(model)
@@ -454,7 +454,7 @@ def chat(
         # RAGBOT_LLM_BACKEND (default: litellm). This decouples ragbot from
         # any one provider gateway and enables swapping in alternatives
         # (Bifrost, Portkey, direct SDKs) without touching this code path.
-        from .llm import get_llm_backend, LLMRequest
+        from synthesis_engine.llm import get_llm_backend, LLMRequest
 
         backend = get_llm_backend()
         llm_request = LLMRequest(
@@ -608,7 +608,7 @@ def chat_stream(
     effective_temperature = thinking_kwargs.get("temperature", temperature)
 
     # Route through the LLM-backend abstraction.
-    from .llm import get_llm_backend, LLMRequest
+    from synthesis_engine.llm import get_llm_backend, LLMRequest
 
     backend = get_llm_backend()
     llm_request = LLMRequest(

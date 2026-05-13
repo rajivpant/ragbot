@@ -90,7 +90,7 @@ class TestBundledDemoPaths:
 
 class TestDiscoveryIsolation:
     def setup_method(self):
-        from ragbot.workspaces import resolve_repo_index  # noqa: F401
+        from synthesis_engine.workspaces import resolve_repo_index  # noqa: F401
         # No cached state to reset; resolve_repo_index reads env each call.
 
     def test_resolve_repo_index_returns_only_demo_in_demo_mode(self, monkeypatch):
@@ -99,7 +99,7 @@ class TestDiscoveryIsolation:
         # demo mode must override.
         monkeypatch.setenv("RAGBOT_BASE_PATH", "/Users/someone/ai-knowledge")
 
-        from ragbot.workspaces import resolve_repo_index
+        from synthesis_engine.workspaces import resolve_repo_index
 
         index = resolve_repo_index()
         assert set(index.keys()) == {DEMO_WORKSPACE_NAME}, (
@@ -113,7 +113,7 @@ class TestDiscoveryIsolation:
         monkeypatch.delenv("RAGBOT_DEMO", raising=False)
         # Use an explicit base_path so this test doesn't depend on the
         # host's ~/.synthesis/console.yaml or workspace glob.
-        from ragbot.workspaces import resolve_repo_index
+        from synthesis_engine.workspaces import resolve_repo_index
 
         index = resolve_repo_index("/nonexistent")
         # Empty result is fine; the assertion is "didn't crash and didn't
@@ -124,7 +124,7 @@ class TestDiscoveryIsolation:
 class TestSkillDiscoveryIsolation:
     def test_demo_mode_returns_only_bundled_demo_skill(self, monkeypatch):
         monkeypatch.setenv("RAGBOT_DEMO", "1")
-        from ragbot.skills import discover_skills
+        from synthesis_engine.skills import discover_skills
 
         skills = discover_skills()
         # Only the bundled demo skill should be visible.
@@ -137,7 +137,7 @@ class TestSkillDiscoveryIsolation:
         monkeypatch.delenv("RAGBOT_DEMO", raising=False)
         # Empty user-supplied roots → empty result (no leak from defaults
         # which we don't want this test depending on).
-        from ragbot.skills import discover_skills
+        from synthesis_engine.skills import discover_skills
 
         skills = discover_skills(roots=[str(tmp_path)])
         assert skills == []

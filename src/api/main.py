@@ -68,7 +68,7 @@ async def health_check():
     """
     backend_health = {}
     try:
-        from ragbot.vectorstore import get_vector_store
+        from synthesis_engine.vectorstore import get_vector_store
 
         vs = get_vector_store()
         if vs is not None:
@@ -84,7 +84,7 @@ async def health_check():
     # exist on the same vector store.
     if is_demo_mode():
         try:
-            from ragbot.vectorstore import get_vector_store as _vs
+            from synthesis_engine.vectorstore import get_vector_store as _vs
 
             v = _vs()
             allowed = {DEMO_WORKSPACE_NAME, DEMO_SKILLS_WORKSPACE_NAME}

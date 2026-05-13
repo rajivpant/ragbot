@@ -14,7 +14,7 @@ src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from ragbot.keystore import (
+from synthesis_engine.keystore import (
     Keystore,
     get_api_key,
     check_api_keys,
@@ -202,7 +202,7 @@ class TestUserConfigWrite:
     @pytest.fixture(autouse=True)
     def isolated_user_config(self, tmp_path, monkeypatch):
         """Redirect USER_CONFIG_PATH and the synthesis dir to tmp_path."""
-        import ragbot.keystore as ks
+        import synthesis_engine.keystore as ks
 
         monkeypatch.setattr(ks, "SYNTHESIS_DIR", tmp_path)
         monkeypatch.setattr(ks, "USER_CONFIG_PATH", tmp_path / "ragbot.yaml")
@@ -212,7 +212,7 @@ class TestUserConfigWrite:
         monkeypatch.setattr(ks, "_user_config", None)
 
     def test_save_and_load_roundtrip(self, tmp_path):
-        from ragbot.keystore import _save_user_config, _load_user_config
+        from synthesis_engine.keystore import _save_user_config, _load_user_config
 
         _save_user_config({"default_workspace": "personal", "pinned_models": ["a", "b"]})
         loaded = _load_user_config()
@@ -220,14 +220,14 @@ class TestUserConfigWrite:
         assert loaded["pinned_models"] == ["a", "b"]
 
     def test_save_preserves_0600_permissions(self, tmp_path):
-        from ragbot.keystore import _save_user_config, USER_CONFIG_PATH
+        from synthesis_engine.keystore import _save_user_config, USER_CONFIG_PATH
 
         _save_user_config({"k": "v"})
         mode = USER_CONFIG_PATH.stat().st_mode & 0o777
         assert mode == 0o600, f"expected 0600, got {oct(mode)}"
 
     def test_set_user_config_preserves_other_keys(self):
-        from ragbot.keystore import _save_user_config, set_user_config, _load_user_config
+        from synthesis_engine.keystore import _save_user_config, set_user_config, _load_user_config
 
         _save_user_config({"default_workspace": "personal"})
         set_user_config("pinned_models", ["x"])
@@ -236,24 +236,24 @@ class TestUserConfigWrite:
         assert loaded["pinned_models"] == ["x"]
 
     def test_pinned_models_set_get_dedupes_and_preserves_order(self):
-        from ragbot.keystore import set_pinned_models, get_pinned_models
+        from synthesis_engine.keystore import set_pinned_models, get_pinned_models
 
         set_pinned_models(["a", "b", "a", "c", "b"])
         assert get_pinned_models() == ["a", "b", "c"]
 
     def test_pinned_models_default_empty(self):
-        from ragbot.keystore import get_pinned_models
+        from synthesis_engine.keystore import get_pinned_models
 
         assert get_pinned_models() == []
 
     def test_pinned_models_ignores_non_strings(self):
-        from ragbot.keystore import set_pinned_models, get_pinned_models
+        from synthesis_engine.keystore import set_pinned_models, get_pinned_models
 
         set_pinned_models(["a", None, 42, "b"])  # type: ignore[list-item]
         assert get_pinned_models() == ["a", "b"]
 
     def test_record_recent_model_prepends_and_dedupes(self):
-        from ragbot.keystore import record_recent_model, get_recent_models
+        from synthesis_engine.keystore import record_recent_model, get_recent_models
 
         record_recent_model("a")
         record_recent_model("b")
@@ -264,7 +264,7 @@ class TestUserConfigWrite:
         assert get_recent_models() == ["a", "c", "b"]
 
     def test_record_recent_model_caps_list(self):
-        from ragbot.keystore import record_recent_model, get_recent_models, RECENT_MODELS_CAP
+        from synthesis_engine.keystore import record_recent_model, get_recent_models, RECENT_MODELS_CAP
 
         for i in range(RECENT_MODELS_CAP + 5):
             record_recent_model(f"model-{i}")
@@ -274,7 +274,7 @@ class TestUserConfigWrite:
         assert recent[0] == f"model-{RECENT_MODELS_CAP + 4}"
 
     def test_record_recent_model_ignores_empty_input(self):
-        from ragbot.keystore import record_recent_model, get_recent_models
+        from synthesis_engine.keystore import record_recent_model, get_recent_models
 
         record_recent_model("")
         record_recent_model(None)  # type: ignore[arg-type]

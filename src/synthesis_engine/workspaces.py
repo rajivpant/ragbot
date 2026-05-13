@@ -165,7 +165,13 @@ def resolve_repo_index(base_path: Optional[str] = None) -> Dict[str, str]:
     screenshot captures or in evaluator-mode runs.
     """
     # Demo mode: hard-isolate to the bundled workspace. No fallbacks.
-    from .demo import is_demo_mode, demo_workspace_path, DEMO_WORKSPACE_NAME
+    # NOTE: this is a substrate-to-runtime back-reference. The demo concept
+    # is currently a Ragbot-specific feature (RAGBOT_DEMO env var, paths
+    # rooted at the Ragbot repo's ``demo/`` directory). When the substrate
+    # is extracted to its own package, this hook needs to be inverted —
+    # the runtime should register a demo-discovery handler rather than the
+    # substrate importing the runtime. Tracked as a Phase 1.x follow-up.
+    from ragbot.demo import is_demo_mode, demo_workspace_path, DEMO_WORKSPACE_NAME
 
     if is_demo_mode():
         path = demo_workspace_path()
