@@ -274,20 +274,32 @@ def create_index_parser(subparsers):
 def create_skills_parser(subparsers):
     """Create the `skills` subcommand parser.
 
-    List, inspect, and index Agent Skills (directories with SKILL.md).
+    List, inspect, index, and run Agent Skills (directories with SKILL.md).
     """
     skills_parser = subparsers.add_parser(
         'skills',
-        help='Discover, inspect, and index Agent Skills',
+        help='Discover, inspect, index, and run Agent Skills',
         description='Manage Agent Skills (directories with SKILL.md) for RAG '
-                    'indexing and inspection. Skills are discovered from '
-                    '~/.synthesis/skills, ~/.claude/skills, and plugin caches.'
+                    'indexing, inspection, and workspace-scoped execution. '
+                    'Skills are discovered from ~/.synthesis/skills, '
+                    '~/.claude/skills, plugin caches, and per-workspace '
+                    'collections under ~/workspaces/<W>/synthesis-skills-<W>/.'
     )
     skills_subparsers = skills_parser.add_subparsers(dest='skills_command', required=True)
 
-    list_parser = skills_subparsers.add_parser('list', help='List discovered skills.')
+    list_parser = skills_subparsers.add_parser(
+        'list',
+        help='List discovered skills with their visibility scope.',
+        description='List discovered skills. Without --workspace, every skill '
+                    'is shown with its scope (universal vs workspace-scoped). '
+                    'With --workspace, only skills visible from that workspace '
+                    '(via inheritance chain) are shown.',
+    )
     list_parser.add_argument('--verbose', '-v', action='store_true',
-                             help='Include description and file counts.')
+                             help='Include description and file counts (legacy verbose layout).')
+    list_parser.add_argument('--workspace', '-w', default=None,
+                             help='Filter to skills visible from this workspace '
+                                  '(via the inheritance chain in my-projects.yaml).')
     list_parser.set_defaults(func=run_skills_list)
 
     info_parser = skills_subparsers.add_parser('info', help='Show details for one skill.')
@@ -305,6 +317,31 @@ def create_skills_parser(subparsers):
     index_parser.add_argument('--force', '-f', action='store_true',
                               help='Clear the target workspace before indexing.')
     index_parser.set_defaults(func=run_skills_index)
+
+    run_parser = skills_subparsers.add_parser(
+        'run',
+        help='Activate a skill and dispatch its first declared tool (or body prompt).',
+        description='Run a skill via the workspace-scoped loader. The skill '
+                    'must be visible from --workspace (the inheritance chain '
+                    'applies). The first declared tool is dispatched through '
+                    'the agent loop with inputs supplied via --input KEY=VALUE '
+                    'pairs and/or --file. When the skill declares no tools, '
+                    'the SKILL.md body is sent to the LLM as a prompt.',
+    )
+    run_parser.add_argument('name', help='Skill name to activate and run.')
+    run_parser.add_argument('--workspace', '-w', default=None,
+                            help='Workspace to scope the skill set to. When '
+                                 'omitted, the universal skill chain is used.')
+    run_parser.add_argument('--input', '-i', action='append', default=None,
+                            metavar='KEY=VALUE',
+                            help='Tool input. Repeatable. Values are parsed as '
+                                 'JSON when possible, else passed as strings.')
+    run_parser.add_argument('--file', '-f', default=None,
+                            help='Path to a file whose UTF-8 contents are '
+                                 'bound to the "file" input.')
+    run_parser.add_argument('--model', '-m', default=None,
+                            help='Model id override (defaults to engines.yaml default).')
+    run_parser.set_defaults(func=run_skills_run)
 
     return skills_parser
 
@@ -573,18 +610,68 @@ def run_chat(args):
         print(reply)
 
 
-def run_skills_list(args):
-    """Print discovered skills."""
-    from synthesis_engine.skills import discover_skills
+def _resolve_workspace_for_skills(workspace_arg):
+    """Resolve the effective workspace name for skill filtering.
 
-    skills = discover_skills()
+    Honours the explicit ``--workspace`` flag first, then falls back to the
+    demo workspace name when RAGBOT_DEMO=1 is set, then None. None means
+    "show every skill regardless of scope" — the unfiltered list path.
+    """
+    if workspace_arg:
+        return workspace_arg
+    if os.environ.get('RAGBOT_DEMO', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        from ragbot.demo import DEMO_WORKSPACE_NAME
+        return DEMO_WORKSPACE_NAME
+    return None
+
+
+def _format_scope_tag(scope):
+    """Render a SkillScope as a short tag for tabular output.
+
+    ``universal`` for skills visible everywhere, ``workspace:<name>`` for
+    single-workspace scopes, ``workspaces:<a,b>`` for multi-workspace scopes.
+    """
+    if scope.universal:
+        return "universal"
+    if len(scope.workspaces) == 1:
+        return f"workspace:{scope.workspaces[0]}"
+    return f"workspaces:{','.join(scope.workspaces)}"
+
+
+def run_skills_list(args):
+    """Print discovered skills.
+
+    When ``--workspace`` is supplied, results are filtered through
+    ``get_skills_for_workspace`` so only skills visible from that workspace
+    (via the inheritance chain) appear. When omitted, every skill is shown
+    with its scope tag so the operator can see which skills are workspace-
+    restricted and which are universal.
+    """
+    from synthesis_engine.skills import discover_skills, get_skills_for_workspace
+
+    workspace = _resolve_workspace_for_skills(getattr(args, 'workspace', None))
+    if workspace is not None:
+        skills = get_skills_for_workspace(workspace)
+        scope_header = f"visible from workspace '{workspace}'"
+    else:
+        skills = discover_skills()
+        scope_header = "all workspaces"
+
     if not skills:
-        print("No skills discovered. Searched ~/.synthesis/skills and ~/.claude/skills.")
+        if workspace is not None:
+            print(f"No skills visible from workspace '{workspace}'. "
+                  f"Searched ~/.synthesis/skills, ~/.claude/skills, plugin caches, "
+                  f"and per-workspace collections.")
+        else:
+            print("No skills discovered. Searched ~/.synthesis/skills, "
+                  "~/.claude/skills, plugin caches, and per-workspace collections.")
         return 0
 
-    print(f"Discovered {len(skills)} skills:")
-    for s in skills:
-        if args.verbose:
+    # Legacy verbose layout (preserved for back-compat with the previous
+    # `ragbot skills list -v` output shape that tests may pin to).
+    if getattr(args, 'verbose', False):
+        print(f"Discovered {len(skills)} skills ({scope_header}):")
+        for s in skills:
             desc_short = (s.description or '').strip().replace('\n', ' ')[:80]
             extras = []
             if s.references:
@@ -595,11 +682,33 @@ def run_skills_list(args):
                 extras.append(f"{len(s.other_files)} other")
             extras_str = f" ({', '.join(extras)})" if extras else ""
             version_str = f" v{s.version}" if s.version else ""
-            print(f"  {s.name}{version_str}{extras_str}")
+            scope_tag = _format_scope_tag(s.scope)
+            print(f"  {s.name}{version_str} [{scope_tag}]{extras_str}")
             if desc_short:
                 print(f"    {desc_short}")
-        else:
-            print(f"  {s.name}")
+        return 0
+
+    # Tabular default layout: name, scope, description (truncated to 70),
+    # and the on-disk source path. Columns are width-fitted to the longest
+    # entry so the output stays scannable across narrow and wide terminals.
+    rows = []
+    for s in skills:
+        desc = (s.description or '').strip().replace('\n', ' ')
+        if len(desc) > 70:
+            desc = desc[:67] + "..."
+        rows.append((s.name, _format_scope_tag(s.scope), desc, s.path))
+
+    name_w = max(len("NAME"), max(len(r[0]) for r in rows))
+    scope_w = max(len("SCOPE"), max(len(r[1]) for r in rows))
+    desc_w = max(len("DESCRIPTION"), max(len(r[2]) for r in rows))
+
+    print(f"Discovered {len(skills)} skills ({scope_header}):")
+    print()
+    header = f"{'NAME':<{name_w}}  {'SCOPE':<{scope_w}}  {'DESCRIPTION':<{desc_w}}  SOURCE"
+    print(header)
+    print("-" * len(header))
+    for name, scope, desc, path in rows:
+        print(f"{name:<{name_w}}  {scope:<{scope_w}}  {desc:<{desc_w}}  {path}")
     return 0
 
 
@@ -650,6 +759,193 @@ def run_skills_index(args):
         print(f"Skipped (no indexable text): {', '.join(skipped)}")
     indexed_total, count = get_index_status(args.workspace)
     print(f"Workspace now contains {count} chunks (indexed={indexed_total}).")
+    return 0
+
+
+def _parse_input_kv_pairs(pairs):
+    """Parse ``--input KEY=VALUE`` pairs into a dict.
+
+    Values are JSON-decoded when possible so callers can pass numbers,
+    lists, and booleans without quoting gymnastics. A bare token that
+    fails JSON parsing is preserved as a plain string — the common case
+    of ``--input topic=climate change`` keeps working.
+    """
+    result = {}
+    for raw in pairs or []:
+        if '=' not in raw:
+            raise ValueError(
+                f"Invalid --input value {raw!r}; expected KEY=VALUE.")
+        key, value = raw.split('=', 1)
+        key = key.strip()
+        if not key:
+            raise ValueError(f"Invalid --input value {raw!r}; key is empty.")
+        try:
+            result[key] = json.loads(value)
+        except (ValueError, json.JSONDecodeError):
+            result[key] = value
+    return result
+
+
+def run_skills_run(args):
+    """Activate a workspace-scoped skill and dispatch its first tool.
+
+    Resolution order:
+
+    1. Filter skills via ``get_skills_for_workspace(workspace)`` when
+       --workspace (or RAGBOT_DEMO) supplies one; otherwise the
+       universal-only view from ``discover_skills``.
+    2. Refuse with a clear error when the named skill is not in the
+       filtered set — this is the workspace-visibility contract.
+    3. Activate via :class:`SkillLoader`. If the skill declares one or
+       more tools, dispatch the first tool through the agent loop with
+       the user's inputs. Otherwise send the SKILL.md body as the prompt.
+
+    The agent loop is wired to the configured LLM backend
+    (``synthesis_engine.llm.get_llm_backend()``) and a permissive
+    permission registry so the CLI works out-of-the-box in single-user
+    deployments. Production deployments that need tighter gates wire
+    their own registry through the API surface.
+    """
+    from synthesis_engine.skills import (
+        discover_skills,
+        get_skills_for_workspace,
+    )
+    from synthesis_engine.skills.loader import SkillLoader, SkillNotFoundError
+
+    workspace = _resolve_workspace_for_skills(getattr(args, 'workspace', None))
+    if workspace is not None:
+        visible = get_skills_for_workspace(workspace)
+    else:
+        visible = discover_skills()
+
+    loader = SkillLoader(visible)
+    if not loader.has_skill(args.name):
+        ws_label = workspace or "(universal-only chain)"
+        print(
+            f"Error: skill '{args.name}' is not visible from workspace "
+            f"'{ws_label}'.",
+            file=sys.stderr,
+        )
+        visible_names = [s.name for s in visible]
+        if visible_names:
+            print(
+                f"Visible skills: {', '.join(visible_names)}",
+                file=sys.stderr,
+            )
+        else:
+            print("No skills are visible from this workspace.", file=sys.stderr)
+        return 1
+
+    try:
+        inputs = _parse_input_kv_pairs(getattr(args, 'input', None))
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    if args.file:
+        try:
+            with open(args.file, 'r', encoding='utf-8') as fp:
+                inputs['file'] = fp.read()
+        except OSError as exc:
+            print(f"Error reading --file {args.file!r}: {exc}", file=sys.stderr)
+            return 2
+
+    try:
+        activated = loader.activate(args.name)
+    except SkillNotFoundError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    return _dispatch_activated_skill(activated, inputs, args.model)
+
+
+def _dispatch_activated_skill(activated, inputs, model_override):
+    """Run an :class:`ActivatedSkill` through the agent loop and print the answer.
+
+    First-tool semantics: the skill's first declared :class:`SkillTool`
+    becomes the dispatch target; the user inputs map to that tool's
+    parameters. When the skill declares no tools, the SKILL.md body is
+    rendered as the task prompt and the LLM runs in plain-completion mode.
+    """
+    import asyncio
+    from synthesis_engine.agent import (
+        AgentLoop,
+        FilesystemCheckpointStore,
+        PermissionRegistry,
+        PermissionResult,
+    )
+    from synthesis_engine.config import get_default_model
+    from synthesis_engine.llm import get_llm_backend
+
+    skill = activated.skill
+    tools = activated.tools
+    model = model_override or get_default_model()
+
+    if tools:
+        target_tool = tools[0]
+        task = (
+            f"Use the '{target_tool.name}' tool from skill '{skill.name}' "
+            f"with the supplied inputs.\n\n"
+            f"Tool description: {target_tool.description or '(none)'}\n"
+            f"Inputs: {json.dumps(inputs, sort_keys=True, default=str)}\n\n"
+            f"Skill body:\n{activated.body_markdown}"
+        )
+    else:
+        target_tool = None
+        body = activated.body_markdown or skill.description or skill.name
+        if inputs:
+            task = (
+                f"{body}\n\n---\n\nInputs: "
+                f"{json.dumps(inputs, sort_keys=True, default=str)}"
+            )
+        else:
+            task = body
+
+    # When the skill has tools, run through the full agent loop so the
+    # planner-execute-evaluate cycle can dispatch them with permission
+    # gates. When the skill has no tools, the LLM-direct path is simpler
+    # and faster — no planner JSON to assemble.
+    if target_tool is not None:
+        backend = get_llm_backend()
+        registry = PermissionRegistry()
+        registry.register(
+            "*", lambda _ctx: PermissionResult.allow(
+                "cli-permissive-skills-run"
+            ),
+        )
+        checkpoint_root = os.path.join(data_dir, 'agent_checkpoints')
+        loop = AgentLoop(
+            llm_backend=backend,
+            mcp_client=None,
+            permission_registry=registry,
+            checkpoint_store=FilesystemCheckpointStore(
+                base_dir=checkpoint_root
+            ),
+            default_mcp_server="local",
+        )
+        try:
+            final_state = asyncio.run(loop.run(task))
+        except Exception as exc:
+            print(f"Agent loop failed: {exc}", file=sys.stderr)
+            return 1
+        answer = final_state.final_answer or "(no final answer produced)"
+        print(answer)
+        return 0
+
+    # No-tools path: render the body through the LLM directly.
+    from synthesis_engine.llm import LLMRequest
+
+    backend = get_llm_backend()
+    request = LLMRequest(
+        model=model,
+        messages=[{"role": "user", "content": task}],
+    )
+    try:
+        response = backend.complete(request)
+    except Exception as exc:
+        print(f"LLM call failed: {exc}", file=sys.stderr)
+        return 1
+    print(response.text)
     return 0
 
 

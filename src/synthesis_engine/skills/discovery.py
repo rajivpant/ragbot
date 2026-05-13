@@ -61,13 +61,16 @@ def _default_skill_roots() -> Tuple[str, ...]:
 
     The chain consists of:
 
-    1. Synthesis-engineering shared install      ``~/.synthesis/skills/``
-    2. Claude Code private skills                ``~/.claude/skills/``
-    3. Per-personal-workspace open-source clones derived from
+    1. Bundled starter pack                      ``synthesis_engine.skills.starter_pack``
+    2. Synthesis-engineering shared install      ``~/.synthesis/skills/``
+    3. Claude Code private skills                ``~/.claude/skills/``
+    4. Per-personal-workspace open-source clones derived from
        ``~/.synthesis/identity.yaml`` (one entry per workspace declared
        under ``personal_workspaces``)
 
-    Per-workspace skill collections at
+    The starter pack appears first so any operator-installed skill with
+    the same name overrides it (later roots win on collision per
+    :func:`discover_skills`). Per-workspace skill collections at
     ``~/workspaces/<W>/synthesis-skills-<W>/`` are picked up by the
     workspace glob (see :func:`_expand_workspace_globs`), not by this
     chain; the identity-aware path-convention rule in
@@ -75,9 +78,11 @@ def _default_skill_roots() -> Tuple[str, ...]:
     universal (for personal workspaces) or workspace-scoped.
     """
     from ..identity import get_personal_workspaces  # lazy: avoid import cycle
+    from .starter_pack import starter_pack_root  # lazy: keep import surface flat
 
     home = Path.home()
     chain: List[str] = [
+        starter_pack_root(),
         str(home / ".synthesis" / "skills"),
         str(home / ".claude" / "skills"),
     ]

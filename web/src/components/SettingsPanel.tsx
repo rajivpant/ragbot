@@ -20,6 +20,7 @@ import {
 } from '@/lib/api';
 import { ModelPicker } from './ModelPicker';
 import { McpServersPanel } from './McpServersPanel';
+import { SkillsPanel } from './SkillsPanel';
 
 interface SettingsPanelProps {
   workspace: string | undefined;
@@ -83,6 +84,7 @@ export function SettingsPanel({
   const [loading, setLoading] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showMcp, setShowMcp] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
 
   // Key source overrides - user can override workspace keys with default keys
   const [keyOverrides, setKeyOverrides] = useState<Record<string, 'auto' | 'default'>>({});
@@ -435,6 +437,32 @@ export function SettingsPanel({
         {showMcp && (
           <div className="max-w-6xl mx-auto">
             <McpServersPanel disabled={disabled} />
+          </div>
+        )}
+      </div>
+
+      {/* Agent Skills — collapsible section. Same default-collapsed pattern
+          as MCP servers. The panel filters by the active workspace by
+          default so workspace-scoped skills only surface where they're
+          meant to. */}
+      <div className="border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setShowSkills((v) => !v)}
+          className="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700/40 transition-colors"
+          aria-expanded={showSkills}
+        >
+          <span className="text-gray-400 text-xs w-3">{showSkills ? '▼' : '▶'}</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            🧩 Agent Skills
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            workspace-scoped procedural capabilities (SKILL.md)
+          </span>
+        </button>
+        {showSkills && (
+          <div className="max-w-6xl mx-auto">
+            <SkillsPanel workspace={workspace} disabled={disabled} />
           </div>
         )}
       </div>

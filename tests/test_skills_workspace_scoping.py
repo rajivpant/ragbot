@@ -342,7 +342,12 @@ class TestGetSkillsForWorkspace:
 
         skills = get_skills_for_workspace("personal", inheritance_config={})
         names = {s.name for s in skills}
-        assert names == {"universal-a", "universal-b"}
+        # Both planted universals are visible from a workspace without
+        # any scoped skills. The bundled starter pack is also visible
+        # (universal scope), but only the planted skills are asserted
+        # against here; the workspace-scoping behavior is what this test
+        # exercises, not the starter-pack content.
+        assert {"universal-a", "universal-b"} <= names
 
     def test_returns_universal_plus_workspace_when_scope_matches(
         self, fake_home: Path
@@ -361,7 +366,10 @@ class TestGetSkillsForWorkspace:
 
         skills = get_skills_for_workspace("acme-news", inheritance_config={})
         names = {s.name for s in skills}
-        assert names == {"universal-x", "acme-news-private"}
+        # The universal-scoped skill is visible; the workspace-scoped
+        # skill is visible because the workspace matches. Additional
+        # bundled universals (the starter pack) ride along.
+        assert {"universal-x", "acme-news-private"} <= names
 
     def test_filters_out_other_workspaces_skills(self, fake_home: Path) -> None:
         # acme-news and beta-media each have a private skill. A run in the

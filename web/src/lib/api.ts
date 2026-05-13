@@ -492,6 +492,143 @@ export async function listMcpPrompts(id: string): Promise<McpPrompt[]> {
   return data.prompts ?? [];
 }
 
+// ----- Agent Skills -----
+//
+// Mirrors the `synthesis_engine.skills` substrate. The list endpoint
+// honours an optional `?workspace=` filter that applies the inheritance
+// chain in `my-projects.yaml`. The detail endpoint returns the full
+// SKILL.md body and file list. The run endpoint dispatches the skill's
+// first declared tool (or its body prompt) through the agent loop and
+// returns a task id to poll.
+
+/** Visibility scope for a skill — universal vs. one-or-more workspaces. */
+export interface SkillScope {
+  universal: boolean;
+  workspaces: string[];
+}
+
+/** A tool declared in a skill's frontmatter. */
+export interface SkillToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  script: string | null;
+}
+
+/** A file inside a skill's directory tree (compact view). */
+export interface SkillFileEntry {
+  relative_path: string;
+  kind: 'skill_md' | 'reference' | 'script' | 'other';
+  is_text: boolean;
+  char_count: number;
+}
+
+/** Compact view used by GET /api/skills. */
+export interface SkillSummary {
+  name: string;
+  description: string;
+  scope: SkillScope;
+  source_path: string;
+  version: string | null;
+  tools: SkillToolDef[];
+  tool_count: number;
+  reference_count: number;
+  script_count: number;
+}
+
+/** Full view used by GET /api/skills/{name}. */
+export interface SkillDetail extends SkillSummary {
+  body: string;
+  frontmatter: Record<string, unknown>;
+  tool_permissions: Record<string, string>;
+  files: SkillFileEntry[];
+}
+
+/** Body for POST /api/skills/{name}/run. */
+export interface SkillRunRequest {
+  workspace: string;
+  input?: Record<string, unknown>;
+  file?: string;
+  model?: string;
+}
+
+export interface SkillRunResponse {
+  task_id: string;
+  status: 'running' | 'done' | 'error';
+  skill?: string;
+  result?: string;
+  error?: string;
+  workspace?: string;
+}
+
+/**
+ * List discovered skills. When ``workspace`` is supplied, the response
+ * is filtered through the inheritance chain in my-projects.yaml so the
+ * caller only sees skills visible from that workspace plus any
+ * universals. When omitted, every discovered skill is returned with its
+ * scope tag visible.
+ */
+export async function listSkills(workspace?: string): Promise<SkillSummary[]> {
+  const url = workspace
+    ? `${API_BASE}/api/skills?workspace=${encodeURIComponent(workspace)}`
+    : `${API_BASE}/api/skills`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to list skills: ${detail}`);
+  }
+  const data = await res.json();
+  return data.skills ?? [];
+}
+
+/** Fetch the full SKILL.md body and file list for one skill. */
+export async function getSkill(
+  name: string,
+  workspace?: string,
+): Promise<SkillDetail> {
+  const url = workspace
+    ? `${API_BASE}/api/skills/${encodeURIComponent(name)}?workspace=${encodeURIComponent(workspace)}`
+    : `${API_BASE}/api/skills/${encodeURIComponent(name)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to load skill: ${detail}`);
+  }
+  return res.json();
+}
+
+/**
+ * Dispatch a skill's first declared tool (or its body prompt) via the
+ * agent loop. The response returns a task id the caller polls via
+ * ``getSkillRun()``. A 403 is returned when the skill is not visible
+ * from the supplied workspace.
+ */
+export async function runSkill(
+  name: string,
+  params: SkillRunRequest,
+): Promise<SkillRunResponse> {
+  const res = await fetch(`${API_BASE}/api/skills/${encodeURIComponent(name)}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to run skill: ${detail}`);
+  }
+  return res.json();
+}
+
+/** Poll the in-process task table for a skill run's terminal state. */
+export async function getSkillRun(taskId: string): Promise<SkillRunResponse> {
+  const res = await fetch(`${API_BASE}/api/skills/runs/${encodeURIComponent(taskId)}`);
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to fetch skill run: ${detail}`);
+  }
+  return res.json();
+}
+
 /** Pull a structured `detail` from a FastAPI error, falling back to status text. */
 async function safeErrorDetail(res: Response): Promise<string> {
   try {

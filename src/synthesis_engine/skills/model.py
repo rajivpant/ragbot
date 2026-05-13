@@ -224,6 +224,46 @@ class SkillScope:
 
 
 @dataclass
+class SkillTool:
+    """A tool declared by a skill's frontmatter.
+
+    Skills declare tools the way an MCP server declares tools: a name, a
+    natural-language description, and a JSON schema for the call's
+    parameters. The runtime turns these declarations into permission-gated
+    dispatch targets for the agent loop.
+
+    Attributes:
+        name:        Tool identifier. Must be unique inside one skill;
+                     cross-skill collisions are resolved later-wins by the
+                     discovery layer's name-collision policy.
+        description: Human-readable summary the planner shows the LLM.
+        parameters:  JSON schema describing the tool's input dict. Defaults
+                     to ``{"type": "object", "properties": {}}`` when the
+                     skill author leaves it off — every tool still has a
+                     callable shape.
+        script:      Optional relative path (POSIX style) to a bundled
+                     script under the skill directory. When set, the
+                     runtime hands the script's bytes to whatever executor
+                     the agent loop has configured (sandbox for code,
+                     subprocess for shell with strict permission gates).
+                     When unset, the tool's effect is captured by the
+                     SKILL.md body and the LLM uses the tool as a
+                     structured-output channel.
+    """
+
+    name: str
+    description: str = ""
+    parameters: Dict[str, Any] = field(default_factory=dict)
+    script: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # Ensure parameters always has a useful default shape so callers
+        # can rely on ``params["type"]`` etc. without preflight checks.
+        if not isinstance(self.parameters, dict) or not self.parameters:
+            self.parameters = {"type": "object", "properties": {}}
+
+
+@dataclass
 class Skill:
     """A parsed Agent Skill.
 
@@ -242,6 +282,14 @@ class Skill:
         files:          All files in the skill tree (SKILL.md, references,
                         scripts, others). The list always includes the
                         SKILL.md itself first.
+        tools:          Tools declared in the frontmatter under ``tools:``.
+                        Empty list when the skill declares none. The
+                        runtime registers permission gates and dispatch
+                        handlers for these names.
+        tool_permissions: Mapping of tool-name → verdict string. Accepted
+                          verdicts: ``"allow"``, ``"deny:<reason>"``,
+                          ``"prompt"``. Missing entries inherit the
+                          fail-closed default from the permission registry.
     """
 
     name: str
@@ -252,6 +300,8 @@ class Skill:
     frontmatter: Dict[str, Any] = field(default_factory=dict)
     scope: SkillScope = field(default_factory=SkillScope.universal_scope)
     files: List[SkillFile] = field(default_factory=list)
+    tools: List["SkillTool"] = field(default_factory=list)
+    tool_permissions: Dict[str, str] = field(default_factory=dict)
 
     @property
     def references(self) -> List[SkillFile]:

@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import yaml
 
-from .model import Skill, SkillFile, SkillFileKind, SkillScope
+from .model import Skill, SkillFile, SkillFileKind, SkillScope, SkillTool
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +176,85 @@ def _walk_skill_files(skill_root: str) -> list:
     return files
 
 
+def _parse_tools(value: Any) -> list:
+    """Normalise a ``tools:`` frontmatter value into a list of SkillTool.
+
+    Accepts a list of dicts. Each dict must have a ``name``; ``description``
+    and ``parameters`` are optional, and ``script`` (a relative path)
+    declares a bundled script the runtime will load on tool-call. Any
+    malformed entry is dropped with a warning so a single bad tool does
+    not invalidate the rest of the skill.
+    """
+
+    if not value:
+        return []
+    if not isinstance(value, list):
+        logger.warning("SKILL.md 'tools' must be a list; got %r.", type(value))
+        return []
+
+    tools: list = []
+    for idx, raw in enumerate(value):
+        if not isinstance(raw, dict):
+            logger.warning("SKILL.md tools[%d] is not a mapping; skipping.", idx)
+            continue
+        name = raw.get("name")
+        if not name:
+            logger.warning("SKILL.md tools[%d] missing 'name'; skipping.", idx)
+            continue
+        params = raw.get("parameters")
+        if params is not None and not isinstance(params, dict):
+            logger.warning(
+                "SKILL.md tools[%d] 'parameters' must be a mapping; defaulting.",
+                idx,
+            )
+            params = None
+        script = raw.get("script")
+        if script is not None and not isinstance(script, str):
+            logger.warning(
+                "SKILL.md tools[%d] 'script' must be a string; ignoring.", idx
+            )
+            script = None
+        tools.append(
+            SkillTool(
+                name=str(name),
+                description=str(raw.get("description") or "").strip(),
+                parameters=dict(params) if isinstance(params, dict) else {},
+                script=str(script) if script else None,
+            )
+        )
+    return tools
+
+
+def _parse_tool_permissions(value: Any) -> Dict[str, str]:
+    """Normalise a ``tool_permissions:`` frontmatter value.
+
+    Accepted shape: mapping of ``tool-name -> verdict`` where verdict is
+    ``"allow"``, ``"deny[:reason]"``, or ``"prompt"``. Any other shape
+    is dropped with a warning; malformed individual entries are skipped
+    so a single typo does not nuke the whole policy.
+    """
+
+    if not value:
+        return {}
+    if not isinstance(value, dict):
+        logger.warning(
+            "SKILL.md 'tool_permissions' must be a mapping; got %r.",
+            type(value),
+        )
+        return {}
+
+    out: Dict[str, str] = {}
+    for tool_name, verdict in value.items():
+        if not isinstance(verdict, str):
+            logger.warning(
+                "SKILL.md tool_permissions[%r] must be a string; skipping.",
+                tool_name,
+            )
+            continue
+        out[str(tool_name)] = verdict.strip()
+    return out
+
+
 def parse_skill(directory: str) -> Optional[Skill]:
     """Parse a skill directory. Returns None if SKILL.md is absent.
 
@@ -206,6 +285,10 @@ def parse_skill(directory: str) -> Optional[Skill]:
     )
 
     files = _walk_skill_files(directory)
+    tools = _parse_tools(frontmatter.get("tools"))
+    tool_permissions = _parse_tool_permissions(
+        frontmatter.get("tool_permissions")
+    )
 
     return Skill(
         name=name,
@@ -216,4 +299,6 @@ def parse_skill(directory: str) -> Optional[Skill]:
         frontmatter=frontmatter,
         scope=scope,
         files=files,
+        tools=tools,
+        tool_permissions=tool_permissions,
     )

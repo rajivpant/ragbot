@@ -29,19 +29,46 @@ from .discovery import (
     get_skills_for_workspace,
     resolve_skill_roots,
 )
-from .model import Skill, SkillFile, SkillFileKind, SkillScope
+from .loader import (
+    ActivatedSkill,
+    ScriptNotFoundError,
+    ScriptPathError,
+    SkillLoader,
+    SkillNotFoundError,
+)
+from .model import Skill, SkillFile, SkillFileKind, SkillScope, SkillTool
 from .parser import parse_skill, parse_skill_md
+from .runtime import (
+    SKILL_TOOL_PREFIX,
+    SKILL_TOOL_SEPARATOR,
+    SkillRuntime,
+    ToolScriptExecutor,
+    make_skill_tool_target,
+    parse_skill_tool_target,
+)
 
 __all__ = [
+    "ActivatedSkill",
     "DEFAULT_SKILL_ROOTS",
+    "SKILL_TOOL_PREFIX",
+    "SKILL_TOOL_SEPARATOR",
+    "ScriptNotFoundError",
+    "ScriptPathError",
     "Skill",
     "SkillFile",
     "SkillFileKind",
+    "SkillLoader",
+    "SkillNotFoundError",
+    "SkillRuntime",
     "SkillScope",
+    "SkillTool",
+    "ToolScriptExecutor",
     "discover_skills",
     "discover_skills_in_root",
     "get_skills_for_workspace",
+    "make_skill_tool_target",
     "parse_skill",
     "parse_skill_md",
+    "parse_skill_tool_target",
     "resolve_skill_roots",
 ]
