@@ -1,23 +1,20 @@
 """Pydantic models for the Ragbot runtime.
 
-Substrate-level types (`WorkspaceInfo`, `WorkspaceList`) live in
-`synthesis_engine.models` and are re-exported here so existing
-`from ragbot import WorkspaceInfo` consumers continue to work without
-caring whether a type is substrate or runtime-specific.
+Ragbot-specific HTTP/CLI shapes only: chat requests/responses, index
+requests, config responses, health responses, the `ModelsResponse`
+envelope. Substrate-level types (`WorkspaceInfo`, `WorkspaceList`,
+`ModelInfo`) live in `synthesis_engine.models` and are imported from
+there directly — Ragbot does NOT re-export them.
 
-Runtime-specific shapes — chat requests/responses, index requests, config
-responses, health responses — stay defined here because they describe
-Ragbot's HTTP/CLI surface, not the substrate.
+Consumers (including API routers and tests) import substrate types from
+`synthesis_engine.models` and runtime envelopes from `ragbot.models`.
 """
 
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from enum import Enum
 
-# Re-export substrate types so `ragbot.WorkspaceInfo` and
-# `ragbot.WorkspaceList` continue to be importable from the runtime's
-# public surface.
-from synthesis_engine.models import WorkspaceInfo, WorkspaceList
+from synthesis_engine.models import ModelInfo
 
 
 class MessageRole(str, Enum):
@@ -90,21 +87,12 @@ class IndexRequest(BaseModel):
     force: bool = Field(False, description="Force re-indexing even if up to date")
 
 
-class ModelInfo(BaseModel):
-    """Information about an available model."""
-    id: str
-    name: str
-    provider: str
-    context_window: int
-    supports_streaming: bool = True
-    supports_system_role: bool = True
-    display_name: Optional[str] = None
-    supports_thinking: bool = False
-    is_local: bool = False
-
-
 class ModelsResponse(BaseModel):
-    """List of available models."""
+    """List of available models — Ragbot's `/api/models` response envelope.
+
+    The `ModelInfo` element type is substrate-level (sourced from
+    engines.yaml); the envelope shape is runtime-specific to Ragbot's API.
+    """
     models: List[ModelInfo]
     default_model: str
 

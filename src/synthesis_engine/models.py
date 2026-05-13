@@ -1,9 +1,9 @@
 """Substrate-level Pydantic models for synthesis-engineering runtimes.
 
-These types are produced by code in this package (`workspaces`, future
-discovery and indexing helpers). Runtimes are free to re-export them at
-their own public API surface — Ragbot does so via `ragbot.WorkspaceInfo`,
-which keeps existing external imports stable.
+These types are produced by code in this package — workspace discovery,
+the engines.yaml-backed model registry, and future indexing helpers.
+Runtimes consume these types directly: `from synthesis_engine.models
+import WorkspaceInfo` (or `ModelInfo`, etc.).
 
 Runtime-specific API request/response shapes (chat requests, index requests,
 config responses) do NOT belong here. They live in the runtime package
@@ -40,3 +40,24 @@ class WorkspaceList(BaseModel):
 
     workspaces: List[WorkspaceInfo]
     count: int
+
+
+class ModelInfo(BaseModel):
+    """Information about an available LLM model.
+
+    Model metadata is sourced from `engines.yaml`, which lives in
+    `synthesis_engine.config`. Substrate-level because every runtime that
+    routes LLM calls needs the same shape; runtimes may expose this type
+    on their own API surfaces (e.g., Ragbot's `/api/models` returns
+    a list of these inside a runtime-specific `ModelsResponse`).
+    """
+
+    id: str
+    name: str
+    provider: str
+    context_window: int
+    supports_streaming: bool = True
+    supports_system_role: bool = True
+    display_name: Optional[str] = None
+    supports_thinking: bool = False
+    is_local: bool = False

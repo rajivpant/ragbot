@@ -15,12 +15,11 @@ from ragbot import (
     get_workspace,
     get_workspace_info,
     list_workspace_info,
-    WorkspaceInfo,
-    WorkspaceList,
     WorkspaceNotFoundError,
     IndexStatus,
     IndexRequest,
 )
+from synthesis_engine.models import WorkspaceInfo, WorkspaceList
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 

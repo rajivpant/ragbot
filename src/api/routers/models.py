@@ -17,9 +17,9 @@ from ragbot import (
     get_providers,
     get_temperature_settings,
     check_api_keys,
-    ModelInfo,
     ModelsResponse,
 )
+from synthesis_engine.models import ModelInfo
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 
