@@ -37,54 +37,11 @@ if _REPO_SRC not in sys.path:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="session")
-def _session_tracer():
-    """Initialise the substrate exactly once per pytest session.
-
-    OTEL's global tracer provider is a true singleton — once set it
-    rejects further `set_tracer_provider` calls with a warning, and the
-    SDK provider's span processors are tied to that single instance.
-    For tests we therefore:
-
-      1. Initialise one session-wide TracerProvider with an
-         InMemorySpanExporter via ``init_tracer(exporter=…, force=True)``.
-      2. Reuse that exporter across tests, clearing its captured spans
-         in the per-test ``in_memory_tracer`` fixture so each test
-         observes a clean slate without re-initialising the provider.
-    """
-
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-        InMemorySpanExporter,
-    )
-
-    from synthesis_engine.observability import init_tracer, shutdown_tracer
-
-    exporter = InMemorySpanExporter()
-    provider = init_tracer(
-        service_name="synthesis_engine_test",
-        exporter=exporter,
-        force=True,
-    )
-    assert provider is not None, (
-        "init_tracer returned None — opentelemetry-sdk should be installed."
-    )
-
-    yield exporter
-
-    # Session teardown — flush the provider and shut everything down.
-    shutdown_tracer()
-
-
-@pytest.fixture
-def in_memory_tracer(_session_tracer):
-    """Per-test handle on the shared in-memory exporter.
-
-    Clears any previously captured spans so each test observes only the
-    spans emitted within its own body.
-    """
-
-    _session_tracer.clear()
-    return _session_tracer
+# The session-scoped OTEL initialization and the ``in_memory_tracer``
+# per-test fixture live in tests/conftest.py so every test file in this
+# suite shares ONE TracerProvider + MeterProvider (OTEL's globals refuse
+# to be replaced once set, so multiple per-file fixtures used to deadlock
+# the suite). See the comment in conftest.py for the rationale.
 
 
 # ---------------------------------------------------------------------------

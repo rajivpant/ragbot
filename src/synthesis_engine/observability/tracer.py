@@ -139,6 +139,28 @@ def init_tracer(
         if _INITIALIZED and not force and config_key == _LAST_CONFIG:
             return _TRACER_PROVIDER
 
+        # Re-init path. The previous providers (if any) own the current
+        # Prometheus reader singleton; OTEL refuses to attach the same
+        # reader to a second MeterProvider. Flush + drop the old state
+        # inline (we already hold ``_INIT_LOCK``, so we cannot call
+        # ``shutdown_tracer`` here without deadlocking).
+        if _INITIALIZED:
+            if _TRACER_PROVIDER is not None:
+                try:
+                    _TRACER_PROVIDER.shutdown()
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("Tracer provider shutdown raised: %s", exc)
+            if _METER_PROVIDER is not None:
+                try:
+                    _METER_PROVIDER.shutdown()
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.warning("Meter provider shutdown raised: %s", exc)
+            from .metrics import _reset_metrics
+            _reset_metrics()
+            _TRACER_PROVIDER = None
+            _METER_PROVIDER = None
+            _INITIALIZED = False
+
         # ----- Resource ----------------------------------------------------
         resource = _build_resource(
             service_name=config_key["service_name"],

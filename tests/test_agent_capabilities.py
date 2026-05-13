@@ -366,67 +366,10 @@ def isolated_registry():
     return PermissionRegistry()
 
 
-@pytest.fixture(scope="session")
-def _session_tracer():
-    """Session-scoped in-memory OTEL tracer for this file's tests.
-
-    Both this file and ``test_agent_loop.py`` exercise the agent-loop
-    observability hooks. The OpenTelemetry API refuses to replace the
-    global TracerProvider once it has been set in a process, and the
-    substrate's Prometheus reader can only register once. To stay
-    compatible regardless of test order, we either:
-
-      (a) call init_tracer with a fresh InMemorySpanExporter, when OTEL
-          has not yet been initialised in this session, OR
-      (b) attach a SimpleSpanProcessor that wraps our exporter to the
-          provider that another test module already installed, when
-          OTEL has been initialised. This way our exporter sees every
-          span emitted under our fixture without fighting the global.
-    """
-    pytest.importorskip(
-        "opentelemetry.sdk.trace.export.in_memory_span_exporter"
-    )
-    from opentelemetry import trace as _otel_trace
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-        InMemorySpanExporter,
-    )
-    from synthesis_engine.observability import init_tracer, shutdown_tracer
-    from synthesis_engine.observability.tracer import is_initialized
-
-    exporter = InMemorySpanExporter()
-
-    if is_initialized():
-        # A sibling test module already initialised OTEL. Attach our
-        # exporter to the live provider via a SimpleSpanProcessor so
-        # spans emitted during our tests land in our exporter.
-        provider = _otel_trace.get_tracer_provider()
-        attached = False
-        if hasattr(provider, "add_span_processor"):
-            provider.add_span_processor(SimpleSpanProcessor(exporter))
-            attached = True
-        if not attached:
-            pytest.skip(
-                "Cannot attach a span processor to the live provider."
-            )
-        yield exporter
-        # No tear-down — we did not own the provider.
-        return
-
-    provider = init_tracer(
-        service_name="synthesis_engine_agent_capabilities_test",
-        exporter=exporter,
-        force=True,
-    )
-    assert provider is not None
-    yield exporter
-    shutdown_tracer()
-
-
-@pytest.fixture
-def in_memory_tracer(_session_tracer):
-    _session_tracer.clear()
-    return _session_tracer
+# ``in_memory_tracer`` lives in tests/conftest.py and is shared across the
+# whole suite. The earlier add-span-processor-to-live-provider workaround
+# here is no longer needed — every test file uses the same session fixture
+# so OTEL's globals get set exactly once.
 
 
 # ---------------------------------------------------------------------------

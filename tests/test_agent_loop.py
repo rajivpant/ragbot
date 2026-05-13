@@ -212,36 +212,9 @@ def permissive_registry():
     return reg
 
 
-@pytest.fixture(scope="session")
-def _session_tracer():
-    """Per-session in-memory OTEL tracer, identical to the observability tests.
-
-    Reuses the substrate's init_tracer with an InMemorySpanExporter so the
-    agent-loop tests can assert on emitted spans without standing up an
-    OTLP collector.
-    """
-
-    pytest.importorskip("opentelemetry.sdk.trace.export.in_memory_span_exporter")
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-        InMemorySpanExporter,
-    )
-    from synthesis_engine.observability import init_tracer, shutdown_tracer
-
-    exporter = InMemorySpanExporter()
-    provider = init_tracer(
-        service_name="synthesis_engine_agent_test",
-        exporter=exporter,
-        force=True,
-    )
-    assert provider is not None
-    yield exporter
-    shutdown_tracer()
-
-
-@pytest.fixture
-def in_memory_tracer(_session_tracer):
-    _session_tracer.clear()
-    return _session_tracer
+# ``in_memory_tracer`` lives in tests/conftest.py and is shared across the
+# whole suite. Removing the per-file fixture avoids OTEL global-provider
+# collisions when this file runs alongside test_observability.py.
 
 
 # ---------------------------------------------------------------------------
