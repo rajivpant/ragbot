@@ -76,7 +76,7 @@ from .cache import (
     get_cache_path
 )
 
-from .inheritance import (
+from synthesis_engine.inheritance import (
     load_inheritance_config,
     find_inheritance_config,
     get_inheritance_chain,

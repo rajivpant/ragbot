@@ -28,23 +28,12 @@ import yaml
 
 from .discovery import SCOPE_WORKSPACES, apply_discovery_filter
 from .exceptions import WorkspaceError, WorkspaceNotFoundError
+from .inheritance import (
+    find_inheritance_config,
+    get_inheritance_chain,
+    load_inheritance_config,
+)
 from .models import WorkspaceInfo
-
-# Import inheritance resolver from compiler
-import sys
-_src_path = os.path.join(os.path.dirname(__file__), '..')
-if _src_path not in sys.path:
-    sys.path.insert(0, _src_path)
-
-try:
-    from compiler.inheritance import (
-        load_inheritance_config,
-        find_inheritance_config,
-        get_inheritance_chain,
-    )
-    INHERITANCE_AVAILABLE = True
-except ImportError:
-    INHERITANCE_AVAILABLE = False
 
 
 # Synthesis-console config path (the integration point).
@@ -379,9 +368,6 @@ def _load_centralized_inheritance(ai_knowledge_root: Optional[str] = None) -> Di
     Returns:
         Inheritance configuration dictionary, or empty dict if not found.
     """
-    if not INHERITANCE_AVAILABLE:
-        return {}
-
     index = resolve_repo_index(ai_knowledge_root)
     for workspace_name, repo_path in index.items():
         config_path = find_inheritance_config(repo_path)
@@ -407,7 +393,7 @@ def _get_inheritance_for_workspace(
     Returns:
         List of parent workspace names (not including self)
     """
-    if not inheritance_config or not INHERITANCE_AVAILABLE:
+    if not inheritance_config:
         return []
 
     try:

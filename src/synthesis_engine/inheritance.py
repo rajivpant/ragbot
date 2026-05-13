@@ -1,25 +1,51 @@
-"""
-Inheritance Resolver for AI Knowledge Compiler
+"""Workspace Inheritance.
 
-Reads my-projects.yaml from the operator's personal repo, builds dependency
-graphs, and manages cloning/pulling of parent repositories.
+Substrate-level workspace-bootstrap module. Reads the centralised
+``my-projects.yaml`` from an operator's personal AI Knowledge repo, resolves
+the inheritance graph between workspaces, and manages cloning or pulling of
+the parent repositories that each workspace depends on. This is the substrate
+counterpart that runtimes (Ragbot, Ragenie, the compiler) import to discover
+which repos a workspace inherits from and to ensure those repos are present
+on disk before any further work happens.
 
-Library API:
-- load_inheritance_config(path) -> dict
-- resolve_dependencies(project, config) -> list
-- get_inheritance_chain(project, config) -> list
-- clone_or_pull_repo(repo_url, local_path) -> bool
+Public API:
+    load_inheritance_config(path) -> Dict[str, Any]
+    find_inheritance_config(personal_repo_path) -> Optional[str]
+    get_project_config(project_name, inheritance_config) -> Dict[str, Any]
+    get_inheritance_chain(project_name, inheritance_config, visited=None)
+        -> List[str]
+    resolve_dependencies(project_name, inheritance_config)
+        -> List[Dict[str, Any]]
+    clone_or_pull_repo(repo_url, local_path, quiet=True) -> bool
+    ensure_repos_available(dependencies, base_path, github_user=None)
+        -> Dict[str, Any]
+    get_repo_source_path(repo_path) -> str
+    create_default_inheritance_config(personal_repo_path,
+                                      ai_knowledge_base_path)
+        -> Dict[str, Any]
 """
 
 import os
 import subprocess
-from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
 
-def load_inheritance_config(config_path: str) -> dict:
+__all__ = [
+    "load_inheritance_config",
+    "find_inheritance_config",
+    "get_project_config",
+    "get_inheritance_chain",
+    "resolve_dependencies",
+    "clone_or_pull_repo",
+    "ensure_repos_available",
+    "get_repo_source_path",
+    "create_default_inheritance_config",
+]
+
+
+def load_inheritance_config(config_path: str) -> Dict[str, Any]:
     """
     Load inheritance configuration from my-projects.yaml.
 
@@ -61,7 +87,8 @@ def find_inheritance_config(personal_repo_path: str) -> Optional[str]:
     return None
 
 
-def get_project_config(project_name: str, inheritance_config: dict) -> dict:
+def get_project_config(project_name: str,
+                       inheritance_config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get configuration for a specific project from inheritance config.
 
@@ -76,8 +103,9 @@ def get_project_config(project_name: str, inheritance_config: dict) -> dict:
     return projects.get(project_name, {})
 
 
-def get_inheritance_chain(project_name: str, inheritance_config: dict,
-                          visited: set = None) -> list:
+def get_inheritance_chain(project_name: str,
+                          inheritance_config: Dict[str, Any],
+                          visited: Optional[Set[str]] = None) -> List[str]:
     """
     Build the inheritance chain for a project (parent-first order).
 
@@ -106,7 +134,7 @@ def get_inheritance_chain(project_name: str, inheritance_config: dict,
     if isinstance(inherits_from, str):
         inherits_from = [inherits_from]
 
-    chain = []
+    chain: List[str] = []
 
     # Recursively resolve parent chains
     for parent in inherits_from:
@@ -121,7 +149,8 @@ def get_inheritance_chain(project_name: str, inheritance_config: dict,
     return chain
 
 
-def resolve_dependencies(project_name: str, inheritance_config: dict) -> list:
+def resolve_dependencies(project_name: str,
+                         inheritance_config: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Resolve all repository dependencies for a project.
 
@@ -130,10 +159,11 @@ def resolve_dependencies(project_name: str, inheritance_config: dict) -> list:
         inheritance_config: Loaded inheritance configuration
 
     Returns:
-        List of dicts with 'name', 'repo', 'local_path' for each dependency
+        List of dicts with 'name', 'repo', 'local_path', 'config' for each
+        dependency
     """
     chain = get_inheritance_chain(project_name, inheritance_config)
-    dependencies = []
+    dependencies: List[Dict[str, Any]] = []
 
     for name in chain:
         project_config = get_project_config(name, inheritance_config)
@@ -190,8 +220,9 @@ def clone_or_pull_repo(repo_url: str, local_path: str, quiet: bool = True) -> bo
             return False
 
 
-def ensure_repos_available(dependencies: list, base_path: str,
-                           github_user: str = None) -> dict:
+def ensure_repos_available(dependencies: List[Dict[str, Any]],
+                           base_path: str,
+                           github_user: Optional[str] = None) -> Dict[str, Any]:
     """
     Ensure all dependency repos are available locally.
 
@@ -203,7 +234,7 @@ def ensure_repos_available(dependencies: list, base_path: str,
     Returns:
         Dict with 'success', 'available', 'missing', 'errors'
     """
-    result = {
+    result: Dict[str, Any] = {
         'success': True,
         'available': [],
         'missing': [],
@@ -262,7 +293,7 @@ def get_repo_source_path(repo_path: str) -> str:
 
 
 def create_default_inheritance_config(personal_repo_path: str,
-                                       ai_knowledge_base_path: str) -> dict:
+                                      ai_knowledge_base_path: str) -> Dict[str, Any]:
     """
     Create a default my-projects.yaml configuration by scanning existing repos.
 
@@ -273,7 +304,7 @@ def create_default_inheritance_config(personal_repo_path: str,
     Returns:
         Default configuration dictionary
     """
-    config = {
+    config: Dict[str, Any] = {
         'version': 1,
         'description': 'Inheritance configuration for AI Knowledge compilation',
         'projects': {}
