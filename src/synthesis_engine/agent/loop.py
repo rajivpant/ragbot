@@ -32,10 +32,12 @@ Architectural notes:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from .checkpoints import CheckpointStore, FilesystemCheckpointStore
+from .grading import GradingResult, SelfGrader
 from .permissions import (
     PermissionRegistry,
     PermissionResult,
@@ -43,6 +45,7 @@ from .permissions import (
     get_default_registry,
 )
 from .planner import PlanValidationError, make_plan, replan
+from .sandbox import DisabledSandbox, ExecutionResult, Sandbox
 from .state import (
     ActionType,
     AgentState,
@@ -65,6 +68,12 @@ MAX_STEP_ATTEMPTS: int = 2
 
 # How many REPLAN cycles the loop tolerates before giving up.
 MAX_REPLANS: int = 3
+
+# Default tool name surfaced to the permission registry for the two
+# capability action types. Operators register gates against these names
+# to allow / deny.
+SUBAGENT_DISPATCH_TOOL_NAME: str = "subagent_dispatch"
+SANDBOX_EXEC_TOOL_NAME: str = "sandbox_exec"
 
 
 MemoryRetriever = Callable[[str], Awaitable[List[ContextBlock]]]
@@ -125,6 +134,9 @@ class AgentLoop:
         max_iterations: int = 30,
         planner_model: Optional[str] = None,
         default_mcp_server: Optional[str] = None,
+        sandbox: Optional[Sandbox] = None,
+        dispatcher: Optional[Any] = None,
+        grader: Optional[SelfGrader] = None,
     ) -> None:
         self._llm = llm_backend
         self._mcp = mcp_client
@@ -136,6 +148,20 @@ class AgentLoop:
         self._max_iterations = max_iterations
         self._planner_model = planner_model
         self._default_mcp_server = default_mcp_server
+        # Fail-closed defaults: DisabledSandbox refuses every execute().
+        # Callers opt into real backends by passing E2BSandbox() etc.
+        self._sandbox: Sandbox = sandbox or DisabledSandbox()
+        self._grader: Optional[SelfGrader] = grader
+
+        # Dispatcher needs a back-reference to this loop. We lazy-import
+        # to avoid an import cycle (dispatch.py imports AgentLoop only
+        # under TYPE_CHECKING).
+        if dispatcher is None:
+            from .dispatch import SubAgentDispatcher  # noqa: WPS433
+
+            self._dispatcher = SubAgentDispatcher(parent_loop=self)
+        else:
+            self._dispatcher = dispatcher
 
         (
             self._agent_iteration_span,
@@ -153,16 +179,93 @@ class AgentLoop:
             AgentState.EXECUTE: self._handle_execute,
             AgentState.EVALUATE: self._handle_evaluate,
             AgentState.REPLAN: self._handle_replan,
+            AgentState.GRADE: self._handle_grade,
         }
+
+    # ----- accessors (dispatcher reaches in for these) ----------------------
+
+    @property
+    def checkpoint_store(self) -> CheckpointStore:
+        """Read-only handle to the configured checkpoint store."""
+        return self._checkpoints
+
+    @property
+    def max_iterations(self) -> int:
+        return self._max_iterations
+
+    @property
+    def sandbox(self) -> Sandbox:
+        return self._sandbox
+
+    @property
+    def grader(self) -> Optional[SelfGrader]:
+        return self._grader
+
+    def subagent_span(
+        self,
+        *,
+        parent_task_id: str,
+        child_index: int,
+    ):
+        """Context manager wrapping one sub-agent run.
+
+        The trace shows the fan-out as nested ``agent.iteration`` spans
+        under the parent's current iteration span. Tests can match on
+        the ``parent_task_id`` attribute to count children.
+        """
+        return self._agent_iteration_span(
+            iteration=child_index,
+            session_id=f"{parent_task_id}/sub/{child_index}",
+            extra={
+                "synthesis.agent.parent_task_id": parent_task_id,
+                "synthesis.agent.child_index": int(child_index),
+                "synthesis.agent.role": "subagent",
+            },
+        )
 
     # ----- public API -------------------------------------------------------
 
-    async def run(self, task: str) -> GraphState:
-        """Drive a fresh task from INIT to DONE or ERROR."""
+    async def run(
+        self,
+        task: str,
+        *,
+        rubric: Optional[str] = None,
+    ) -> GraphState:
+        """Drive a fresh task from INIT to a terminal state.
+
+        Args:
+            task: The user-facing task description.
+            rubric: Optional rubric for the self-grading loop. When
+                supplied the loop transitions ``DONE -> GRADE`` instead
+                of treating DONE as terminal; the grader scores the
+                answer, and the loop either transitions to
+                ``DONE_GRADED`` (passed) or back to ``REPLAN`` with the
+                grader's suggested revisions in the failure context.
+                Requires that a :class:`SelfGrader` was passed at
+                construction.
+        """
 
         state = GraphState.new(task, max_iterations=self._max_iterations)
         state.add_turn(state.current_state, "Initial state.")
+        if rubric is not None:
+            if self._grader is None:
+                raise ValueError(
+                    "AgentLoop was given a rubric but no SelfGrader was "
+                    "wired. Pass grader=SelfGrader(...) to the loop."
+                )
+            state.metadata["rubric"] = rubric
+            state.metadata["pending_grade"] = True
+            state.metadata["grading_rounds"] = 0
         await self._checkpoints.save(state)
+        return await self._drive(state)
+
+    async def drive_to_terminal(self, state: GraphState) -> GraphState:
+        """Drive a pre-built state to a terminal state.
+
+        Public entry that the sub-agent dispatcher uses: it builds the
+        child's initial :class:`GraphState` itself (so it can mint a
+        parent-linked task_id) and then asks the loop to drive it.
+        """
         return await self._drive(state)
 
     async def step(self, state: GraphState) -> GraphState:
@@ -402,6 +505,17 @@ class AgentLoop:
             if succeeded:
                 final = succeeded[-1].output
         state.final_answer = _coerce_str(final)
+
+        # If a rubric is pending, hand off to the grader before declaring
+        # DONE terminal. Otherwise DONE is the final state.
+        if state.metadata.get("pending_grade") and self._grader is not None:
+            state.current_state = AgentState.GRADE
+            state.add_turn(
+                state.current_state,
+                "EVALUATE: all steps complete; transitioning to GRADE.",
+            )
+            return state
+
         state.current_state = AgentState.DONE
         state.add_turn(state.current_state, "EVALUATE: all steps complete.")
         return state
@@ -432,6 +546,99 @@ class AgentLoop:
         )
         return state
 
+    async def _handle_grade(self, state: GraphState) -> GraphState:
+        """GRADE -> DONE_GRADED | REPLAN.
+
+        Scores the loop's final answer against the rubric the caller
+        supplied. A passing score transitions to DONE_GRADED. A failing
+        score with revision budget remaining transitions to REPLAN with
+        the grader's suggested revisions wired into the failure context;
+        no remaining budget transitions to DONE_GRADED with
+        ``passed=False`` recorded so the caller sees the verdict.
+        """
+
+        if self._grader is None:
+            # Defensive: if we got here without a grader, the rubric
+            # was wired without a grader (the run() guard should have
+            # caught this, but we double-check).
+            state.metadata["pending_grade"] = False
+            state.current_state = AgentState.DONE_GRADED
+            state.metadata["grading"] = {
+                "score": 0.0,
+                "passed": False,
+                "error": "GRADE state entered without a SelfGrader wired.",
+            }
+            state.add_turn(state.current_state, "GRADE: no grader wired.")
+            return state
+
+        rubric = str(state.metadata.get("rubric") or "")
+        result = await self._grader.grade(state, rubric)
+
+        history = state.metadata.setdefault("grading_history", [])
+        history.append(result.to_dict())
+        state.metadata["grading"] = result.to_dict()
+
+        rounds_so_far = int(state.metadata.get("grading_rounds", 0))
+        budget = self._grader.max_revision_rounds
+
+        if result.passed:
+            state.metadata["pending_grade"] = False
+            state.current_state = AgentState.DONE_GRADED
+            state.add_turn(
+                state.current_state,
+                f"GRADE: passed (score={result.score:.2f}).",
+            )
+            return state
+
+        if rounds_so_far >= budget:
+            # Budget exhausted — accept the current answer with a
+            # passed=False annotation. The caller sees the score and
+            # rationale in state.metadata['grading'].
+            state.metadata["pending_grade"] = False
+            state.current_state = AgentState.DONE_GRADED
+            state.add_turn(
+                state.current_state,
+                (
+                    f"GRADE: score={result.score:.2f} below threshold; "
+                    f"revision budget ({budget}) exhausted."
+                ),
+            )
+            return state
+
+        # Inject the grader's suggested revisions as a synthetic failed
+        # step so the standard REPLAN path picks them up via
+        # _summarise_failures.
+        state.metadata["grading_rounds"] = rounds_so_far + 1
+        feedback_step = PlanStep(
+            step_id=f"grade-feedback-{rounds_so_far + 1}",
+            action_type=ActionType.LLM_CALL,
+            target="grader",
+            inputs={"rubric": rubric},
+            status=StepStatus.FAILED,
+            error=(
+                f"Grader returned score={result.score:.2f} (threshold "
+                f"{self._grader.threshold}). Suggested revisions: "
+                + "; ".join(result.suggested_revisions or [])
+                + (f". Rationale: {result.rationale}" if result.rationale else "")
+            ),
+            description="Synthetic step capturing grader feedback for replan.",
+        )
+        # Reset prior plan to SKIPPED so the loop replans cleanly.
+        for step in state.plan:
+            if step.status in (StepStatus.PENDING, StepStatus.RUNNING):
+                step.status = StepStatus.SKIPPED
+        state.plan = list(state.plan) + [feedback_step]
+        state.current_state = AgentState.REPLAN
+        state.add_turn(
+            state.current_state,
+            (
+                f"GRADE: score={result.score:.2f} below threshold; "
+                f"transitioning to REPLAN (round "
+                f"{rounds_so_far + 1}/{budget})."
+            ),
+        )
+        return state
+
     # ----- dispatch ---------------------------------------------------------
 
     async def _dispatch_step(
@@ -448,9 +655,165 @@ class AgentLoop:
             return await self._dispatch_llm_call(state, step, inputs)
         if step.action_type == ActionType.MEMORY_QUERY:
             return await self._dispatch_memory_query(state, step, inputs)
+        if step.action_type == ActionType.SUBAGENT_DISPATCH:
+            return await self._dispatch_subagent(state, step, inputs)
+        if step.action_type == ActionType.SANDBOX_EXEC:
+            return await self._dispatch_sandbox_exec(state, step, inputs)
         raise ValueError(
             f"Unknown ActionType {step.action_type!r} for step {step.step_id}"
         )
+
+    async def _dispatch_subagent(
+        self,
+        state: GraphState,
+        step: PlanStep,
+        inputs: Dict[str, Any],
+    ) -> Any:
+        """Run N child loops in parallel and aggregate their outputs.
+
+        The plan step must carry ``inputs.subtasks`` (a list of strings)
+        and may carry ``inputs.max_parallel`` (int, default 4). Each
+        child's final answer lands in the aggregated output as
+        ``{"subtasks": [...], "results": [...]}``. Failures route
+        through the standard step-retry / replan path.
+        """
+
+        from .dispatch import SubAgentFailure  # noqa: WPS433
+
+        # Permission gate first — fail-closed.
+        verdict: PermissionResult = self._permissions.check(
+            SUBAGENT_DISPATCH_TOOL_NAME,
+            arguments=inputs,
+            context=ToolCallContext(
+                tool_name=SUBAGENT_DISPATCH_TOOL_NAME,
+                arguments=inputs,
+                server_id="agent",
+                task_id=state.task_id,
+                metadata={"step_id": step.step_id},
+            ),
+        )
+        if not verdict.allowed:
+            raise PermissionError(verdict.reason)
+
+        subtasks_raw = inputs.get("subtasks") or []
+        if not isinstance(subtasks_raw, list) or not subtasks_raw:
+            raise ValueError(
+                f"SUBAGENT_DISPATCH step {step.step_id} requires a "
+                "non-empty 'subtasks' list in inputs."
+            )
+        subtasks = [str(t) for t in subtasks_raw]
+        max_parallel = int(inputs.get("max_parallel", 4) or 4)
+
+        try:
+            child_states = await self._dispatcher.dispatch(
+                state, subtasks, max_parallel=max_parallel
+            )
+        except SubAgentFailure as exc:
+            # Re-raise with a flat message; the loop's step-retry path
+            # catches Exception and records it on the step.
+            raise RuntimeError(str(exc)) from exc
+
+        return {
+            "subtasks": subtasks,
+            "results": [
+                {
+                    "task_id": cs.task_id,
+                    "subtask": cs.original_task,
+                    "current_state": cs.current_state.value,
+                    "final_answer": cs.final_answer,
+                    "error_message": cs.error_message,
+                }
+                for cs in child_states
+            ],
+        }
+
+    async def _dispatch_sandbox_exec(
+        self,
+        state: GraphState,
+        step: PlanStep,
+        inputs: Dict[str, Any],
+    ) -> Any:
+        """Run untrusted code inside the configured :class:`Sandbox`.
+
+        Routes through the permission registry first (fail-closed),
+        then calls ``self._sandbox.execute()``. The result lands in the
+        plan step's output and is captured in a tool_span tagged with
+        the sandbox provider and language.
+
+        A non-zero exit code raises so the standard step-retry path
+        records the failure. The exception message includes the
+        sandbox's stderr so the replanner sees what went wrong.
+        """
+
+        # Permission gate first — fail-closed.
+        verdict: PermissionResult = self._permissions.check(
+            SANDBOX_EXEC_TOOL_NAME,
+            arguments=inputs,
+            context=ToolCallContext(
+                tool_name=SANDBOX_EXEC_TOOL_NAME,
+                arguments=inputs,
+                server_id="agent",
+                task_id=state.task_id,
+                metadata={"step_id": step.step_id},
+            ),
+        )
+        if not verdict.allowed:
+            raise PermissionError(verdict.reason)
+
+        code = str(inputs.get("code") or "")
+        if not code:
+            raise ValueError(
+                f"SANDBOX_EXEC step {step.step_id} requires non-empty 'code'."
+            )
+        language = str(step.target or inputs.get("language") or "python")
+        timeout_seconds = int(inputs.get("timeout_seconds", 30) or 30)
+        raw_files = inputs.get("files") or {}
+        files: Dict[str, bytes] = {}
+        for path, data in raw_files.items():
+            if isinstance(data, (bytes, bytearray)):
+                files[str(path)] = bytes(data)
+            elif isinstance(data, str):
+                # Treat plain strings as utf-8 file bodies — convenient
+                # for tests and for the LLM's likely output shape.
+                files[str(path)] = data.encode("utf-8")
+            else:
+                raise ValueError(
+                    f"SANDBOX_EXEC files[{path!r}] must be bytes or str, "
+                    f"got {type(data).__name__}."
+                )
+
+        with self._tool_span(
+            tool_name=SANDBOX_EXEC_TOOL_NAME,
+            tool_type="sandbox",
+            extra={
+                "synthesis.sandbox.provider": self._sandbox.provider,
+                "synthesis.sandbox.language": language,
+            },
+        ) as span:
+            result: ExecutionResult = await self._sandbox.execute(
+                code,
+                language=language,
+                timeout_seconds=timeout_seconds,
+                files=files,
+            )
+            try:
+                if span is not None:
+                    span.set_attribute(
+                        "synthesis.sandbox.exit_code", int(result.exit_code)
+                    )
+                    span.set_attribute(
+                        "synthesis.sandbox.duration_seconds",
+                        float(result.duration_seconds),
+                    )
+            except Exception:  # pragma: no cover - defensive
+                pass
+
+        if not result.success:
+            raise RuntimeError(
+                f"Sandbox ({result.provider}) exec failed with "
+                f"exit_code={result.exit_code}: {result.stderr or 'no stderr'}"
+            )
+        return result.to_dict()
 
     async def _dispatch_tool_call(
         self,
@@ -718,4 +1081,6 @@ __all__ = [
     "MAX_REPLANS",
     "MAX_STEP_ATTEMPTS",
     "MemoryRetriever",
+    "SANDBOX_EXEC_TOOL_NAME",
+    "SUBAGENT_DISPATCH_TOOL_NAME",
 ]

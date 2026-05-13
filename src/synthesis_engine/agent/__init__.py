@@ -38,7 +38,13 @@ cleanly with the async MCP client.
 from __future__ import annotations
 
 from .checkpoints import FilesystemCheckpointStore
-from .loop import AgentLoop
+from .dispatch import SubAgentDispatcher, SubAgentFailure
+from .grading import DEFAULT_PASS_THRESHOLD, GradingResult, SelfGrader
+from .loop import (
+    AgentLoop,
+    SANDBOX_EXEC_TOOL_NAME,
+    SUBAGENT_DISPATCH_TOOL_NAME,
+)
 from .permissions import (
     PermissionGate,
     PermissionRegistry,
@@ -49,6 +55,13 @@ from .permissions import (
     register_permission,
 )
 from .planner import PlanValidationError, make_plan, replan
+from .sandbox import (
+    DaytonaSandbox,
+    DisabledSandbox,
+    E2BSandbox,
+    ExecutionResult,
+    Sandbox,
+)
 from .state import (
     ActionType,
     AgentState,
@@ -70,6 +83,8 @@ __all__ = [
     "TurnRecord",
     # Loop
     "AgentLoop",
+    "SANDBOX_EXEC_TOOL_NAME",
+    "SUBAGENT_DISPATCH_TOOL_NAME",
     # Permissions
     "PermissionGate",
     "PermissionRegistry",
@@ -84,4 +99,17 @@ __all__ = [
     "replan",
     # Checkpoints
     "FilesystemCheckpointStore",
+    # Sandbox
+    "DaytonaSandbox",
+    "DisabledSandbox",
+    "E2BSandbox",
+    "ExecutionResult",
+    "Sandbox",
+    # Dispatch
+    "SubAgentDispatcher",
+    "SubAgentFailure",
+    # Grading
+    "DEFAULT_PASS_THRESHOLD",
+    "GradingResult",
+    "SelfGrader",
 ]

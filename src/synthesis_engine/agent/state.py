@@ -40,14 +40,19 @@ class AgentState(str, enum.Enum):
 
     Ordering matters for human readability of trace timelines:
 
-        INIT      — initial state; loop has not run any transition yet.
-        PLAN      — produce or refresh the plan via an LLM call.
-        EXECUTE   — run the next pending step in the plan.
-        EVALUATE  — inspect the step result; decide DONE / EXECUTE / REPLAN.
-        REPLAN    — a step failed (or evaluation said the plan is wrong);
-                    produce a new plan that incorporates the failure.
-        DONE      — terminal: every step succeeded.
-        ERROR     — terminal: an unrecoverable error stopped the loop.
+        INIT        — initial state; loop has not run any transition yet.
+        PLAN        — produce or refresh the plan via an LLM call.
+        EXECUTE     — run the next pending step in the plan.
+        EVALUATE    — inspect the step result; decide DONE / EXECUTE / REPLAN.
+        REPLAN      — a step failed (or evaluation said the plan is wrong);
+                      produce a new plan that incorporates the failure.
+        DONE        — every step succeeded. Terminal unless a rubric was
+                      supplied — in that case the loop transitions to GRADE.
+        GRADE       — score the final answer against a rubric via an LLM
+                      call; route to DONE_GRADED or REPLAN with revisions.
+        DONE_GRADED — terminal: the grader produced a final verdict
+                      (passed or not — the verdict lives in metadata).
+        ERROR       — terminal: an unrecoverable error stopped the loop.
     """
 
     INIT = "INIT"
@@ -56,26 +61,42 @@ class AgentState(str, enum.Enum):
     EVALUATE = "EVALUATE"
     REPLAN = "REPLAN"
     DONE = "DONE"
+    GRADE = "GRADE"
+    DONE_GRADED = "DONE_GRADED"
     ERROR = "ERROR"
 
 
 class ActionType(str, enum.Enum):
     """The kinds of actions a plan step can dispatch.
 
-    TOOL_CALL    — call an MCP tool. ``target`` is the tool name
-                   (optionally ``server_id::tool_name`` to disambiguate);
-                   ``inputs`` is the tool's argument dict.
-    LLM_CALL     — call the LLM backend. ``target`` is a model id;
-                   ``inputs`` carries ``messages`` and optional generation
-                   parameters.
-    MEMORY_QUERY — call the memory retriever. ``target`` is a tier hint
-                   (or empty); ``inputs`` carries the query text and
-                   workspace.
+    TOOL_CALL          — call an MCP tool. ``target`` is the tool name
+                         (optionally ``server_id::tool_name`` to disambiguate);
+                         ``inputs`` is the tool's argument dict.
+    LLM_CALL           — call the LLM backend. ``target`` is a model id;
+                         ``inputs`` carries ``messages`` and optional
+                         generation parameters.
+    MEMORY_QUERY       — call the memory retriever. ``target`` is a tier
+                         hint (or empty); ``inputs`` carries the query
+                         text and workspace.
+    SUBAGENT_DISPATCH  — dispatch one or more child agent loops in
+                         parallel. ``target`` is informational (e.g.,
+                         "parallel-research"); ``inputs.subtasks`` is a
+                         list of natural-language sub-task strings;
+                         ``inputs.max_parallel`` caps concurrency.
+    SANDBOX_EXEC       — run untrusted code inside the configured
+                         sandbox. ``target`` is the language id
+                         (``"python"`` by default); ``inputs.code`` is
+                         the source; ``inputs.files`` is an optional
+                         {path: base64} mapping uploaded before
+                         execution; ``inputs.timeout_seconds`` overrides
+                         the default 30-second wall clock.
     """
 
     TOOL_CALL = "TOOL_CALL"
     LLM_CALL = "LLM_CALL"
     MEMORY_QUERY = "MEMORY_QUERY"
+    SUBAGENT_DISPATCH = "SUBAGENT_DISPATCH"
+    SANDBOX_EXEC = "SANDBOX_EXEC"
 
 
 class StepStatus(str, enum.Enum):
@@ -311,8 +332,22 @@ class GraphState:
         return any(step.status == StepStatus.FAILED for step in self.plan)
 
     def is_terminal(self) -> bool:
-        """True iff the current state is DONE or ERROR."""
-        return self.current_state in (AgentState.DONE, AgentState.ERROR)
+        """True iff the current state is a terminal one.
+
+        ``DONE`` is terminal only when no rubric is wired; with a rubric
+        the loop transitions ``DONE -> GRADE -> DONE_GRADED`` (or back to
+        REPLAN if the grader rejects the answer). The driver checks
+        ``metadata["pending_grade"]`` to decide.
+        """
+        if self.current_state in (
+            AgentState.ERROR,
+            AgentState.DONE_GRADED,
+        ):
+            return True
+        if self.current_state == AgentState.DONE:
+            # DONE is terminal unless a rubric is pending evaluation.
+            return not bool(self.metadata.get("pending_grade"))
+        return False
 
 
 # ---------------------------------------------------------------------------
