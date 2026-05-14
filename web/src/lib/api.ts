@@ -768,3 +768,48 @@ export async function getAuditRecent(
   }
   return res.json();
 }
+
+// ----- Agent task control (Phase 4) -----
+//
+// The keyboard shortcuts ⌘B (background) and ⌘. (cancel) target an in-flight
+// agent task by id. The server-side router exposes idempotent endpoints; on
+// 404 the helpers throw with a clear message so the UI can surface a
+// "no active agent run" toast.
+
+export interface TaskControlResponse {
+  task_id: string;
+  status: string;
+}
+
+/**
+ * Background the named agent task. The server detaches the task from any
+ * SSE/streaming subscriber but continues running it. Idempotent: backgrounding
+ * an already-backgrounded task is a no-op.
+ */
+export async function backgroundAgentTask(taskId: string): Promise<TaskControlResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/agent/sessions/${encodeURIComponent(taskId)}/background`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to background task: ${detail}`);
+  }
+  return res.json();
+}
+
+/**
+ * Cancel the named agent task. Server moves the task to a cancelled terminal
+ * state and stops further tool/model calls. Idempotent.
+ */
+export async function cancelAgentTask(taskId: string): Promise<TaskControlResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/agent/sessions/${encodeURIComponent(taskId)}/cancel`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    const detail = await safeErrorDetail(res);
+    throw new Error(`Failed to cancel task: ${detail}`);
+  }
+  return res.json();
+}

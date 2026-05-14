@@ -34,6 +34,8 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
+        aria-label="Message composer"
+        data-shortcut-target="composer"
         className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600
                    bg-white dark:bg-gray-800 px-4 py-2
                    focus:outline-none focus:ring-2 focus:ring-accent

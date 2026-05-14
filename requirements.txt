@@ -45,6 +45,11 @@ pydantic>=2.13.0
 # OAuth, Tasks). Track 1.27+, which carries the Tasks experimental client.
 mcp>=1.27.0
 
+# --- Background-task scheduling ------------------------------------------
+# Powers synthesis_engine.tasks.scheduler — the cron-style loop that drives
+# scheduled task firings (memory consolidation, periodic skill runs, etc.).
+apscheduler>=3.11.0
+
 # --- Observability --------------------------------------------------------
 # OpenTelemetry GenAI semantic conventions drive synthesis_engine.observability.
 # The exporter extras are optional at runtime (the substrate degrades to

@@ -1,10 +1,20 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { Message, chatStream, getConfig, recordRecentModel, type ThinkingEffort } from '@/lib/api';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  Message,
+  chatStream,
+  getConfig,
+  recordRecentModel,
+  backgroundAgentTask,
+  cancelAgentTask,
+  type ThinkingEffort,
+} from '@/lib/api';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { SettingsPanel } from './SettingsPanel';
+import { ShortcutsHelpOverlay } from './ShortcutsHelpOverlay';
+import { keyboardShortcuts } from '@/lib/shortcuts';
 
 // Simple token counter (approx 4 chars per token)
 function estimateTokens(text: string): number {
@@ -33,6 +43,59 @@ export function Chat() {
   // SettingsPanel watches this to open the ModelPicker imperatively.
   const [openModelPickerSignal, setOpenModelPickerSignal] = useState<number>(0);
 
+  // ⌘? help overlay open state.
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState<boolean>(false);
+
+  // ⌘/ message-history search filter. The search input lives in the messages
+  // pane; when present, only messages whose content matches (case-insensitive
+  // substring) are shown.
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showSearch, setShowSearch] = useState<boolean>(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Toast surface for ⌘B / ⌘. when there's no active agent run, and for
+  // generic transient feedback ("background requested", "cancelled", etc.).
+  const [toast, setToast] = useState<{ message: string; tone: 'info' | 'error' } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const showToast = useCallback((message: string, tone: 'info' | 'error' = 'info') => {
+    setToast({ message, tone });
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // Tracks the agent task id of the in-flight operation, if any. The chat
+  // stream currently doesn't expose a task id, but skill runs and future
+  // agent dispatches do; this hook is wired into both control shortcuts so
+  // ⌘B and ⌘. work the moment any subsystem populates the id.
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const currentTaskIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentTaskIdRef.current = currentTaskId;
+  }, [currentTaskId]);
+
+  // Workspace switcher trigger. Incrementing this scrolls the SettingsPanel
+  // into view and moves focus to the workspace <select>.
+  const [openWorkspaceSwitcherSignal, setOpenWorkspaceSwitcherSignal] = useState<number>(0);
+  useEffect(() => {
+    if (openWorkspaceSwitcherSignal === 0) return;
+    // Use a tiny delay so the SettingsPanel is rendered (it auto-opens
+    // below). Target by an accessible label since the panel isn't a child
+    // ref; this stays decoupled from the panel's internal structure.
+    const id = window.setTimeout(() => {
+      const wsSelect = document.querySelector<HTMLSelectElement>(
+        'select[aria-label="Workspace"], select[data-shortcut-target="workspace"]',
+      );
+      if (wsSelect) {
+        wsSelect.focus();
+        wsSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        // Fallback: open Settings if collapsed and refocus on next tick.
+        setShowSettings(true);
+      }
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [openWorkspaceSwitcherSignal]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Poll /api/config once on mount for demo_mode (and any future
@@ -45,26 +108,163 @@ export function Chat() {
       });
   }, []);
 
-  // ⌘K / Ctrl+K opens the ModelPicker imperatively, except when the user
-  // is typing into a text field (let the browser/component handle it there).
-  useEffect(() => {
-    const isTextTarget = (el: EventTarget | null) => {
-      if (!(el instanceof HTMLElement)) return false;
-      const tag = el.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
-      if (el.isContentEditable) return true;
-      return false;
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      const isShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
-      if (!isShortcut) return;
-      if (isTextTarget(e.target)) return;
+  // Action handlers for shortcuts. Stable identities via useCallback so the
+  // registration effect doesn't churn on every render.
+  const openModelPicker = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    setOpenModelPickerSignal((n) => n + 1);
+    setShowSettings(true);
+  }, []);
+
+  const openWorkspaceSwitcher = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    setShowSettings(true);
+    setOpenWorkspaceSwitcherSignal((n) => n + 1);
+  }, []);
+
+  const focusMessageSearch = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    setShowSearch(true);
+    // Wait one tick so the input is in the DOM before focusing.
+    window.setTimeout(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    }, 0);
+  }, []);
+
+  const startNewChat = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    setMessages([]);
+    setSearchQuery('');
+    setShowSearch(false);
+    // Focus the composer textarea so the user can type immediately.
+    window.setTimeout(() => {
+      const composer = document.querySelector<HTMLTextAreaElement>(
+        'textarea[data-shortcut-target="composer"], textarea',
+      );
+      composer?.focus();
+    }, 0);
+  }, []);
+
+  const backgroundCurrent = useCallback(
+    (e: KeyboardEvent) => {
       e.preventDefault();
-      setOpenModelPickerSignal((n) => n + 1);
+      const taskId = currentTaskIdRef.current;
+      if (!taskId) {
+        showToast('No active agent run to background.', 'info');
+        return;
+      }
+      backgroundAgentTask(taskId)
+        .then(() => showToast(`Backgrounded task ${taskId.slice(0, 8)}.`, 'info'))
+        .catch((err: Error) =>
+          showToast(`Background failed: ${err.message}`, 'error'),
+        );
+    },
+    [showToast],
+  );
+
+  const cancelCurrent = useCallback(
+    (e: KeyboardEvent) => {
+      e.preventDefault();
+      const taskId = currentTaskIdRef.current;
+      if (!taskId) {
+        showToast('No active agent run to cancel.', 'info');
+        return;
+      }
+      cancelAgentTask(taskId)
+        .then(() => {
+          showToast(`Cancelled task ${taskId.slice(0, 8)}.`, 'info');
+          setCurrentTaskId(null);
+        })
+        .catch((err: Error) =>
+          showToast(`Cancel failed: ${err.message}`, 'error'),
+        );
+    },
+    [showToast],
+  );
+
+  const toggleHelp = useCallback((e: KeyboardEvent) => {
+    e.preventDefault();
+    setShowShortcutsHelp((v) => !v);
+  }, []);
+
+  // Register every shortcut + bind one window-level keydown listener that
+  // delegates to the registry. Registry membership is stable across renders;
+  // we re-register handlers when their closures change so the registry
+  // always invokes the latest version.
+  useEffect(() => {
+    keyboardShortcuts.register({
+      id: 'open-model-picker',
+      keys: { mac: ['Meta', 'k'], other: ['Control', 'k'] },
+      description: 'Open model picker',
+      scope: 'global',
+      handler: openModelPicker,
+    });
+    keyboardShortcuts.register({
+      id: 'switch-workspace',
+      keys: { mac: ['Meta', 'j'], other: ['Control', 'j'] },
+      description: 'Switch workspace',
+      scope: 'global',
+      handler: openWorkspaceSwitcher,
+    });
+    keyboardShortcuts.register({
+      id: 'search-messages',
+      keys: { mac: ['Meta', '/'], other: ['Control', '/'] },
+      description: 'Search message history',
+      scope: 'global',
+      handler: focusMessageSearch,
+    });
+    keyboardShortcuts.register({
+      id: 'new-chat',
+      keys: { mac: ['Meta', 'n'], other: ['Control', 'n'] },
+      description: 'Start new chat',
+      scope: 'global',
+      handler: startNewChat,
+    });
+    keyboardShortcuts.register({
+      id: 'background-operation',
+      keys: { mac: ['Meta', 'b'], other: ['Control', 'b'] },
+      description: 'Background current agent operation',
+      scope: 'global',
+      handler: backgroundCurrent,
+    });
+    keyboardShortcuts.register({
+      id: 'cancel-operation',
+      keys: { mac: ['Meta', '.'], other: ['Control', '.'] },
+      description: 'Cancel current agent operation',
+      scope: 'global',
+      handler: cancelCurrent,
+    });
+    keyboardShortcuts.register({
+      // ⌘? — on most platforms '?' is Shift+/, so we require Shift in the
+      // spec to be precise.
+      id: 'show-shortcuts-help',
+      keys: { mac: ['Meta', 'Shift', '?'], other: ['Control', 'Shift', '?'] },
+      description: 'Show keyboard shortcuts help',
+      scope: 'global',
+      handler: toggleHelp,
+    });
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      keyboardShortcuts.dispatch(e);
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      // Leave registrations in place so the help overlay (which may be
+      // rendered by a parent in the future) still sees them. Components
+      // that unmount truly should unregister; Chat lives for the app
+      // lifetime so this is a noop in practice.
+    };
+  }, [
+    openModelPicker,
+    openWorkspaceSwitcher,
+    focusMessageSearch,
+    startNewChat,
+    backgroundCurrent,
+    cancelCurrent,
+    toggleHelp,
+  ]);
 
   // Calculate conversation stats
   const conversationStats = useMemo(() => {
@@ -160,6 +360,22 @@ export function Chat() {
     setMessages([]);
   };
 
+  // Filtered message list driven by the ⌘/ search input. When the search is
+  // closed or the query is empty, we render every message (preserving stream
+  // position). Otherwise we keep the indices stable by remembering the
+  // original index alongside the message so each ChatMessage keeps a unique
+  // key and the streaming placeholder logic below still works on the full
+  // history.
+  const filteredMessages = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!showSearch || q.length === 0) {
+      return messages.map((m, i) => ({ message: m, originalIndex: i }));
+    }
+    return messages
+      .map((m, i) => ({ message: m, originalIndex: i }))
+      .filter(({ message }) => message.content.toLowerCase().includes(q));
+  }, [messages, searchQuery, showSearch]);
+
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
       {/* Header */}
@@ -230,6 +446,43 @@ export function Chat() {
         />
       )}
 
+      {/* Message-history search (⌘/). Hidden by default; toggled by shortcut. */}
+      {showSearch && (
+        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <div className="max-w-3xl mx-auto flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">🔍</span>
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setShowSearch(false);
+                  setSearchQuery('');
+                }
+              }}
+              placeholder="Search message history..."
+              aria-label="Search message history"
+              data-shortcut-target="message-search"
+              className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setShowSearch(false);
+                setSearchQuery('');
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2 py-1"
+              aria-label="Close search"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-3xl mx-auto">
@@ -246,12 +499,16 @@ export function Chat() {
                 </p>
               )}
             </div>
+          ) : filteredMessages.length === 0 ? (
+            <div className="text-center text-gray-500 dark:text-gray-400 mt-20 text-sm">
+              No messages match <span className="font-mono">&ldquo;{searchQuery}&rdquo;</span>.
+            </div>
           ) : (
-            messages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
+            filteredMessages.map(({ message, originalIndex }) => (
+              <ChatMessage key={originalIndex} message={message} />
             ))
           )}
-          {isStreaming && messages[messages.length - 1]?.content === '' && (
+          {isStreaming && messages[messages.length - 1]?.content === '' && !showSearch && (
             <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mt-4">
               <div className="flex gap-1">
                 <span className="animate-bounce delay-0">●</span>
@@ -305,6 +562,27 @@ export function Chat() {
           {' · MIT License'}
         </div>
       </footer>
+
+      {/* Transient toast for shortcut feedback (⌘B / ⌘. / etc.). */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg shadow-lg text-sm ${
+            toast.tone === 'error'
+              ? 'bg-red-600 text-white'
+              : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
+      {/* ⌘? help overlay. */}
+      <ShortcutsHelpOverlay
+        open={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
+      />
     </div>
   );
 }
