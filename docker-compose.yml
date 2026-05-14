@@ -44,6 +44,16 @@ services:
       # Windows) and recent Docker Engine on Linux. Override if Ollama runs
       # elsewhere (e.g., a LAN-shared inference server).
       OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      # Demo mode: when set to 1, discovery hard-isolates to the bundled
+      # demo/ workspace and the demo skill pack so screenshots, docs, and
+      # cold-start evaluations all run against the same content. Default
+      # is unset (production behaviour). Passed through from the host
+      # env (`RAGBOT_DEMO=1 docker compose up -d`).
+      RAGBOT_DEMO: ${RAGBOT_DEMO:-}
+      # Opt-in scheduler (Phase 4 + 5). When set to 1, the lifespan
+      # handler starts the synthesis_engine.tasks.SchedulerLoop so
+      # cron-style routines (memory.consolidate_recent_idle, etc.) fire.
+      RAGBOT_SCHEDULER: ${RAGBOT_SCHEDULER:-}
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions

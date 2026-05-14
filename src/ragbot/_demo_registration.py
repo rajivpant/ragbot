@@ -56,15 +56,32 @@ def _workspaces_filter() -> Optional[Dict[str, str]]:
 
 
 def _skill_roots_filter() -> Optional[List[str]]:
-    """Return only the bundled demo skills root when demo mode is active.
+    """Return the bundled-skill roots when demo mode is active.
 
     Returning ``None`` signals "no override; let the substrate scan the
     normal skill-root chain."
+
+    Demo mode isolates USER-installed skills (workspace-scoped collections,
+    operator's private skill repo, plugin-installed skills) from the
+    evaluator's view so the demo shows a known-clean state. The bundled
+    starter pack — the universal-scope skills that ship with the substrate
+    out of the box — is INCLUDED in demo mode because it is part of "what
+    Ragbot v3.4 ships with," not part of the operator's content. Pairing
+    the starter pack with the demo's own ``demo/skills/`` directory gives
+    evaluators a realistic view of the skill surface a new user sees.
     """
     if not is_demo_mode():
         return None
+    # Lazy import keeps the demo-registration module's import surface
+    # narrow (ragbot/_demo_registration → synthesis_engine.skills imports
+    # would otherwise cycle through ragbot's __init__).
+    from synthesis_engine.skills.starter_pack import starter_pack_root
+
+    roots: List[str] = [starter_pack_root()]
     path = demo_skills_path()
-    return [str(path)] if path is not None else []
+    if path is not None:
+        roots.append(str(path))
+    return roots
 
 
 set_discovery_filter(SCOPE_WORKSPACES, _workspaces_filter)

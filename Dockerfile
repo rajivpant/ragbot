@@ -26,7 +26,11 @@ COPY --from=dependencies /usr/local/bin /usr/local/bin
 
 COPY src/ ./src/
 COPY engines.yaml .
+COPY VERSION .
 COPY ragbot ragbot_api ./
+# Bundled demo workspace + demo skill pack used by RAGBOT_DEMO=1.
+# Discovery short-circuits to this content when demo mode is active.
+COPY demo/ ./demo/
 
 RUN chmod +x ragbot ragbot_api
 
