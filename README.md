@@ -487,9 +487,15 @@ inherits_from:
 Supported AI Models
 -------------------
 
-Ragbot supports models from Anthropic (Claude), OpenAI (GPT and reasoning models), Google (Gemini), and local models via Ollama (Gemma 4 family ships out of the box). The authoritative list — model IDs, context windows, thinking-mode support, tier badges, and defaults — lives in [engines.yaml](engines.yaml). v3.3's redesigned model picker reads from the same file at runtime, so what you see in the UI matches what is configured in the repo.
+Ragbot supports models from Anthropic (Claude), OpenAI (GPT and reasoning models), Google (Gemini), and local open-weights models via Ollama. The authoritative list — model IDs, context windows, thinking-mode support, tier badges, and defaults — lives in [engines.yaml](engines.yaml). v3.3's redesigned model picker reads from the same file at runtime, so what you see in the UI matches what is configured in the repo.
 
 Adding or updating models is an `engines.yaml` change, not a code change. See the [v3.3 release notes](#whats-new-in-v33) for the local-model integration details.
+
+### Open-weights model support
+
+Ragbot v3.4 ships expanded local-model coverage out of the box. The `ollama` engine in [engines.yaml](engines.yaml) includes Gemma 4 (E4B, 26B MoE, 31B Dense), Llama 4 (Scout, Maverick), Qwen3.6 (27B Dense, 35B-A3B MoE), DeepSeek V3.2, and Mistral (Small 4, Medium 3.5, Large 3). Each entry carries MLX-backend notes, license info, recommended quantization tags, and a real-world parameter count.
+
+**Choosing a model for your Mac.** Open-weights inference on Apple Silicon is bound by unified memory and bandwidth. A 16 GB Mac mini runs Gemma 4 E4B; a Mac Studio with 256 GB unified memory runs DeepSeek V3.2 and Mistral Large 3. The [sizing matrix at `docs/sizing-matrix.md`](docs/sizing-matrix.md) maps every model in `engines.yaml` to each Mac hardware profile (Mac mini 16/32/64 GB, MacBook Air 24/32 GB, MacBook Pro M4 Pro 48 / M5 Max 128 GB, Mac Studio M3 Ultra 192/256 GB), with per-model memory footprints at FP16 and Q4, expected MLX tokens-per-second, and `comfortable / tight / Q4-only / won't fit` verdicts. Start there if you're trying to pick a model for your Mac, or pick a Mac for a model.
 
 Installation, Configuration, and Personalization
 ------------------------------------------------

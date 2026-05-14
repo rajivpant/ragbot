@@ -1,0 +1,62 @@
+# Dependabot configuration for Ragbot.
+#
+# Two ecosystems are scanned weekly: pip at the repo root for the Python
+# substrate, and npm at web/ for the Next.js frontend. The pip side has no
+# active ignores at present; the npm side carries narrow ignores for
+# transitive dev-only packages whose upstreams have not yet released a fix
+# carrying the patched version. Every ignore cites the manual triage doc
+# under docs/security/ so the rationale persists across reviewers.
+#
+# Triage policy: real-exposure alerts get pin-bumped on the next manual
+# pass; transitive-only alerts get overrides in web/package.json
+# (preferred) or ignores here (when an override is infeasible). The full
+# decision log lives at docs/security/dependabot-triage-2026-05.md.
+#
+# When new alerts arrive, do not add an ignore entry without first
+# verifying the override path is closed. Silent dismissal is forbidden.
+
+version: 2
+updates:
+  # --- Python substrate -----------------------------------------------------
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    # Major-version bumps for non-security updates require human review.
+    # Security updates are exempt from this constraint and will be opened
+    # regardless of strategy.
+    versioning-strategy: "increase"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+
+  # --- Web frontend ---------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    versioning-strategy: "increase"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "javascript"
+    # Ignores are intentionally empty as of the 2026-05 triage. Every open
+    # alert at that time was fixed by either a pin bump (next 16.0.10 to
+    # 16.2.6) or a transitive override (flatted, minimatch, picomatch, ajv,
+    # brace-expansion, postcss — see web/package.json `overrides`). If a
+    # future scan surfaces an alert that cannot be resolved by an override,
+    # add an entry below citing docs/security/dependabot-triage-YYYY-MM.md.
+    #
+    # Example ignore template (do not enable without a triage entry):
+    # ignore:
+    #   - dependency-name: "example-pkg"
+    #     versions: ["1.x"]
+    #     # Rationale: transitive via foo-bar; upstream has no fix.
+    #     # See docs/security/dependabot-triage-YYYY-MM.md#example-pkg.

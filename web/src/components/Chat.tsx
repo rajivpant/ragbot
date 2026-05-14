@@ -312,26 +312,61 @@ export function Chat() {
         additional_workspaces: includeSkills ? undefined : [],
       });
 
-      for await (const chunk of stream) {
-        setMessages(prev => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          const lastMsg = updated[lastIndex];
-          if (lastMsg.role === 'assistant') {
-            // Create a new message object instead of mutating
-            updated[lastIndex] = {
-              ...lastMsg,
-              content: lastMsg.content + chunk
-            };
-          }
-          return updated;
-        });
+      let cancelled = false;
+      for await (const event of stream) {
+        if (typeof event === 'string') {
+          const chunk = event;
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            const lastMsg = updated[lastIndex];
+            if (lastMsg.role === 'assistant') {
+              // Create a new message object instead of mutating
+              updated[lastIndex] = {
+                ...lastMsg,
+                content: lastMsg.content + chunk
+              };
+            }
+            return updated;
+          });
+          continue;
+        }
+        // Structured events from the SSE wire — Phase 5.
+        if (event.type === 'task') {
+          // The server registered this chat-stream as a BackgroundTask.
+          // ⌘B / ⌘. now have a real task to target.
+          setCurrentTaskId(event.task_id);
+          continue;
+        }
+        if (event.type === 'cancelled') {
+          cancelled = true;
+          const reason = event.reason || 'cancelled';
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            const lastMsg = updated[lastIndex];
+            if (lastMsg.role === 'assistant') {
+              // Annotate the in-flight assistant turn so the user sees
+              // the cancellation in the transcript, not just as a toast.
+              const suffix = lastMsg.content
+                ? `\n\n_— Cancelled (${reason})_`
+                : `_Cancelled (${reason})_`;
+              updated[lastIndex] = {
+                ...lastMsg,
+                content: lastMsg.content + suffix,
+              };
+            }
+            return updated;
+          });
+          showToast(`Cancelled (${reason}).`, 'info');
+          break;
+        }
       }
 
-      // Record this model in the server-side "recently used" list so the
-      // ModelPicker can surface it under Recent on next open. Best-effort:
-      // failure to record is silent (no user-facing error).
-      if (model) {
+      if (!cancelled && model) {
+        // Record this model in the server-side "recently used" list so the
+        // ModelPicker can surface it under Recent on next open. Best-effort:
+        // failure to record is silent (no user-facing error).
         recordRecentModel(model).catch((err) => {
           console.warn('Failed to record recent model:', err);
         });
@@ -353,6 +388,9 @@ export function Chat() {
       });
     } finally {
       setIsStreaming(false);
+      // The stream is done (success, cancel, or error). Clear the task
+      // ref so ⌘B / ⌘. don't fire against a terminated task id.
+      setCurrentTaskId(null);
     }
   };
 

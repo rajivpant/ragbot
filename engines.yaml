@@ -158,9 +158,14 @@ engines:
 
   - name: ollama
     # Local Ollama server (no API key required; uses MLX backend on Apple Silicon).
-    # Models are pulled with `ollama pull gemma4:<tag>` and served at
+    # Models are pulled with `ollama pull <tag>` and served at
     # http://localhost:11434. LiteLLM routes via the ollama_chat/ prefix
     # added in config.py::normalize_model_id.
+    #
+    # Hardware sizing: see docs/sizing-matrix.md for per-Mac model fit
+    # tables (FP16 vs Q4 footprint, comfortable / tight / requires-quant
+    # tiers) and expected MLX tokens/sec across Mac mini, MacBook Air,
+    # MacBook Pro, and Mac Studio.
     models:
       # Gemma 4 E4B — small/fast tier. Effective 4B params (Matformer).
       - name: gemma4:e4b
@@ -172,6 +177,13 @@ engines:
         max_input_tokens: 128000
         max_output_tokens: 8192
         default_max_tokens: 4096
+        license: gemma
+        local_inference:
+          mlx_supported: true
+          ollama_tag: gemma4:e4b
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0, FP16]
+        backend_notes:
+          mlx: "Native MLX preview path via Ollama 0.19+; ~140 tok/s on M5 Max, ~95 tok/s on M4 Pro"
       # Gemma 4 26B MoE — medium tier. ~3.8B active params per token; high throughput.
       - name: gemma4:26b
         display_name: Gemma 4 26B MoE
@@ -182,6 +194,13 @@ engines:
         max_input_tokens: 128000
         max_output_tokens: 8192
         default_max_tokens: 4096
+        license: gemma
+        local_inference:
+          mlx_supported: true
+          ollama_tag: gemma4:26b
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0]
+        backend_notes:
+          mlx: "MLX backend ~75 tok/s on M5 Max Q4; MoE routing benefits from MLX over llama.cpp by 20-30%"
       # Gemma 4 31B Dense — large tier. Maximum quality.
       - name: gemma4:31b
         display_name: Gemma 4 31B
@@ -192,6 +211,168 @@ engines:
         max_input_tokens: 128000
         max_output_tokens: 8192
         default_max_tokens: 4096
+        license: gemma
+        local_inference:
+          mlx_supported: true
+          ollama_tag: gemma4:31b
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0]
+        backend_notes:
+          mlx: "MLX backend ~22 tok/s on M5 Max Q4; dense 31B needs 96GB unified memory at Q8, ~20GB at Q4"
+      # Llama 4 Scout — 17B active / 109B total MoE (16 experts).
+      # Released April 2025. 10M context (Instruct), natively multimodal.
+      # All expert weights must fit in unified memory even though only
+      # 17B are active per token. Best fit: M5 Max 128GB and up.
+      - name: llama4:scout
+        display_name: Llama 4 Scout (17B-16E)
+        category: medium
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 10485760
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+        license: llama-4-community
+        local_inference:
+          mlx_supported: true
+          ollama_tag: llama4:scout
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0]
+        backend_notes:
+          mlx: "MLX is 20-40% faster than llama.cpp on Scout (M3 Ultra / M4 Max / M5 Max). Plan ~58GB at Q4, ~109GB at Q8"
+      # Llama 4 Maverick — 17B active / 400B total MoE (128 experts).
+      # Released April 2025. 1M context. Mac Studio territory only.
+      - name: llama4:maverick
+        display_name: Llama 4 Maverick (17B-128E)
+        category: large
+        is_flagship: true
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 1048576
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+        license: llama-4-community
+        local_inference:
+          mlx_supported: true
+          ollama_tag: llama4:maverick
+          llama_cpp_quants: [Q4_K_M, Q5_K_M]
+        backend_notes:
+          mlx: "Requires ~220GB at Q4, ~400GB at Q8; Mac Studio M3 Ultra 192GB runs Q4 tight, 256GB+ comfortable"
+      # Qwen3.6 27B Dense — medium tier (released April 2026).
+      # Apache 2.0. Successor to the Qwen3.5 line; MLX-native tags ship.
+      - name: qwen3.6:27b
+        display_name: Qwen3.6 27B
+        category: medium
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 262144
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+        license: apache-2.0
+        local_inference:
+          mlx_supported: true
+          ollama_tag: qwen3.6:27b
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0, MXFP8]
+        backend_notes:
+          mlx: "qwen3.6:27b-mlx-bf16 ships native; ~17GB at Q4, ~31GB at MXFP8, ~55GB at BF16"
+      # Qwen3.6 35B-A3B — MoE flagship for local use (April 2026).
+      # 35B total / 3B active. Apache 2.0. Optimised for coding workloads.
+      - name: qwen3.6:35b-a3b
+        display_name: Qwen3.6 35B-A3B (MoE)
+        category: large
+        is_flagship: true
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 262144
+        max_output_tokens: 8192
+        default_max_tokens: 4096
+        license: apache-2.0
+        local_inference:
+          mlx_supported: true
+          ollama_tag: qwen3.6:35b-a3b
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0]
+        thinking:
+          supported: true
+          mode: hybrid
+          modes: [thinking, instruct]
+        backend_notes:
+          mlx: "qwen3.6:35b-a3b-mlx-bf16 ships native. 3B active params mean fast decode (~60 tok/s on M5 Max Q4); weights still need ~22GB Q4 / ~70GB BF16"
+      # DeepSeek V3.2-Exp — 671B total / 37B active MoE (December 2024 line, V3.2 in October 2025).
+      # 128K context. Sparse Attention for long-context efficiency.
+      # Mac Studio territory — Q4 is ~280GB; Q3 / Q2 viable on 192GB.
+      - name: deepseek-v3.2:671b
+        display_name: DeepSeek V3.2 (MoE, 671B-A37B)
+        category: large
+        is_flagship: true
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 131072
+        max_output_tokens: 65536
+        default_max_tokens: 8192
+        license: deepseek-model-license
+        local_inference:
+          mlx_supported: true
+          ollama_tag: deepseek-v3.2:671b
+          llama_cpp_quants: [Q2_K, Q3_K_M, Q4_K_M]
+        backend_notes:
+          mlx: "DeepSeek-V3.2-mlx-5bit ships; ~40 tok/s on M3 Max 128GB / M4 Ultra at int4. 512GB M3 Ultra runs 4-bit at >20 tok/s with full headroom"
+      # Mistral Large 3 — 41B active / 675B total sparse MoE.
+      # Released December 2025. 256K context. Apache 2.0 weights via mistralai/.
+      - name: mistral-large-3:675b
+        display_name: Mistral Large 3 (MoE, 675B-A41B)
+        category: large
+        is_flagship: true
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 262144
+        max_output_tokens: 32768
+        default_max_tokens: 8192
+        license: apache-2.0
+        local_inference:
+          mlx_supported: true
+          ollama_tag: mistral-large-3:latest
+          llama_cpp_quants: [Q2_K, Q3_K_M, Q4_K_M, Q5_K_M]
+        backend_notes:
+          mlx: "Q4 footprint ~340GB; Mac Studio 256GB runs Q3_K_M comfortably (~270GB). 41B active params mean ~15-22 tok/s on M3 Ultra 512GB"
+      # Mistral Medium 3.5 — dense 128B, 256K context (2026).
+      # The most-capable Mistral model that fits on a single MacBook Pro.
+      - name: mistral-medium-3.5:128b
+        display_name: Mistral Medium 3.5 (128B Dense)
+        category: large
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 262144
+        max_output_tokens: 32768
+        default_max_tokens: 8192
+        license: mistral-research
+        local_inference:
+          mlx_supported: true
+          ollama_tag: mistral-medium-3.5:latest
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0]
+        backend_notes:
+          mlx: "Dense 128B; ~70GB at Q4, ~138GB at Q8. M5 Max 128GB Q4 fits with light headroom; Mac Studio 192GB Q8 comfortable"
+      # Mistral Small 4 — 119B total / 6B active MoE (March 2026).
+      # Apache 2.0. Small active footprint but full weights matter for fit.
+      - name: mistral-small-4:119b
+        display_name: Mistral Small 4 (MoE, 119B-A6B)
+        category: medium
+        supports_system_role: true
+        max_temperature: 1
+        temperature: 0.75
+        max_input_tokens: 262144
+        max_output_tokens: 16384
+        default_max_tokens: 8192
+        license: apache-2.0
+        local_inference:
+          mlx_supported: true
+          ollama_tag: mistral-small-4:latest
+          llama_cpp_quants: [Q4_K_M, Q5_K_M, Q8_0]
+        backend_notes:
+          mlx: "6B active params mean very fast decode (~80 tok/s M5 Max Q4); 119B total weights need ~64GB Q4 / ~126GB Q8"
     default_model: gemma4:31b
 
 default: anthropic

@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "next": "16.0.10",
+    "next": "16.2.6",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "react-markdown": "^9.0.1",
@@ -31,10 +31,21 @@
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/ui": "^3.2.4",
     "eslint": "^9",
-    "eslint-config-next": "16.0.10",
+    "eslint-config-next": "16.2.6",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "flatted": ">=3.4.2",
+    "minimatch@<3.1.4": ">=3.1.4",
+    "minimatch@>=4.0.0 <9.0.7": ">=9.0.7",
+    "minimatch@>=10.0.0 <10.2.3": ">=10.2.3",
+    "ajv@<6.14.0": ">=6.14.0",
+    "brace-expansion@<1.1.13": ">=1.1.13",
+    "brace-expansion@>=2.0.0 <2.0.3": ">=2.0.3",
+    "picomatch@<4.0.4": ">=4.0.4",
+    "postcss@<8.5.10": ">=8.5.10"
   }
 }

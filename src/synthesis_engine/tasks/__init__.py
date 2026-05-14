@@ -44,6 +44,7 @@ from __future__ import annotations
 
 from .manager import (
     BackgroundTaskManager,
+    TaskCancelled,
     TaskHandle,
     TaskRecord,
     TaskState,
@@ -61,6 +62,7 @@ from .registry import (
 
 __all__ = [
     "BackgroundTaskManager",
+    "TaskCancelled",
     "TaskFactoryRegistry",
     "TaskHandle",
     "TaskRecord",

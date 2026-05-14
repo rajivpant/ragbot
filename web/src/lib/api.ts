@@ -215,9 +215,42 @@ export async function healthCheck(): Promise<boolean> {
 }
 
 /**
- * Send a chat message and stream the response
+ * Yielded values from chatStream. Most yields are token strings; structured
+ * events (the initial task announcement, a mid-stream cancellation notice)
+ * surface as discriminated-union objects so callers can plumb them into
+ * UI state.
+ *
+ * Background: the SSE wire format ships these as distinct ``event:`` types
+ * (``task``, ``message``, ``cancelled``, ``done``, ``error``). Mapping them
+ * onto a single async iterator keeps the consumer's code (``for await``)
+ * uniform; consumers that only care about tokens can ``typeof === 'string'``-
+ * guard and ignore everything else.
  */
-export async function* chatStream(request: ChatRequest): AsyncGenerator<string> {
+export type ChatStreamEvent =
+  | string
+  | { type: 'task'; task_id: string }
+  | { type: 'cancelled'; task_id: string; reason: string };
+
+/**
+ * Send a chat message and stream the response.
+ *
+ * Yields:
+ *  - ``string`` — a token of generated content.
+ *  - ``{type: 'task', task_id}`` — emitted exactly once, as the first
+ *    event from the stream. Lets the caller wire ⌘B / ⌘. to the live
+ *    task id before any tokens arrive.
+ *  - ``{type: 'cancelled', task_id, reason}`` — emitted at most once,
+ *    before the stream ends, when the server transitions the task to
+ *    ``cancelled``. The caller is responsible for surfacing the
+ *    cancellation in the UI.
+ *
+ * Errors:
+ *  - HTTP non-2xx → ``Error`` thrown synchronously.
+ *  - Mid-stream backend failure → ``Error`` thrown from the iterator.
+ */
+export async function* chatStream(
+  request: ChatRequest,
+): AsyncGenerator<ChatStreamEvent> {
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: {
@@ -239,30 +272,69 @@ export async function* chatStream(request: ChatRequest): AsyncGenerator<string> 
 
   const decoder = new TextDecoder();
   let buffer = '';
+  // SSE frames may span ``event:`` and ``data:`` lines; we accumulate the
+  // most-recent ``event`` label and apply it to the next ``data`` line.
+  let currentEvent = 'message';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
+    // SSE frames are separated by '\n\n'; lines within a frame by '\n'.
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
     for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim() || 'message';
+        continue;
+      }
+      if (line === '') {
+        // Frame delimiter — reset to default for the next frame.
+        currentEvent = 'message';
+        continue;
+      }
       if (line.startsWith('data: ')) {
         const data = line.slice(6);
         if (data === '[DONE]') return;
 
         try {
           const parsed = JSON.parse(data);
-          if (parsed.content) {
-            yield parsed.content;
-          }
-          if (parsed.error) {
-            throw new Error(parsed.error);
+          switch (currentEvent) {
+            case 'task':
+              if (parsed.task_id) {
+                yield { type: 'task', task_id: parsed.task_id };
+              }
+              break;
+            case 'cancelled':
+              yield {
+                type: 'cancelled',
+                task_id: parsed.task_id,
+                reason: parsed.reason || 'cancelled',
+              };
+              return;
+            case 'done':
+              return;
+            case 'error':
+              throw new Error(parsed.error || 'chat stream failed');
+            case 'message':
+            default:
+              if (parsed.content) {
+                yield parsed.content;
+              }
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+              break;
           }
         } catch (e) {
-          // Skip non-JSON data
+          // JSON parse failures are skipped; thrown ``Error`` instances
+          // (from the explicit throw above) propagate to the caller.
+          if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+            // Distinguish "couldn't parse" from "server-reported error".
+            if (currentEvent === 'error') throw e;
+          }
         }
       }
     }

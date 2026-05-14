@@ -50,6 +50,13 @@ from synthesis_engine.agent import (
     PermissionRegistry,
 )
 from synthesis_engine.agent.checkpoints import CheckpointStore
+from synthesis_engine.tasks import (
+    BackgroundTaskManager,
+    TaskRecord,
+    TaskState,
+    default_manager,
+    get_default_manager,
+)
 
 
 logger = logging.getLogger("api.routers.agent")
@@ -492,6 +499,175 @@ async def get_checkpoint(task_id: str, n: int) -> Dict[str, Any]:
         "task_id": task_id,
         "checkpoint": n,
         "state": state.to_dict(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Session control endpoints (cancel / background / foreground)
+# ---------------------------------------------------------------------------
+#
+# These endpoints target tasks registered with the BackgroundTaskManager
+# substrate (``synthesis_engine.tasks``). They serve every flavour of
+# long-running work that exposes its task id to the web UI: agent loop
+# runs (via ``POST /run``), skill dispatches, and chat-stream sessions
+# (Phase 5 — see ``src/api/routers/chat.py``).
+#
+# The session-control verbs are uniform across task kinds because the
+# UI's ⌘B / ⌘. shortcuts and the future "Backgrounded tasks" tray cannot
+# know in advance which subsystem started a given task. The
+# BackgroundTaskManager is the single source of truth on task state.
+
+
+def _require_task_manager() -> BackgroundTaskManager:
+    """Resolve the process-wide :class:`BackgroundTaskManager`.
+
+    Falls back to constructing one on first use so a curl against a fresh
+    install still works; the lifespan handler wires the same singleton at
+    startup so production paths reuse it.
+    """
+
+    manager = get_default_manager()
+    if manager is None:
+        manager = default_manager()
+    return manager
+
+
+def _serialize_record(record: TaskRecord) -> Dict[str, Any]:
+    """Stringify a :class:`TaskRecord` for the JSON wire."""
+
+    return record.to_dict()
+
+
+def _require_record(task_id: str) -> TaskRecord:
+    """Look up ``task_id`` or raise 404."""
+
+    manager = _require_task_manager()
+    record = manager.get_task(task_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404, detail=f"Unknown task {task_id!r}.",
+        )
+    return record
+
+
+def _set_metadata_flag(
+    manager: BackgroundTaskManager,
+    record: TaskRecord,
+    *,
+    key: str,
+    value: Any,
+) -> None:
+    """Mutate the in-memory metadata cache for ``record`` thread-safely.
+
+    The flag is intentionally NOT written to the JSONL stream because it
+    is a transient UI hint, not a state change. Operators reading the
+    stream for forensics see only real state transitions; the in-memory
+    cache lets ``get_task`` return the flag for the lifetime of the
+    process.
+    """
+
+    if value is None:
+        record.metadata.pop(key, None)
+    else:
+        record.metadata[key] = value
+    with manager._lock:  # noqa: SLF001 — controlled access to substrate lock
+        manager._records[record.id] = record
+
+
+@router.post("/sessions/{task_id}/cancel")
+async def cancel_session(task_id: str) -> Dict[str, Any]:
+    """Request cooperative cancellation of ``task_id``.
+
+    The manager flips ``cancellation_requested`` on the live record. A
+    cooperating task body observes the flag at its next checkpoint and
+    raises :class:`TaskCancelled`, which the manager translates into the
+    ``cancelled`` terminal state. Tasks that are already terminal return
+    ``accepted=False`` and surface their current state unchanged.
+
+    The response shape mirrors ``POST /api/tasks/{id}/cancel`` so a UI can
+    use one wrapper for every task kind.
+    """
+
+    manager = _require_task_manager()
+    # Look up first so unknown ids are 404, not silent no-ops.
+    record = _require_record(task_id)
+    accepted = manager.cancel_task(task_id)
+    refreshed = manager.get_task(task_id) or record
+    return {
+        "task_id": task_id,
+        "accepted": accepted,
+        "state": refreshed.state,
+        "record": _serialize_record(refreshed),
+    }
+
+
+@router.post("/sessions/{task_id}/background")
+async def background_session(task_id: str) -> Dict[str, Any]:
+    """Flag ``task_id`` as backgrounded so the UI stops live-streaming.
+
+    Backgrounding is a UI-level distinction — the task itself continues
+    running on the server. The flag lives in the task record's
+    ``metadata.backgrounded`` field, which the web UI reads when deciding
+    whether to render the live stream or the "Backgrounded tasks" tray.
+
+    Idempotent: backgrounding an already-backgrounded task is a no-op that
+    still returns the current record. Backgrounding a terminal task returns
+    HTTP 409 — the verb only makes sense while a task is still running.
+    """
+
+    manager = _require_task_manager()
+    record = _require_record(task_id)
+    if record.is_terminal:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "task_terminal",
+                "task_id": task_id,
+                "state": record.state,
+                "message": (
+                    f"Task is in terminal state {record.state!r}; "
+                    "cannot background a finished task."
+                ),
+            },
+        )
+    _set_metadata_flag(manager, record, key="backgrounded", value=True)
+    return {
+        "task_id": task_id,
+        "backgrounded": True,
+        "state": record.state,
+        "record": _serialize_record(record),
+    }
+
+
+@router.post("/sessions/{task_id}/foreground")
+async def foreground_session(task_id: str) -> Dict[str, Any]:
+    """Inverse of :func:`background_session` — resume live streaming.
+
+    Clears ``metadata.backgrounded`` on the task record. Idempotent.
+    Returns HTTP 409 for terminal tasks, mirroring background_session.
+    """
+
+    manager = _require_task_manager()
+    record = _require_record(task_id)
+    if record.is_terminal:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "task_terminal",
+                "task_id": task_id,
+                "state": record.state,
+                "message": (
+                    f"Task is in terminal state {record.state!r}; "
+                    "foreground is a no-op."
+                ),
+            },
+        )
+    _set_metadata_flag(manager, record, key="backgrounded", value=None)
+    return {
+        "task_id": task_id,
+        "backgrounded": False,
+        "state": record.state,
+        "record": _serialize_record(record),
     }
 
 

@@ -2,8 +2,52 @@
 
 Provides REST API endpoints for chat, workspaces, models, and configuration.
 Supports SSE streaming for chat responses.
+
+Lifespan wiring (Phase 5)
+-------------------------
+
+The lifespan handler is the single place that turns the substrate primitives
+(:mod:`synthesis_engine.tasks`, :mod:`synthesis_engine.observability`,
+:mod:`synthesis_engine.mcp`) on at process start and off at process stop.
+Production deployments rely on this hook; tests that do not need the full
+wiring construct their own FastAPI app and skip it.
+
+Startup contract
+~~~~~~~~~~~~~~~~
+
+1.  Call :meth:`BackgroundTaskManager.recover_crashed_tasks` so any task left
+    in ``running`` state by a previous (crashed) process gets a deterministic
+    ``crashed`` terminal line before any new task starts. The task substrate's
+    contract — every task that started can ALWAYS be observed in a terminal
+    state — relies on this running before the first :func:`start_task` of a
+    new process.
+
+2.  Register the built-in task factories (``tasks.heartbeat`` and
+    ``memory.consolidate_recent_idle``) on the process-singleton registry so
+    YAML-declared schedules can resolve their task names.
+
+3.  Opt-in scheduler: when ``RAGBOT_SCHEDULER`` is truthy, construct a
+    :class:`SchedulerLoop`, call :meth:`SchedulerLoop.start`, and stash the
+    loop on ``app.state.scheduler_loop`` so shutdown can find it. Without the
+    env var, no scheduler runs — test suites and dev installs stay quiet.
+
+4.  Touch the MCP client singleton once so the agent loop's MCP tools resolve
+    against the same client every router uses. The substrate already
+    lazy-constructs a client on first use; this step exists so a misconfigured
+    ``~/.synthesis/mcp.yaml`` surfaces at startup, not on the first agent call.
+
+Shutdown contract
+~~~~~~~~~~~~~~~~~
+
+1.  If the scheduler is running, call :meth:`SchedulerLoop.stop`.
+2.  Call :func:`synthesis_engine.observability.shutdown_tracer` so the
+    OpenTelemetry exporter has a chance to flush pending spans.
+
+The audit log writes synchronously per event (see
+``synthesis_engine.policy.audit``) so it has no buffered state to flush.
 """
 
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -20,18 +64,125 @@ from ragbot import VERSION, HealthResponse
 from .dependencies import get_settings, check_rag_available
 from .routers import agent, chat, workspaces, models, config, preferences, memory, mcp, metrics, policy, skills, tasks
 
+logger = logging.getLogger("api.main")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
-    # Startup
+    """Application lifespan handler.
+
+    Wires the background-task substrate, the opt-in scheduler, and the MCP
+    client at process start; tears them down at process stop. See the module
+    docstring for the full contract.
+    """
+    # ----- Startup ----------------------------------------------------------
     settings = get_settings()
-    print(f"Ragbot API v{VERSION} starting...")
-    print(f"AI Knowledge root: {settings.ai_knowledge_root}")
-    print(f"RAG available: {check_rag_available()}")
-    yield
-    # Shutdown
-    print("Ragbot API shutting down...")
+    logger.info("Ragbot API v%s starting...", VERSION)
+    logger.info("AI Knowledge root: %s", settings.ai_knowledge_root)
+    logger.info("RAG available: %s", check_rag_available())
+
+    # 1. Crash recovery — must run BEFORE any new task starts so a task
+    #    started later this process doesn't get mis-classified as crashed
+    #    when the recovery walker sees its in-progress 'running' line.
+    try:
+        from synthesis_engine.tasks import default_manager
+
+        manager = default_manager()
+        recovered = manager.recover_crashed_tasks()
+        if recovered:
+            logger.info(
+                "Marked %d task(s) crashed from a prior run.", len(recovered),
+            )
+        app.state.task_manager = manager
+    except Exception as exc:  # noqa: BLE001 — startup must keep going
+        logger.warning("Task manager startup failed: %s", exc)
+        app.state.task_manager = None
+
+    # 2. Register built-in task factories on the process-singleton registry.
+    try:
+        from synthesis_engine.tasks.registry import (
+            register_default_task_factories,
+        )
+
+        registry = register_default_task_factories()
+        logger.info(
+            "Registered task factories: %s", ", ".join(registry.names()),
+        )
+        app.state.task_registry = registry
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Task-factory registration failed: %s", exc)
+        app.state.task_registry = None
+
+    # 3. Scheduler loop (opt-in via RAGBOT_SCHEDULER).
+    app.state.scheduler_loop = None
+    try:
+        from synthesis_engine.tasks.scheduler import (
+            SchedulerLoop,
+            scheduler_enabled,
+        )
+
+        if scheduler_enabled():
+            loop_obj = SchedulerLoop()
+            loop_obj.start()
+            app.state.scheduler_loop = loop_obj
+            tasks.set_scheduler_loop(loop_obj)
+            logger.info(
+                "Scheduler started; registered schedules: %s",
+                loop_obj.registered_ids,
+            )
+        else:
+            logger.info(
+                "Scheduler disabled (set RAGBOT_SCHEDULER=1 to enable).",
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Scheduler startup failed: %s", exc)
+
+    # 4. MCP client — singleton resolution. The substrate lazy-builds the
+    #    client on first use; we touch it here so a malformed mcp.yaml fails
+    #    loudly at startup instead of on the first agent call.
+    try:
+        from synthesis_engine.mcp import get_default_client, set_default_client
+        from synthesis_engine.mcp.client import MCPClient
+        from synthesis_engine.mcp import load_mcp_config
+
+        if get_default_client() is None:
+            try:
+                config_obj = load_mcp_config()
+                set_default_client(MCPClient(config=config_obj))
+            except Exception as exc:  # noqa: BLE001 — empty/missing config is fine
+                logger.info(
+                    "MCP client not initialised at startup: %s "
+                    "(will lazy-construct on first use).",
+                    exc,
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("MCP startup probe failed: %s", exc)
+
+    try:
+        yield
+    finally:
+        # ----- Shutdown -----------------------------------------------------
+        logger.info("Ragbot API shutting down...")
+
+        # Stop the scheduler if it is running.
+        sched_loop = getattr(app.state, "scheduler_loop", None)
+        if sched_loop is not None:
+            try:
+                sched_loop.stop()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Scheduler shutdown raised: %s", exc)
+            finally:
+                tasks.set_scheduler_loop(None)
+                app.state.scheduler_loop = None
+
+        # Flush observability. The audit log writes synchronously per event
+        # and has no buffer of its own, so there is nothing to flush there.
+        try:
+            from synthesis_engine.observability import shutdown_tracer
+
+            shutdown_tracer()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Tracer shutdown raised: %s", exc)
 
 
 app = FastAPI(
