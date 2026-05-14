@@ -4,15 +4,24 @@ Ragbot is the chat-led runtime of [synthesis engineering](https://synthesisengin
 
 Developed by [Rajiv Pant](https://github.com/rajivpant). See [INSTALL.md](INSTALL.md) for setup, [CONFIGURE.md](CONFIGURE.md) for keys and providers, and [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 
-## v3.4 — coming soon
+## What's New in v3.4 (May 2026)
 
-The v3.4 series advances Ragbot along the architectural directions the synthesis-engineering methodology calls for:
+Ragbot v3.4.0 (May 14, 2026) is the next-major-features release. It moves the project from a polished 2024-paradigm chat-with-RAG product to a 2026-shaped conversational AI runtime: explicit agent loop, first-class MCP in both directions, an executable skills runtime, cross-workspace synthesis with visible confidentiality boundaries, durable memory beyond vector RAG, and the production-grade signals that make the architecture legible to engineering leadership.
 
-- **Agent loop.** Multi-step planning, tool use, and self-correction inside a single turn, with the human in the loop at meaningful decision points rather than every tool call.
-- **Bi-directional MCP.** Ragbot as both an MCP client (consuming tools from external servers) and an MCP server (exposing its own workspace, skills, and retrieval surfaces to other agents and IDEs).
-- **Skills runtime.** First-class execution of `synthesis-skills` capabilities — discovery, parameterised invocation, and reproducible runs — promoting skills from "indexed documents" to "callable functions."
-- **Cross-workspace synthesis.** Retrieval and reasoning that span multiple `ai-knowledge-*` workspaces with explicit provenance, beyond the current single-workspace-plus-skills auto-include.
-- **Memory beyond RAG.** Durable, structured memory that complements vector retrieval — episodic conversation history, learned preferences, and long-running project state under the user's control.
+[Read the v3.4.0 release notes →](docs/release-notes-v3.4.0.md) · [GitHub release →](https://github.com/synthesisengineering/ragbot/releases/tag/v3.4.0)
+
+- **Agent loop runtime.** Hand-rolled FSM — no LangGraph, no CrewAI, no AutoGen. Multi-step planning, sub-agent dispatch, sandboxed code execution (E2B / Daytona / DisabledSandbox), durable checkpoints, deterministic replay via `ragbot agent replay <task_id>`. 45 tests across the agent loop core and capabilities surface.
+- **First-class MCP — client and server.** All six primitives (tools, resources, prompts, Roots, Sampling, Elicitation) plus Tasks. OAuth 2.1 + Dynamic Client Registration for remote servers. As a server, Ragbot exposes its workspace surface to Claude Code, Cursor, ChatGPT desktop, Gemini CLI, and any MCP-aware peer over stdio or HTTP/SSE.
+- **Skills as runtime.** Progressive-disclosure execution of SKILL.md capabilities — Ragbot becomes the third compatible runtime for the SKILL.md format (after Claude Code and Codex CLI). Six starter skills ship in the box; `npx skills add synthesisengineering/synthesis-skills` pulls in 32 more.
+- **Cross-workspace synthesis.** Multi-workspace chat with per-workspace `routing.yaml`, four-level confidentiality (`public` / `personal` / `client-confidential` / `air-gapped`), and an append-only audit log at `~/.synthesis/cross-workspace-audit.jsonl`. The confidentiality gate fires before retrieval, so denied workspace combinations never read content. Citations name the source workspace explicitly.
+- **Three-tier memory beyond RAG.** Vector RAG + entity graph + session/working memory. A consolidation pass between sessions distills durable facts from the previous session into the entity graph — Anthropic's "Dreaming" pattern. Mem0 and Letta integrations are available behind the abstraction.
+- **Production-grade observability.** OpenTelemetry GenAI semantic conventions on every model call, retrieval step, guardrail check, and tool dispatch. OTLP gRPC export to a bundled Jaeger in the docker-compose stack; `OTEL_EXPORTER_OTLP_ENDPOINT` redirects to Phoenix, Langfuse, Datadog, or Honeycomb. Prometheus exposition at `/api/metrics`; cache stats at `/api/metrics/cache`.
+- **Keyboard shortcut layer.** Coherent set across the web UI: `⌘K` model picker, `⌘J` workspace switch, `⌘/` message-history search, `⌘N` new chat, `⌘B` background the current run, `⌘.` cancel the current run, `⌘?` help overlay.
+- **Open-weights additions.** Llama 4, Qwen3, DeepSeek-V3, Mistral Large, and updated Gemma 4 entries in `engines.yaml` with Ollama 0.19 MLX backend notes. Full hardware-sizing matrix in [`docs/open-weights-sizing.md`](docs/open-weights-sizing.md).
+
+![Ragbot v3.4 — Jaeger trace tree for a chat request showing retrieval and chat-completion children](docs/screenshots/observability-trace.png)
+
+![Ragbot v3.4 — cross-workspace policy panel with per-workspace confidentiality and model-routing verdicts](docs/screenshots/policy-panel.png)
 
 ## What's New in v3.3
 

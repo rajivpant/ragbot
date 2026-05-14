@@ -38,7 +38,7 @@ portable capability format
 ([synthesis-skills](https://github.com/synthesisengineering/synthesis-skills)).
 The family will grow as the methodology and the AI landscape evolve.
 
-[SCREENSHOT: agent-panel-with-multi-workspace.png]
+![Ragbot v3.4 — Jaeger trace tree for a chat.request showing retrieval and chat-completion children, one of the production-grade observability signals new in this release](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/observability-trace.png)
 
 The architectural rationale behind v3.4 — the synthesis-ecosystem
 framing, the HCI-primitives map, the deterministic-enforcement thesis —
@@ -79,7 +79,7 @@ LLM → return` path. The agent can decide between answering directly,
 dispatching retrieval, calling a tool, running a skill, or fanning out to
 sub-agents.
 
-[SCREENSHOT: agent-panel-with-multi-workspace.png]
+![Ragbot v3.4 agent panel — substantive multi-step response drawing on indexed workspace chunks, demonstrating the agent loop in action](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/agent-panel.png)
 
 The loop is hand-rolled — no LangGraph, no CrewAI, no AutoGen. Use what
 those frameworks teach; do not depend on them. The Plan-and-Execute pattern
@@ -119,7 +119,7 @@ Dynamic Client Registration is supported for remote servers, with a
 stdio + HTTP/SSE proxy so local stdio-default servers work without
 leaking complexity into the user's setup.
 
-[SCREENSHOT: mcp-settings.png]
+![Ragbot v3.4 MCP settings panel — empty state with the Add server form expanded, showing the stdio / http / sse transport selector](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/mcp-settings.png)
 
 The MCP settings panel lists configured MCP servers, their connection
 state, and the tools and resources they expose. Per-server toggles. Per
@@ -155,7 +155,7 @@ makes skills **executable** in the progressive-disclosure model: names
 and descriptions in the system prompt, full body on selection, scripts
 and templates on tool call.
 
-[SCREENSHOT: skills-panel.png]
+![Ragbot v3.4 skills panel — seven skills visible: the six bundled starter-pack skills plus the demo skill, filtered to the demo workspace scope](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/skills-panel.png)
 
 `SKILL.md` is now Ragbot's native extensibility format. A skill written
 for Claude Code, Codex CLI, Cursor, or Gemini CLI runs on Ragbot without
@@ -196,8 +196,6 @@ structured output rendering.
 Ragbot is officially the reference runtime for the conversational
 interaction primitive inside synthesis engineering. The branding catches
 up with what the architecture has been quietly saying for a year.
-
-[SCREENSHOT: keyboard-shortcuts-overlay.png]
 
 The README hero now opens with the synthesis-engineering framing. The
 ragbot.ai homepage leads with the canonical paragraph and the synthesis
@@ -240,7 +238,7 @@ tireless consistency — should be designed for, not retrofitted onto
 human workflows. Multi-workspace synthesis is what only Ragbot can
 credibly do; no incumbent has the architecture for it.
 
-[SCREENSHOT: policy-panel.png]
+![Ragbot v3.4 cross-workspace policy panel — active workspaces, per-workspace policy with PUBLIC confidentiality and warn fallback, effective confidentiality across the operation, per-workspace model-routing verdicts, and the audit-log heading](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/policy-panel.png)
 
 Multi-workspace chat is now first-class. Select 2+ workspaces in the UI.
 The agent sees a per-workspace context budget (equal-split with floor
@@ -264,7 +262,7 @@ Every cross-workspace operation is logged to
 used, and a redacted prompt summary. A CTO who plugs Ragbot into
 Datadog or Honeycomb can read the audit trail line by line.
 
-[SCREENSHOT: audit-log.png]
+![Ragbot v3.4 cross-workspace audit log — five entries spanning a multi-workspace operation: cross_workspace_op_start, two model_call entries, a tool_call for workspace_search_multi, and cross_workspace_op_end — all outcome=allowed across the acme-news and acme-user workspaces](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/audit-log.png)
 
 The `cross-workspace-synthesize` starter skill walks the agent through
 per-workspace budget math, the four-level confidentiality strictness
@@ -336,7 +334,7 @@ free of Python import paths. REST: six `/api/tasks/*` endpoints.
 **Keyboard shortcuts.** A coherent shortcut layer covers the 2026
 expected interactions:
 
-[SCREENSHOT: keyboard-shortcuts-overlay.png]
+![Ragbot v3.4 keyboard shortcuts overlay — ⌘? dialog showing all seven shortcuts with the underlying UI dimmed](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/keyboard-shortcuts-overlay.png)
 
 - `⌘K` — model picker (re-wired through the registry)
 - `⌘J` — workspace switch
@@ -358,7 +356,7 @@ with `cache_control` annotations on the static system-prompt prefix —
 ngrok benchmarks report 70-90% real-world cost reduction on Anthropic;
 Ragbot's own numbers track in that range.
 
-[SCREENSHOT: observability-trace.png]
+![Ragbot v3.4 observability — Jaeger trace timeline for ragbot-api:chat.request: 12.01 seconds duration, 8 spans across one service at depth 2, with six retrieval children clustered around the 3-second mark and the chat openai/gpt-5-mini child accounting for nine of the twelve seconds](https://raw.githubusercontent.com/synthesisengineering/ragbot/v3.4.0/docs/screenshots/observability-trace.png)
 
 ## Open-weights additions
 
