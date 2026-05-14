@@ -1,0 +1,50 @@
+# Regression eval — SubAgentDispatcher under semaphore contention
+#
+# Under certain contention patterns (e.g., several long-running children
+# completing in close succession while new ones are still queued), an
+# earlier dispatcher implementation could briefly hold more in-flight
+# children than ``max_parallel`` allows. The expected behavior is strict:
+# the count of concurrently-running children must never exceed
+# ``max_parallel`` for any sampled instant.
+#
+# This case captures the contract as an eval so the harness fails when
+# the bug re-emerges. The inline response is the audit-log-shaped
+# summary a correctly-functioning dispatcher emits after a contended
+# dispatch.
+
+id: regression_subagent_dispatch_max_parallel_violation
+category: regression
+description: >
+  SubAgentDispatcher must never exceed max_parallel concurrent children
+  even when several finish in close succession.
+prompt: |
+  Dispatch four sub-agents with max_parallel=2 and report the maximum
+  observed in-flight count and the count of children that completed.
+evaluator: keyword_match
+expected:
+  must_contain:
+    - "max_in_flight=2"
+    - "completed=4"
+    - "max_parallel=2"
+  must_not_contain:
+    - "max_in_flight=3"
+    - "max_in_flight=4"
+inline_response: |
+  Dispatched 4 sub-agents with max_parallel=2. Audit log summary:
+    children_total=4
+    max_in_flight=2
+    completed=4
+    failed=0
+    semaphore_waits=2
+  Invariant held: at no observation point did in-flight exceed max_parallel=2.
+regression:
+  bug_id: subagent-dispatch-max-parallel-001
+  description: >
+    Under semaphore contention the dispatcher could briefly run a third
+    child before releasing the slot of a just-completed one, breaching
+    the max_parallel cap. Fixed by acquiring the semaphore before the
+    asyncio.create_task call and releasing it inside a try/finally
+    around the child loop drive.
+  fix_commit: ""
+  severity: high
+quick: true

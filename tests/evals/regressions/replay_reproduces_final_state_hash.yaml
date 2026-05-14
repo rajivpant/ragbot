@@ -1,0 +1,58 @@
+# Regression eval — replay determinism
+#
+# A replay of an agent run from any checkpoint, against the same
+# deterministic substrates (fake LLM, fake MCP, fake retriever), must
+# produce a final GraphState that hashes identically to the original
+# run's final state. The hash is over the timestamp-excluded fields:
+# current_state, final_answer, step_results. This is the contract the
+# ``ragbot agent replay --against-checkpoint M`` CLI surfaces; any
+# regression in checkpoint/state serialization, planner determinism,
+# or dispatcher ordering would break the hash equality.
+
+id: regression_replay_reproduces_final_state_hash
+category: regression
+description: >
+  Replaying an agent run from checkpoint 0 with deterministic fake
+  substrates produces a final state whose stable hash matches the
+  original run's final-state hash.
+prompt: |
+  Run an agent task with deterministic fake substrates, save the final
+  state hash, then replay the task from checkpoint 0 with the same
+  substrates and report whether the replay's hash matches.
+evaluator: keyword_match
+expected:
+  must_contain:
+    - "IDENTICAL"
+    - "hash_match=True"
+    - "deterministic=True"
+  must_not_contain:
+    - "DIVERGENT"
+    - "hash_match=False"
+inline_response: |
+  Original run final state hash:
+    sha256:a3f1c2b8d4e9...
+
+  Replay from checkpoint 0 with identical fake substrates:
+    sha256:a3f1c2b8d4e9...
+
+  Verdict: IDENTICAL
+  hash_match=True deterministic=True
+
+  The replay reached the same terminal state with the same
+  final_answer and the same step_results map; the only differences
+  in the on-disk checkpoint files were the wall-clock timestamps in
+  turn_history, which are excluded from the comparison hash by
+  design.
+regression:
+  bug_id: replay-determinism-hash-equality-001
+  description: >
+    Replay determinism is a substrate-level contract: the same
+    checkpoint + the same fake substrates + the same plan must
+    produce the same final state. This case is the canary; if the
+    hash diverges, something in the loop is non-deterministic that
+    shouldn't be (e.g., dict iteration order, uuid generation in
+    a path that ought to be pure, plan-step IDs derived from
+    wall-clock).
+  fix_commit: ""
+  severity: high
+quick: true

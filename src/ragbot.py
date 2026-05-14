@@ -346,6 +346,326 @@ def create_skills_parser(subparsers):
     return skills_parser
 
 
+def create_agent_parser(subparsers):
+    """Create the ``agent`` subgroup parser.
+
+    Surfaces the agent loop's checkpoint store + replay machinery as a
+    first-class CLI so an operator can debug a regression by rerunning a
+    specific session from a specific checkpoint. The three commands —
+    ``replay``, ``list-sessions``, and ``checkpoints`` — are
+    inspection-only; they never start a fresh agent run.
+    """
+    agent_parser = subparsers.add_parser(
+        'agent',
+        help='Inspect and replay durable agent-loop sessions',
+        description='Inspect and replay durable agent-loop sessions. '
+                    'The checkpoint store under '
+                    '$SYNTHESIS_AGENT_CHECKPOINT_DIR '
+                    '(default ~/.synthesis/agent-checkpoints) holds one '
+                    'JSON file per state transition. These commands let '
+                    'an operator list recent task ids, inspect the '
+                    'checkpoint stream for a task, and deterministically '
+                    'replay a task from any checkpoint.'
+    )
+    agent_sub = agent_parser.add_subparsers(
+        dest='agent_command', required=True,
+    )
+
+    # --- ragbot agent replay ----------------------------------------------
+    replay = agent_sub.add_parser(
+        'replay',
+        help='Replay an agent session from a checkpoint and report the result.',
+        description='Re-drive an agent session from a specific checkpoint '
+                    'and print the final state plus a stable hash over '
+                    '{current_state, final_answer, step_results} '
+                    '(timestamps excluded). When --against-checkpoint M is '
+                    'given, the replay state at step M is compared byte-'
+                    'for-byte to the original checkpoint M; the verdict '
+                    '(IDENTICAL / DIVERGENT) is the determinism check.',
+    )
+    replay.add_argument('task_id', help='Task id whose checkpoints to replay.')
+    replay.add_argument(
+        '--from-checkpoint', type=int, default=None, metavar='N',
+        help='Checkpoint index to resume from. Defaults to the latest.',
+    )
+    replay.add_argument(
+        '--against-checkpoint', type=int, default=None, metavar='M',
+        help='Compare the replay state at step M against the original '
+             'checkpoint M and report IDENTICAL or DIVERGENT.',
+    )
+    replay.add_argument(
+        '--show-trace', action='store_true',
+        help='Print the post-replay turn_history in addition to the summary.',
+    )
+    replay.add_argument(
+        '--save-output', default=None, metavar='PATH',
+        help='Write the full final-state JSON to PATH (pretty-printed).',
+    )
+    replay.set_defaults(func=run_agent_replay)
+
+    # --- ragbot agent list-sessions ---------------------------------------
+    listing = agent_sub.add_parser(
+        'list-sessions',
+        help='List recent agent sessions, most recent first.',
+        description='List task ids in the checkpoint store, ordered by '
+                    'the mtime of each task\'s most-recent checkpoint.',
+    )
+    listing.add_argument(
+        '--limit', type=int, default=20,
+        help='Maximum number of task ids to print (default: 20).',
+    )
+    listing.set_defaults(func=run_agent_list_sessions)
+
+    # --- ragbot agent checkpoints -----------------------------------------
+    cps = agent_sub.add_parser(
+        'checkpoints',
+        help='List the checkpoint indices for a task id with one-line summaries.',
+        description='List every checkpoint index for the supplied task '
+                    'id alongside the state name, iteration count, plan '
+                    'length, and one-line synopsis pulled from the most '
+                    'recent turn record.',
+    )
+    cps.add_argument('task_id', help='Task id whose checkpoints to inspect.')
+    cps.set_defaults(func=run_agent_checkpoints)
+
+    return agent_parser
+
+
+def _agent_checkpoint_store():
+    """Construct the default FilesystemCheckpointStore the CLI inspects.
+
+    Honours the same ``SYNTHESIS_AGENT_CHECKPOINT_DIR`` env var that
+    :func:`synthesis_engine.agent.checkpoints._default_base_dir` reads,
+    so the CLI always inspects the same on-disk layout the agent loop
+    writes to.
+    """
+    from synthesis_engine.agent import FilesystemCheckpointStore
+    return FilesystemCheckpointStore()
+
+
+def _replay_hash(state) -> str:
+    """Compute a stable hash over the timestamp-excluded state fields.
+
+    The hash is sha256 over a JSON serialisation that drops every
+    field whose value changes between two byte-equivalent runs of the
+    same plan: ``turn_history[*].timestamp`` (wall-clock), and any
+    other clock-derived value future code adds to metadata. Excluding
+    those fields means two deterministic replays with identical fake
+    substrates produce the same hash.
+    """
+    import hashlib
+
+    data = state.to_dict() if hasattr(state, 'to_dict') else dict(state)
+    relevant = {
+        'current_state': data.get('current_state'),
+        'final_answer': data.get('final_answer'),
+        'step_results': data.get('step_results') or {},
+    }
+    encoded = json.dumps(relevant, sort_keys=True, default=str).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _compare_state_at_checkpoint(replay_state, original_state) -> tuple:
+    """Return (verdict, diff_keys) comparing two GraphState dicts.
+
+    The verdict is the string ``"IDENTICAL"`` when the substantive
+    fields match (current_state, final_answer, step_results,
+    plan-summary), and ``"DIVERGENT"`` otherwise. ``diff_keys`` is the
+    list of top-level fields that differ; useful for the CLI's stderr
+    output without printing entire state blobs.
+    """
+    rhash = _replay_hash(replay_state)
+    ohash = _replay_hash(original_state)
+    if rhash == ohash:
+        return "IDENTICAL", []
+
+    r_data = (
+        replay_state.to_dict()
+        if hasattr(replay_state, 'to_dict')
+        else dict(replay_state)
+    )
+    o_data = (
+        original_state.to_dict()
+        if hasattr(original_state, 'to_dict')
+        else dict(original_state)
+    )
+    diffs = []
+    for key in ('current_state', 'final_answer', 'step_results'):
+        if r_data.get(key) != o_data.get(key):
+            diffs.append(key)
+    return "DIVERGENT", diffs
+
+
+def run_agent_replay(args):
+    """Replay a session from a checkpoint and report the result.
+
+    The CLI never starts a fresh planner-led agent run; it loads a
+    checkpoint, re-drives the loop with the same LLM backend the rest
+    of Ragbot uses, and prints the final state plus a stable hash.
+    Replay determinism depends on the substrates being deterministic;
+    the production LLM backend is not deterministic by default, so
+    operators typically pair this with a fake backend override in a
+    test or with deterministic fixtures pinned via environment.
+    """
+    import asyncio
+
+    from synthesis_engine.agent import AgentLoop, GraphState
+    from synthesis_engine.llm import get_llm_backend
+
+    store = _agent_checkpoint_store()
+    indices = asyncio.run(store.list_checkpoints(args.task_id))
+    if not indices:
+        print(
+            f"Error: no checkpoints found for task '{args.task_id}'.",
+            file=sys.stderr,
+        )
+        return 1
+
+    target_idx = args.from_checkpoint
+    if target_idx is None:
+        target_idx = indices[-1]
+    elif target_idx not in indices:
+        print(
+            f"Error: checkpoint {target_idx} does not exist for task "
+            f"'{args.task_id}'. Available: {indices}",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Construct a loop wired to the configured LLM backend. The
+    # checkpoint store points at the same on-disk layout we just read
+    # from so the replay's transitions land in the same task directory.
+    try:
+        backend = get_llm_backend()
+    except Exception as exc:
+        print(
+            f"Error: LLM backend not configured: {exc}",
+            file=sys.stderr,
+        )
+        return 1
+    loop = AgentLoop(
+        llm_backend=backend,
+        mcp_client=None,
+        checkpoint_store=store,
+        default_mcp_server="local",
+    )
+
+    try:
+        final_state = asyncio.run(loop.replay(args.task_id, target_idx))
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"Error: replay failed: {exc}", file=sys.stderr)
+        return 1
+
+    hash_value = _replay_hash(final_state)
+    print(f"Task:             {args.task_id}")
+    print(f"Replayed from:    checkpoint {target_idx}")
+    print(f"Final state:      {final_state.current_state.value}")
+    print(f"Final answer:     {final_state.final_answer or '(none)'}")
+    print(f"State hash:       {hash_value}")
+
+    if args.against_checkpoint is not None:
+        try:
+            original = asyncio.run(
+                store.load(args.task_id, args.against_checkpoint),
+            )
+        except FileNotFoundError as exc:
+            print(
+                f"Error: --against-checkpoint {args.against_checkpoint} "
+                f"not found: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+        verdict, diff_keys = _compare_state_at_checkpoint(
+            final_state, original,
+        )
+        print(f"Determinism:      {verdict}")
+        if verdict == "DIVERGENT":
+            print(f"Divergent fields: {', '.join(diff_keys) or '(see hash)'}")
+
+    if args.show_trace:
+        print("\nTurn history:")
+        for turn in final_state.turn_history:
+            print(
+                f"  iter={turn.iteration:>3} "
+                f"state={turn.state.value:<11} {turn.summary}"
+            )
+
+    if args.save_output:
+        try:
+            payload = json.dumps(
+                final_state.to_dict(), indent=2, default=str, sort_keys=False,
+            )
+            with open(args.save_output, 'w', encoding='utf-8') as fp:
+                fp.write(payload)
+            print(f"\nFull final state written to {args.save_output}")
+        except OSError as exc:
+            print(
+                f"Error writing --save-output {args.save_output!r}: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+    return 0
+
+
+def run_agent_list_sessions(args):
+    """Print recent task ids in mtime order, most recent first."""
+    store = _agent_checkpoint_store()
+    task_ids = store.list_recent_task_ids(limit=max(args.limit, 0))
+    if not task_ids:
+        print("No agent sessions found in the checkpoint store.")
+        return 0
+
+    print(f"Recent agent sessions ({len(task_ids)}):")
+    print()
+    print(f"{'TASK_ID':<40}  CHECKPOINTS")
+    print("-" * 70)
+    import asyncio
+    for tid in task_ids:
+        indices = asyncio.run(store.list_checkpoints(tid))
+        count = len(indices)
+        last = indices[-1] if indices else 0
+        print(f"{tid:<40}  {count} (latest={last})")
+    return 0
+
+
+def run_agent_checkpoints(args):
+    """Print every checkpoint index for ``task_id`` with a one-line summary."""
+    import asyncio
+
+    store = _agent_checkpoint_store()
+    indices = asyncio.run(store.list_checkpoints(args.task_id))
+    if not indices:
+        print(
+            f"No checkpoints found for task '{args.task_id}'.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Task: {args.task_id}")
+    print(f"Checkpoints: {len(indices)}")
+    print()
+    print(f"{'IDX':>4}  {'STATE':<12}  {'ITER':>4}  {'PLAN':>4}  SUMMARY")
+    print("-" * 78)
+    for idx in indices:
+        try:
+            summary = store.summarise_checkpoint(args.task_id, idx)
+        except Exception as exc:
+            print(f"{idx:>4}  (unreadable: {exc})")
+            continue
+        synopsis = summary.get("summary") or ""
+        if len(synopsis) > 50:
+            synopsis = synopsis[:47] + "..."
+        print(
+            f"{idx:>4}  {summary['state']:<12}  "
+            f"{summary['iteration_count']:>4}  "
+            f"{summary['plan_step_count']:>4}  {synopsis}"
+        )
+    return 0
+
+
 def create_db_parser(subparsers):
     """Create the db subcommand parser.
 
@@ -375,6 +695,101 @@ def create_db_parser(subparsers):
     init_parser.set_defaults(func=run_db_init)
 
     return db_parser
+
+
+def create_memory_parser(subparsers):
+    """Create the `memory` subcommand parser.
+
+    Surfaces the scheduled memory consolidator on the CLI. Two
+    sub-commands:
+
+    * ``ragbot memory consolidate`` — invoke the consolidator inline.
+    * ``ragbot memory consolidation-history`` — tail recent runs from
+      the audit log.
+
+    The consolidator is the "dreaming" pass: it reads a session's
+    payload, distils durable facts via an LLM extractor, and writes
+    them into the entity graph with provenance pointing back at the
+    session and the model id that did the work.
+    """
+    memory_parser = subparsers.add_parser(
+        'memory',
+        help='Memory consolidation and history',
+        description=(
+            'Run the between-session consolidation pass (the "dreaming" '
+            'pattern) and inspect its audit history.'
+        ),
+    )
+
+    memory_subparsers = memory_parser.add_subparsers(
+        dest='memory_command', required=True
+    )
+
+    consolidate_parser = memory_subparsers.add_parser(
+        'consolidate',
+        help='Distil sessions into the entity graph.',
+        description=(
+            'Consolidate one or more sessions into the workspace entity '
+            'graph. Filter by session id, by time window, or by idle '
+            'threshold; the default is "--idle-hours 4" when no other '
+            'filter is supplied.'
+        ),
+    )
+    consolidate_parser.add_argument(
+        '--session-id',
+        default=None,
+        help='Consolidate exactly this session id (single-session mode).',
+    )
+    consolidate_parser.add_argument(
+        '--since',
+        default=None,
+        help='ISO-8601 lower bound on session checkpoint mtime (inclusive).',
+    )
+    consolidate_parser.add_argument(
+        '--until',
+        default=None,
+        help='ISO-8601 upper bound on session checkpoint mtime (inclusive).',
+    )
+    consolidate_parser.add_argument(
+        '--idle-hours',
+        type=float,
+        default=None,
+        help=(
+            'Consolidate every session whose latest checkpoint is at '
+            'least this many hours old. Default 4.0 when no other '
+            'filter is supplied.'
+        ),
+    )
+    consolidate_parser.add_argument(
+        '--model',
+        default=None,
+        help='LLM model id for the extractor (engines.yaml id).',
+    )
+    consolidate_parser.add_argument(
+        '--workspace', '-w',
+        default=None,
+        help='Workspace to scope writes to. Defaults to the session workspace.',
+    )
+    consolidate_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Compute counts without writing to the entity graph.',
+    )
+    consolidate_parser.set_defaults(func=run_memory_consolidate)
+
+    history_parser = memory_subparsers.add_parser(
+        'consolidation-history',
+        help='Tail recent memory_consolidation audit entries.',
+    )
+    history_parser.add_argument(
+        '--limit',
+        type=int,
+        default=20,
+        help='Maximum entries to print (default 20).',
+    )
+    history_parser.set_defaults(func=run_memory_consolidation_history)
+
+    return memory_parser
 
 
 def run_chat(args):
@@ -1011,6 +1426,189 @@ def run_db_init(args):
     return 0 if ok else 1
 
 
+def run_memory_consolidate(args):
+    """Drive the scheduled memory consolidator from the CLI.
+
+    Routes to the consolidator's three entry points based on which
+    filter the operator supplied. Output is a human-readable tabular
+    report — sessions consolidated, entities added, relations added,
+    duration. The same report is parseable by downstream tooling: the
+    column order is stable and the column headers are documented.
+    """
+    import asyncio as _asyncio
+
+    from synthesis_engine.memory import MemoryConsolidator, get_memory
+
+    memory = get_memory()
+    if memory is None:
+        print(
+            "Memory backend unavailable. Set RAGBOT_DATABASE_URL "
+            "and ensure pgvector is reachable.",
+            file=sys.stderr,
+        )
+        return 1
+
+    consolidator = MemoryConsolidator(memory)
+
+    async def _run():
+        if args.session_id:
+            return await consolidator.consolidate_session(
+                args.session_id,
+                model_id=args.model,
+                workspace=args.workspace,
+                dry_run=args.dry_run,
+            )
+        if args.since or args.until:
+            return await consolidator.consolidate_batch(
+                since_iso=args.since,
+                until_iso=args.until,
+                model_id=args.model,
+                workspace=args.workspace,
+                dry_run=args.dry_run,
+            )
+        # Default path: idle-hours mode (4.0 unless overridden).
+        threshold = args.idle_hours if args.idle_hours is not None else 4.0
+        return await consolidator.consolidate_recent_idle(
+            idle_threshold_hours=threshold,
+            model_id=args.model,
+            workspace=args.workspace,
+            dry_run=args.dry_run,
+        )
+
+    try:
+        result = _asyncio.run(_run())
+    except Exception as exc:
+        print(f"Consolidation error: {exc}", file=sys.stderr)
+        return 1
+
+    _print_consolidation_result(result, dry_run=args.dry_run)
+    return 0
+
+
+def _print_consolidation_result(result, *, dry_run: bool) -> None:
+    """Render a ConsolidationReport or BatchReport as a tabular block."""
+    # Single-session vs batch: ConsolidationReport carries a
+    # ``session_id``; BatchReport carries ``per_session``.
+    if hasattr(result, 'per_session'):
+        # BatchReport
+        print(
+            f"Consolidation batch (dry_run={result.dry_run}) "
+            f"model={result.model_id} duration={result.duration_seconds:.2f}s"
+        )
+        print(
+            f"  sessions_consolidated={result.sessions_consolidated} "
+            f"sessions_skipped={result.sessions_skipped} "
+            f"sessions_errored={result.sessions_errored}"
+        )
+        print(
+            f"  entities_added={result.total_entities_added} "
+            f"relations_added={result.total_relations_added}"
+        )
+        if result.per_session:
+            print()
+            header = (
+                "session_id",
+                "outcome",
+                "entities_added",
+                "relations_added",
+                "duration_s",
+            )
+            rows = []
+            for r in result.per_session:
+                outcome = (
+                    "errored"
+                    if r.error
+                    else ("skipped" if r.skipped else "consolidated")
+                )
+                rows.append(
+                    (
+                        r.session_id[:24],
+                        outcome,
+                        str(r.entities_added),
+                        str(r.relations_added),
+                        f"{r.duration_seconds:.2f}",
+                    )
+                )
+            widths = [
+                max(len(header[i]), *(len(row[i]) for row in rows))
+                for i in range(len(header))
+            ]
+            fmt = "  " + "  ".join(f"{{:<{w}}}" for w in widths)
+            print(fmt.format(*header))
+            for row in rows:
+                print(fmt.format(*row))
+        return
+
+    # ConsolidationReport
+    outcome = (
+        "errored"
+        if result.error
+        else ("skipped" if result.skipped else "consolidated")
+    )
+    print(
+        f"Consolidation (dry_run={dry_run}) session={result.session_id} "
+        f"model={result.model_id} outcome={outcome} "
+        f"duration={result.duration_seconds:.2f}s"
+    )
+    print(
+        f"  entities_added={result.entities_added} "
+        f"relations_added={result.relations_added} "
+        f"entities_existing={result.entities_existing} "
+        f"relations_existing={result.relations_existing}"
+    )
+    if result.skip_reason:
+        print(f"  skip_reason={result.skip_reason}")
+    if result.error:
+        print(f"  error={result.error}")
+
+
+def run_memory_consolidation_history(args):
+    """Tail recent ``memory_consolidation`` audit entries."""
+    from synthesis_engine.memory import read_consolidation_history
+
+    try:
+        entries = read_consolidation_history(limit=args.limit)
+    except Exception as exc:
+        print(f"History read error: {exc}", file=sys.stderr)
+        return 1
+
+    if not entries:
+        print("No memory_consolidation audit entries found.")
+        return 0
+
+    header = (
+        "timestamp",
+        "session_id",
+        "workspace",
+        "model_id",
+        "entities_added",
+        "relations_added",
+    )
+    rows = []
+    for e in entries:
+        meta = e.get("metadata") or {}
+        ws_list = e.get("workspaces") or []
+        rows.append(
+            (
+                str(e.get("timestamp_iso") or "")[:19],
+                str(meta.get("session_id", ""))[:24],
+                str(ws_list[0] if ws_list else "")[:20],
+                str(e.get("model_id") or "")[:32],
+                str(meta.get("entities_added", 0)),
+                str(meta.get("relations_added", 0)),
+            )
+        )
+    widths = [
+        max(len(header[i]), *(len(row[i]) for row in rows))
+        for i in range(len(header))
+    ]
+    fmt = "  ".join(f"{{:<{w}}}" for w in widths)
+    print(fmt.format(*header))
+    for row in rows:
+        print(fmt.format(*row))
+    return 0
+
+
 def run_compile(args):
     """Run the compile command (instructions only).
 
@@ -1242,6 +1840,8 @@ def main():
     create_index_parser(subparsers)
     create_skills_parser(subparsers)
     create_db_parser(subparsers)
+    create_memory_parser(subparsers)
+    create_agent_parser(subparsers)
 
     # Parse arguments
     args = parser.parse_args()

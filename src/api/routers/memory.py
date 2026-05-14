@@ -24,7 +24,11 @@ import sys
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Query
+import asyncio
+import uuid as _uuid
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, Body, HTTPException, Query
 from pydantic import BaseModel, Field
 
 # Add src/ to sys.path so synthesis_engine is importable when this
@@ -34,16 +38,31 @@ if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
 from synthesis_engine.memory import (
+    BatchReport,
+    ConsolidationReport,
     Entity,
     Memory,
+    MemoryConsolidator,
     MemoryQuery,
     MemoryResult,
     Relation,
     SessionMemory,
     get_memory,
+    read_consolidation_history,
 )
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
+
+
+# In-process task store for consolidation runs kicked off as background
+# tasks. Each entry is keyed by a server-minted task id and holds the
+# evolving report. Single-process scope is fine for ragbot's threat
+# model; multi-process queueing is a v3.5 concern.
+_CONSOLIDATION_TASKS: Dict[str, Dict[str, Any]] = {}
+
+
+def _new_task_id() -> str:
+    return _uuid.uuid4().hex
 
 
 # ---------------------------------------------------------------------------
@@ -200,3 +219,156 @@ def put_session(
     body.session_id = session_id
     memory = _require_memory()
     return memory.set_session(body)
+
+
+# ---------------------------------------------------------------------------
+# Consolidation
+# ---------------------------------------------------------------------------
+
+
+class ConsolidateRequest(BaseModel):
+    """Body payload for ``POST /api/memory/consolidate``."""
+
+    session_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Single session to consolidate. When provided, the call runs "
+            "inline and returns the per-session ConsolidationReport. "
+            "When omitted, the consolidator runs a batch (background)."
+        ),
+    )
+    since_iso: Optional[str] = Field(
+        default=None,
+        description=(
+            "ISO-8601 lower bound on session checkpoint mtime. Inclusive."
+        ),
+    )
+    until_iso: Optional[str] = Field(
+        default=None,
+        description=(
+            "ISO-8601 upper bound on session checkpoint mtime. Inclusive."
+        ),
+    )
+    idle_hours: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Idle threshold for the 'consolidate sessions older than N "
+            "hours' code path. Used when neither session_id nor since_iso "
+            "is supplied."
+        ),
+    )
+    model_id: Optional[str] = Field(
+        default=None,
+        description="LLM model id for the consolidation extractor.",
+    )
+    workspace: Optional[str] = Field(
+        default=None,
+        description=(
+            "Workspace to scope consolidation writes to. Defaults to the "
+            "session's workspace for single-session, or 'personal' otherwise."
+        ),
+    )
+    dry_run: bool = Field(
+        default=False,
+        description=(
+            "When True, the consolidator computes and returns extraction "
+            "counts without writing to the entity graph."
+        ),
+    )
+
+
+class ConsolidateAccepted(BaseModel):
+    """Envelope returned when a batch consolidation is queued."""
+
+    task_id: str
+    status: str = "accepted"
+
+
+@router.post("/consolidate")
+async def post_consolidate(
+    body: ConsolidateRequest = Body(...),
+    background: BackgroundTasks = None,  # type: ignore[assignment]
+):
+    """Run the scheduled consolidator over one or more sessions.
+
+    Single-session requests run inline. Batch requests (no
+    ``session_id``) run in a FastAPI BackgroundTask; the response
+    carries a ``task_id`` the caller polls via
+    ``GET /api/memory/consolidations/{task_id}``.
+    """
+    memory = _require_memory()
+    consolidator = MemoryConsolidator(memory)
+
+    if body.session_id:
+        report = await consolidator.consolidate_session(
+            body.session_id,
+            model_id=body.model_id,
+            workspace=body.workspace,
+            dry_run=body.dry_run,
+        )
+        return report.to_dict()
+
+    # Batch path. We compose an inner coroutine that fills the in-process
+    # task store; the request returns immediately with a task id.
+    task_id = _new_task_id()
+    _CONSOLIDATION_TASKS[task_id] = {
+        "task_id": task_id,
+        "status": "running",
+        "started_at_iso": datetime.now(tz=timezone.utc).isoformat(),
+        "request": body.model_dump(),
+        "report": None,
+        "error": None,
+    }
+
+    async def _runner() -> None:
+        try:
+            if body.idle_hours is not None and not body.since_iso and not body.until_iso:
+                report = await consolidator.consolidate_recent_idle(
+                    idle_threshold_hours=body.idle_hours,
+                    model_id=body.model_id,
+                    workspace=body.workspace,
+                    dry_run=body.dry_run,
+                )
+            else:
+                report = await consolidator.consolidate_batch(
+                    since_iso=body.since_iso,
+                    until_iso=body.until_iso,
+                    model_id=body.model_id,
+                    workspace=body.workspace,
+                    dry_run=body.dry_run,
+                )
+            _CONSOLIDATION_TASKS[task_id]["report"] = report.to_dict()
+            _CONSOLIDATION_TASKS[task_id]["status"] = "completed"
+        except Exception as exc:  # pragma: no cover - defensive
+            _CONSOLIDATION_TASKS[task_id]["error"] = repr(exc)
+            _CONSOLIDATION_TASKS[task_id]["status"] = "errored"
+
+    if background is not None:
+        background.add_task(_runner)
+    else:
+        # When called without FastAPI's BackgroundTasks injection (e.g.,
+        # from a test that wants the result inline), drive synchronously.
+        await _runner()
+
+    return ConsolidateAccepted(task_id=task_id, status="accepted").model_dump()
+
+
+@router.get("/consolidations/{task_id}")
+def get_consolidation_task(task_id: str) -> Dict[str, Any]:
+    """Return the status (and report, when ready) of a batch consolidation."""
+    entry = _CONSOLIDATION_TASKS.get(task_id)
+    if entry is None:
+        raise HTTPException(
+            status_code=404, detail=f"Consolidation task not found: {task_id}"
+        )
+    return dict(entry)
+
+
+@router.get("/consolidation-history")
+def get_consolidation_history(
+    limit: int = Query(default=100, ge=1, le=1000),
+) -> Dict[str, Any]:
+    """Return recent ``memory_consolidation`` entries from the audit log."""
+    entries = read_consolidation_history(limit=limit)
+    return {"entries": entries, "count": len(entries)}

@@ -62,6 +62,7 @@ def _maybe_yaml():
 
 
 CASES_DIR = _ROOT / "tests" / "evals" / "cases"
+REGRESSIONS_DIR = _ROOT / "tests" / "evals" / "regressions"
 FIXTURES_DIR = _ROOT / "tests" / "evals" / "fixtures"
 DEFAULT_OUTPUT = _ROOT / "tests" / "evals" / "last-scorecard.md"
 
@@ -69,6 +70,44 @@ DEFAULT_OUTPUT = _ROOT / "tests" / "evals" / "last-scorecard.md"
 # ---------------------------------------------------------------------------
 # Case loading
 # ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class RegressionMeta:
+    """Optional metadata attached to a regression eval case.
+
+    A regression case captures a previously-fixed bug as an eval so
+    the harness fails when the bug re-emerges. The metadata records:
+
+    * ``bug_id`` — a short stable identifier (the eval's own ``id``
+      is usually the same string, but the explicit field documents
+      intent).
+    * ``description`` — one-paragraph description of the bug.
+    * ``fix_commit`` — the commit (or PR) where the bug was fixed.
+      Empty when the bug is still open or the case was authored
+      ahead of the fix.
+    * ``severity`` — one of "low", "medium", "high", "critical".
+      Default "high" so a re-emergence catches reviewer attention.
+    """
+
+    bug_id: str
+    description: str
+    fix_commit: str = ""
+    severity: str = "high"
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> Optional["RegressionMeta"]:
+        if not isinstance(raw, dict):
+            return None
+        bug_id = str(raw.get("bug_id") or "")
+        if not bug_id:
+            return None
+        return cls(
+            bug_id=bug_id,
+            description=str(raw.get("description") or ""),
+            fix_commit=str(raw.get("fix_commit") or ""),
+            severity=str(raw.get("severity") or "high"),
+        )
 
 
 @dataclasses.dataclass
@@ -86,6 +125,7 @@ class EvalCase:
     live: bool = False
     quick: bool = True  # included in eval-quick by default
     source_path: Optional[Path] = None
+    regression: Optional[RegressionMeta] = None
 
     @property
     def fixture_path(self) -> Optional[Path]:
@@ -93,9 +133,18 @@ class EvalCase:
             return FIXTURES_DIR / self.fixture
         return None
 
+    @property
+    def is_regression(self) -> bool:
+        return self.regression is not None
+
 
 def load_cases(filter_substring: Optional[str] = None) -> List[EvalCase]:
-    """Load every YAML case under ``CASES_DIR``."""
+    """Load every YAML case under ``CASES_DIR`` and ``REGRESSIONS_DIR``.
+
+    Both directories are walked; the regression directory's cases are
+    flagged via the ``regression:`` block in their YAML, which the
+    runner uses to surface failures more prominently in the scorecard.
+    """
 
     yaml = _maybe_yaml()
     if yaml is None:
@@ -105,41 +154,56 @@ def load_cases(filter_substring: Optional[str] = None) -> List[EvalCase]:
         )
 
     cases: List[EvalCase] = []
-    if not CASES_DIR.exists():
-        return cases
 
-    for path in sorted(CASES_DIR.rglob("*.yaml")):
-        try:
-            with path.open("r", encoding="utf-8") as fp:
-                raw = yaml.safe_load(fp) or {}
-        except Exception as exc:
-            print(f"[warn] skipping {path}: {exc}", file=sys.stderr)
-            continue
+    def _load_dir(root: Path, default_category: Optional[str]) -> None:
+        if not root.exists():
+            return
+        for path in sorted(root.rglob("*.yaml")):
+            try:
+                with path.open("r", encoding="utf-8") as fp:
+                    raw = yaml.safe_load(fp) or {}
+            except Exception as exc:
+                print(f"[warn] skipping {path}: {exc}", file=sys.stderr)
+                continue
 
-        # The category is implied by the parent directory name unless
-        # overridden in the file.
-        category = raw.get("category") or path.parent.name
-        try:
-            case = EvalCase(
-                id=raw["id"],
-                category=category,
-                description=raw.get("description", ""),
-                prompt=raw["prompt"],
-                evaluator=raw["evaluator"],
-                expected=raw.get("expected"),
-                fixture=raw.get("fixture"),
-                inline_response=raw.get("inline_response"),
-                live=bool(raw.get("live", False)),
-                quick=bool(raw.get("quick", True)),
-                source_path=path,
+            # Category precedence:
+            #   1. explicit `category:` in the file
+            #   2. caller-supplied default (regressions land in
+            #      "regression" by default so the scorecard groups them)
+            #   3. parent directory name (legacy)
+            category = (
+                raw.get("category")
+                or default_category
+                or path.parent.name
             )
-        except KeyError as exc:
-            print(f"[warn] case at {path} missing required field {exc}", file=sys.stderr)
-            continue
+            try:
+                case = EvalCase(
+                    id=raw["id"],
+                    category=category,
+                    description=raw.get("description", ""),
+                    prompt=raw["prompt"],
+                    evaluator=raw["evaluator"],
+                    expected=raw.get("expected"),
+                    fixture=raw.get("fixture"),
+                    inline_response=raw.get("inline_response"),
+                    live=bool(raw.get("live", False)),
+                    quick=bool(raw.get("quick", True)),
+                    source_path=path,
+                    regression=RegressionMeta.from_raw(raw.get("regression")),
+                )
+            except KeyError as exc:
+                print(
+                    f"[warn] case at {path} missing required field {exc}",
+                    file=sys.stderr,
+                )
+                continue
 
-        if filter_substring and filter_substring.lower() not in case.id.lower():
-            continue
-        cases.append(case)
+            if filter_substring and filter_substring.lower() not in case.id.lower():
+                continue
+            cases.append(case)
+
+    _load_dir(CASES_DIR, default_category=None)
+    _load_dir(REGRESSIONS_DIR, default_category="regression")
     return cases
 
 
@@ -158,6 +222,11 @@ class EvalResult:
     duration_s: float
     skipped: bool = False
     skip_reason: str = ""
+    regression: Optional[RegressionMeta] = None
+
+    @property
+    def is_regression(self) -> bool:
+        return self.regression is not None
 
 
 def _evaluator_keyword_match(case: EvalCase, response: str) -> Tuple[bool, float, str]:
@@ -336,6 +405,7 @@ def run_case(case: EvalCase, *, quick: bool = False) -> EvalResult:
             case_id=case.id, category=case.category, passed=False, score=0.0,
             detail="excluded from quick subset", duration_s=0.0,
             skipped=True, skip_reason="not in quick subset",
+            regression=case.regression,
         )
 
     response, skip_reason = _resolve_response(case)
@@ -344,6 +414,7 @@ def run_case(case: EvalCase, *, quick: bool = False) -> EvalResult:
             case_id=case.id, category=case.category, passed=False, score=0.0,
             detail=skip_reason or "no response", duration_s=time.monotonic() - started,
             skipped=True, skip_reason=skip_reason or "no response",
+            regression=case.regression,
         )
 
     evaluator = _EVALUATORS.get(case.evaluator)
@@ -352,12 +423,14 @@ def run_case(case: EvalCase, *, quick: bool = False) -> EvalResult:
             case_id=case.id, category=case.category, passed=False, score=0.0,
             detail=f"unknown evaluator {case.evaluator!r}",
             duration_s=time.monotonic() - started,
+            regression=case.regression,
         )
 
     passed, score, detail = evaluator(case, response)
     return EvalResult(
         case_id=case.id, category=case.category, passed=passed, score=score,
         detail=detail, duration_s=time.monotonic() - started,
+        regression=case.regression,
     )
 
 
@@ -373,8 +446,13 @@ def render_scorecard(
     started_at: str,
     duration_s: float,
 ) -> str:
+    # Partition regression cases out so they get their own section at
+    # the top of the scorecard — any re-emerged bug is urgent.
+    regression_results = [r for r in results if r.is_regression]
+    standard_results = [r for r in results if not r.is_regression]
+
     by_cat: Dict[str, List[EvalResult]] = {}
-    for r in results:
+    for r in standard_results:
         by_cat.setdefault(r.category, []).append(r)
 
     total = len(results)
@@ -382,6 +460,10 @@ def render_scorecard(
     skipped = sum(1 for r in results if r.skipped)
     failed = total - passed - skipped
     pass_rate = (passed / max(total - skipped, 1)) * 100.0
+
+    reg_failed = sum(
+        1 for r in regression_results if not r.passed and not r.skipped
+    )
 
     lines: List[str] = []
     lines.append("# Synthesis Engine — Eval Scorecard")
@@ -394,7 +476,39 @@ def render_scorecard(
     lines.append(f"- **Skipped:** {skipped}")
     lines.append(f"- **Pass rate (excl. skipped):** {pass_rate:.1f}%")
     lines.append(f"- **Wall time:** {duration_s:.2f}s")
+    if regression_results:
+        lines.append(
+            f"- **Regression cases:** {len(regression_results)} "
+            f"({reg_failed} failed)"
+        )
     lines.append("")
+
+    # Regressions group goes first when present so a failure is
+    # impossible to miss in a quick scan.
+    if regression_results:
+        urgency = "URGENT — regressions failed" if reg_failed else "all regressions held"
+        lines.append(f"## Regression cases ({urgency})")
+        lines.append("")
+        lines.append(
+            "| Case | Status | Bug ID | Severity | Fix Commit | Detail |"
+        )
+        lines.append(
+            "|------|--------|--------|----------|------------|--------|"
+        )
+        for r in sorted(regression_results, key=lambda x: x.case_id):
+            status = (
+                "skip" if r.skipped else ("pass" if r.passed else "**FAIL**")
+            )
+            meta = r.regression
+            assert meta is not None  # narrowed by is_regression
+            commit = meta.fix_commit or "(none)"
+            detail = r.detail.replace('|', '\\|')
+            lines.append(
+                f"| `{r.case_id}` | {status} | `{meta.bug_id}` "
+                f"| {meta.severity} | `{commit}` | {detail} |"
+            )
+        lines.append("")
+
     lines.append("## Results by category")
     lines.append("")
 
@@ -438,6 +552,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--output", default=str(DEFAULT_OUTPUT), help="Markdown scorecard output path.",
     )
+    parser.add_argument(
+        "--regressions-only",
+        action="store_true",
+        help="Run only the regression cases under tests/evals/regressions/.",
+    )
     args = parser.parse_args(argv)
 
     started_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -448,6 +567,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     except RuntimeError as exc:
         print(f"[error] {exc}", file=sys.stderr)
         return 2
+
+    if args.regressions_only:
+        cases = [c for c in cases if c.is_regression]
 
     if not cases:
         print("[warn] no eval cases found.", file=sys.stderr)
@@ -469,10 +591,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     failed = sum(1 for r in results if not r.passed and not r.skipped)
     total = len(results)
     skipped = sum(1 for r in results if r.skipped)
-    print(
-        f"eval: {total - failed - skipped} passed, "
-        f"{failed} failed, {skipped} skipped → {output}",
+    reg_failed = sum(
+        1 for r in results
+        if r.is_regression and not r.passed and not r.skipped
     )
+    summary_parts = [
+        f"{total - failed - skipped} passed",
+        f"{failed} failed",
+        f"{skipped} skipped",
+    ]
+    if reg_failed:
+        summary_parts.append(f"REGRESSIONS_FAILED={reg_failed}")
+    print(f"eval: {', '.join(summary_parts)} → {output}")
     # Non-zero exit only if a non-skipped case failed.
     return 1 if failed else 0
 

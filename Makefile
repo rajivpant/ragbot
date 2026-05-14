@@ -17,8 +17,8 @@ EVAL_SCORECARD ?= tests/evals/last-scorecard.md
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install test test-fast lint typecheck eval eval-quick eval-clean \
-        observability-test metrics-curl clean
+.PHONY: help install test test-fast lint typecheck eval eval-quick \
+        eval-regressions eval-clean observability-test metrics-curl clean
 
 # ---------------------------------------------------------------------------
 # Help
@@ -33,6 +33,7 @@ help:
 	@echo "  make observability-test Run just the observability test module."
 	@echo "  make eval               Run the offline eval suite, emit scorecard."
 	@echo "  make eval-quick         Run only the quick subset of the eval suite."
+	@echo "  make eval-regressions   Run only the regression-capture cases."
 	@echo "  make eval-clean         Remove the last eval scorecard."
 	@echo "  make metrics-curl       Hit /api/metrics on a local running server."
 	@echo "  make clean              Remove caches and build artifacts."
@@ -75,6 +76,15 @@ eval-quick:
 	$(PYTHON) -m tests.evals.runner --quick --output $(EVAL_SCORECARD)
 	@echo ""
 	@echo "Quick scorecard written to $(EVAL_SCORECARD)"
+
+# Regression-only mode. The runner loads every YAML under
+# tests/evals/regressions/, runs only those, and writes a focused
+# scorecard. Exit code is non-zero if any regression re-emerges.
+eval-regressions:
+	@mkdir -p $(dir $(EVAL_SCORECARD))
+	$(PYTHON) -m tests.evals.runner --regressions-only --output $(EVAL_SCORECARD)
+	@echo ""
+	@echo "Regression scorecard written to $(EVAL_SCORECARD)"
 
 eval-clean:
 	rm -f $(EVAL_SCORECARD)

@@ -31,7 +31,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Protocol
+from typing import Any, Dict, Iterable, List, Optional, Protocol
 
 from .state import GraphState
 
@@ -164,6 +164,90 @@ class FilesystemCheckpointStore:
         if not indices:
             return None
         return await self.load(task_id, indices[-1])
+
+    # ----- inspection helpers (Phase 4 — CLI replay support) ---------------
+
+    def list_recent_task_ids(self, limit: int = 100) -> List[str]:
+        """Return the task ids in the store, most-recently-modified first.
+
+        The recency signal is the mtime of each task directory's most
+        recent checkpoint file. Directories with no parseable checkpoint
+        files are skipped (the store may briefly contain a freshly-made
+        task directory before its first save lands).
+
+        Args:
+            limit: Maximum number of task ids to return. Negative or zero
+                values return an empty list.
+        """
+
+        if limit <= 0:
+            return []
+        if not self._base_dir.exists():
+            return []
+
+        scored: List[tuple] = []
+        for entry in self._base_dir.iterdir():
+            if not entry.is_dir():
+                continue
+            indices = self._list_indices(entry)
+            if not indices:
+                continue
+            latest_file = entry / f"{indices[-1]:04d}.json"
+            try:
+                mtime = latest_file.stat().st_mtime
+            except OSError:
+                continue
+            scored.append((mtime, entry.name))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [name for _mtime, name in scored[:limit]]
+
+    def summarise_checkpoint(self, task_id: str, n: int) -> Dict[str, Any]:
+        """Return a lightweight summary of a checkpoint without full state load.
+
+        The summary carries enough information for ``ragbot agent
+        checkpoints <task_id>`` to render a useful inspection table:
+        the FSM state, the iteration count, the plan length, and a
+        one-line synopsis pulled from the most recent turn record (or
+        the final answer / error message when the checkpoint is
+        terminal).
+
+        Raises ``FileNotFoundError`` when the checkpoint does not exist.
+        """
+
+        target = self._task_dir(task_id) / f"{n:04d}.json"
+        if not target.exists():
+            raise FileNotFoundError(
+                f"Checkpoint {n} not found for task {task_id} at {target}"
+            )
+        try:
+            data = json.loads(target.read_text("utf-8"))
+        except Exception as exc:  # pragma: no cover - defensive
+            raise RuntimeError(
+                f"Checkpoint {n} for task {task_id} is unreadable: {exc}"
+            ) from exc
+
+        plan = data.get("plan") or []
+        turn_history = data.get("turn_history") or []
+        last_summary = ""
+        if turn_history:
+            last = turn_history[-1] or {}
+            last_summary = str(last.get("summary") or "")
+
+        # Choose a one-line synopsis with a sensible precedence:
+        # explicit final answer > error message > most recent turn line.
+        synopsis = (
+            data.get("final_answer")
+            or data.get("error_message")
+            or last_summary
+            or ""
+        )
+        return {
+            "state": data.get("current_state", "UNKNOWN"),
+            "iteration_count": int(data.get("iteration_count", 0)),
+            "plan_step_count": len(plan),
+            "summary": str(synopsis),
+        }
 
     # ----- helpers ----------------------------------------------------------
 

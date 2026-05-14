@@ -1,0 +1,46 @@
+# Regression eval — SANDBOX_EXEC with no sandbox configured
+#
+# When the agent loop is constructed without an explicit sandbox, it
+# falls back to ``DisabledSandbox``, whose ``execute()`` raises with a
+# clear message pointing the operator at the relevant setup. Earlier
+# versions surfaced a generic RuntimeError that an operator could
+# easily mistake for a tool-side failure. The correct error message
+# names the sandbox configuration knob (``RAGBOT_SANDBOX_PROVIDER``)
+# so the operator knows where to act.
+
+id: regression_sandbox_disabled_actionable_error
+category: regression
+description: >
+  SANDBOX_EXEC without a configured sandbox returns a clear error that
+  names the configuration knob to enable execution.
+prompt: |
+  Run a SANDBOX_EXEC plan step on a loop with no sandbox wired and
+  report the error message that surfaces from the dispatcher.
+evaluator: keyword_match
+expected:
+  must_contain:
+    - "sandbox"
+    - "disabled"
+    - "RAGBOT_SANDBOX_PROVIDER"
+  must_not_contain:
+    - "Internal Server Error"
+    - "unhandled"
+inline_response: |
+  SANDBOX_EXEC step refused. DisabledSandbox.execute() raised:
+
+    "Sandbox execution is disabled in this AgentLoop. Set
+    RAGBOT_SANDBOX_PROVIDER to one of {e2b, daytona} and provide the
+    matching API key, or pass sandbox=E2BSandbox() / DaytonaSandbox()
+    when constructing AgentLoop."
+
+  The plan step was recorded as FAILED with the message above.
+regression:
+  bug_id: sandbox-disabled-actionable-error-001
+  description: >
+    DisabledSandbox previously raised a bare RuntimeError with no
+    pointer at the configuration knob. The fix names the env var and
+    the constructor argument so the operator can resolve it in one
+    step rather than reading source.
+  fix_commit: ""
+  severity: medium
+quick: true

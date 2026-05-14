@@ -35,6 +35,12 @@ from typing import Optional
 
 from .base import Memory, require_provenance
 from .consolidation import consolidate_session, render_session_transcript
+from .consolidator import (
+    BatchReport,
+    ConsolidationReport,
+    MemoryConsolidator,
+    read_consolidation_history,
+)
 from .models import (
     AttributeValue,
     Entity,
@@ -95,8 +101,11 @@ def reset_memory() -> None:
 
 __all__ = [
     "AttributeValue",
+    "BatchReport",
+    "ConsolidationReport",
     "Entity",
     "Memory",
+    "MemoryConsolidator",
     "MemoryQuery",
     "MemoryResult",
     "MemoryTier",
@@ -107,6 +116,7 @@ __all__ = [
     "UserMemory",
     "consolidate_session",
     "get_memory",
+    "read_consolidation_history",
     "render_session_transcript",
     "require_provenance",
     "reset_memory",

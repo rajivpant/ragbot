@@ -1,0 +1,53 @@
+# Regression eval — AIR_GAPPED workspace isolation
+#
+# A workspace tagged AIR_GAPPED in its routing.yaml cannot participate
+# in any cross-workspace operation, even with a workspace whose
+# confidentiality tag is otherwise compatible. Earlier code allowed
+# AIR_GAPPED + PUBLIC mixes when the AIR_GAPPED workspace appeared
+# second in the workspaces list — the cross-workspace check honored
+# the first workspace's tag asymmetrically. Fixed by computing the
+# strictest tag across the entire workspace set before evaluating the
+# boundary.
+
+id: regression_cross_workspace_air_gapped_isolation
+category: regression
+description: >
+  Cross-workspace boundary must refuse any mix involving an AIR_GAPPED
+  workspace, regardless of position in the workspaces list.
+prompt: |
+  Request a cross-workspace run with workspaces=["example-public",
+  "example-air-gapped"]. Report whether the run is admitted and the
+  effective confidentiality tag.
+evaluator: keyword_match
+expected:
+  must_contain:
+    - "refused"
+    - "AIR_GAPPED"
+    - "example-air-gapped"
+    - "effective_confidentiality=AIR_GAPPED"
+  must_not_contain:
+    - "admitted"
+    - "allowed=True"
+inline_response: |
+  Cross-workspace boundary refused this run.
+
+  Active workspaces: ["example-public", "example-air-gapped"]
+  Effective confidentiality: effective_confidentiality=AIR_GAPPED
+  Boundary verdict: allowed=False
+  Reason: "Workspace 'example-air-gapped' is AIR_GAPPED and cannot
+  participate in cross-workspace operations with any other workspace."
+
+  The agent loop transitioned directly to ERROR without making any
+  model call, tool call, or memory query.
+regression:
+  bug_id: cross-workspace-air-gapped-isolation-001
+  description: >
+    The cross-workspace check previously consulted only the first
+    workspace's tag when computing the effective confidentiality.
+    Reordering the workspaces list could admit an unsupported mix.
+    Fix: compute the strictest tag across the full workspace set
+    (a lattice join over the confidentiality enum) before evaluating
+    the boundary.
+  fix_commit: ""
+  severity: critical
+quick: true
