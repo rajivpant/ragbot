@@ -76,11 +76,47 @@ when the workspace is unknown (the router will surface a 404)."""
 
 
 def _default_workspace_resolver(name: str) -> Optional[str]:
-    """Try the standard layout locations, returning the first that exists.
+    """Resolve a workspace name to its on-disk repo root.
 
-    Mirrors :meth:`synthesis_engine.agent.AgentLoop._default_workspace_root`
-    so the API and the agent loop agree on workspace identity.
+    Consults the substrate's workspace discovery (the same logic that
+    backs ``/api/workspaces``) so the policy router agrees with the rest
+    of the app on workspace identity — including demo mode, the Docker
+    container's bundled ``/app/demo/ai-knowledge-demo``, and the
+    operator's actual ``~/workspaces/<W>/ai-knowledge-<W>`` layout.
+
+    Falls back to the legacy ``~/workspaces/<name>/ai-knowledge-<name>``
+    layout-guessing chain when discovery returns nothing (e.g., in unit
+    tests with a synthetic home directory where the substrate's
+    discovery is mocked out).
     """
+    # Lazy import: the policy router is imported at FastAPI app-init
+    # time; pulling ragbot.discover_workspaces into the module-import
+    # path would couple the policy substrate to the runtime layer.
+    try:
+        from ragbot import discover_workspaces  # noqa: WPS433
+    except ImportError:
+        discover_workspaces = None  # type: ignore[assignment]
+
+    if discover_workspaces is not None:
+        try:
+            from ragbot import get_workspace_info  # noqa: WPS433
+            for ws in discover_workspaces():
+                if ws.get("name") == name or ws.get("dir_name") == name:
+                    # discover_workspaces() returns the raw dict (keys:
+                    # name, path, dir_name, config, ai_knowledge);
+                    # get_workspace_info promotes it to the
+                    # WorkspaceInfo pydantic model whose ``repo_path``
+                    # field is the canonical answer. Use that so the
+                    # policy router agrees with /api/workspaces on the
+                    # path it returns.
+                    info = get_workspace_info(ws)
+                    repo_path = getattr(info, "repo_path", None) or ws.get("path")
+                    if repo_path and Path(repo_path).is_dir():
+                        return str(repo_path)
+        except Exception:  # pragma: no cover - discovery is best-effort
+            pass
+
+    # Legacy / test fallback: probe the standard layout locations.
     candidates = [
         Path.home() / "workspaces" / name / f"ai-knowledge-{name}",
         Path.home() / f"ai-knowledge-{name}",

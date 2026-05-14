@@ -15,23 +15,33 @@ wiring construct their own FastAPI app and skip it.
 Startup contract
 ~~~~~~~~~~~~~~~~
 
-1.  Call :meth:`BackgroundTaskManager.recover_crashed_tasks` so any task left
+1.  Call :func:`synthesis_engine.observability.init_tracer` so the
+    OpenTelemetry tracer + meter providers are wired before any later
+    startup step (or any HTTP request) emits spans or records metrics.
+    Exporter selection is driven by env vars: ``OTEL_EXPORTER_OTLP_ENDPOINT``
+    routes spans to an OTLP collector (the bundled docker-compose stack
+    points this at Jaeger on ``http://jaeger:4317``); without it, spans
+    fall through to OTEL's no-op tracer and observability is silently
+    disabled. The Prometheus reader is always attached so ``/api/metrics``
+    works regardless of exporter configuration.
+
+2.  Call :meth:`BackgroundTaskManager.recover_crashed_tasks` so any task left
     in ``running`` state by a previous (crashed) process gets a deterministic
     ``crashed`` terminal line before any new task starts. The task substrate's
     contract — every task that started can ALWAYS be observed in a terminal
     state — relies on this running before the first :func:`start_task` of a
     new process.
 
-2.  Register the built-in task factories (``tasks.heartbeat`` and
+3.  Register the built-in task factories (``tasks.heartbeat`` and
     ``memory.consolidate_recent_idle``) on the process-singleton registry so
     YAML-declared schedules can resolve their task names.
 
-3.  Opt-in scheduler: when ``RAGBOT_SCHEDULER`` is truthy, construct a
+4.  Opt-in scheduler: when ``RAGBOT_SCHEDULER`` is truthy, construct a
     :class:`SchedulerLoop`, call :meth:`SchedulerLoop.start`, and stash the
     loop on ``app.state.scheduler_loop`` so shutdown can find it. Without the
     env var, no scheduler runs — test suites and dev installs stay quiet.
 
-4.  Touch the MCP client singleton once so the agent loop's MCP tools resolve
+5.  Touch the MCP client singleton once so the agent loop's MCP tools resolve
     against the same client every router uses. The substrate already
     lazy-constructs a client on first use; this step exists so a misconfigured
     ``~/.synthesis/mcp.yaml`` surfaces at startup, not on the first agent call.
@@ -41,7 +51,11 @@ Shutdown contract
 
 1.  If the scheduler is running, call :meth:`SchedulerLoop.stop`.
 2.  Call :func:`synthesis_engine.observability.shutdown_tracer` so the
-    OpenTelemetry exporter has a chance to flush pending spans.
+    OpenTelemetry exporter has a chance to flush pending spans —
+    BUT only when ``app.state.owns_tracer`` is true, i.e., when the
+    lifespan itself initialised the tracer. Tests and embedders install
+    their own tracer before the lifespan fires; tearing it down at app
+    shutdown would invalidate the host's instrumentation.
 
 The audit log writes synchronously per event (see
 ``synthesis_engine.policy.audit``) so it has no buffered state to flush.
@@ -81,7 +95,63 @@ async def lifespan(app: FastAPI):
     logger.info("AI Knowledge root: %s", settings.ai_knowledge_root)
     logger.info("RAG available: %s", check_rag_available())
 
-    # 1. Crash recovery — must run BEFORE any new task starts so a task
+    # 1. Observability — initialise the tracer + meter providers FIRST so
+    #    every later startup step (and every HTTP request that follows)
+    #    runs under live instrumentation. Exporter selection comes from
+    #    the OTEL standard env vars (OTEL_EXPORTER_OTLP_ENDPOINT,
+    #    OTEL_SERVICE_NAME, etc.). When no endpoint is configured the
+    #    tracer is a no-op; metrics still flow to /api/metrics because
+    #    the Prometheus reader is always attached.
+    #
+    #    Ownership semantics: if a tracer is ALREADY initialised when the
+    #    lifespan starts (this happens in tests where a session-scoped
+    #    fixture has installed an InMemorySpanExporter, or in embedding
+    #    scenarios where the host process owns the tracer), the lifespan
+    #    leaves it alone and records that it does NOT own the tracer.
+    #    The shutdown handler reads ``app.state.owns_tracer`` to decide
+    #    whether to call ``shutdown_tracer`` — calling it unconditionally
+    #    would tear down a tracer the embedder still needs.
+    app.state.owns_tracer = False
+    try:
+        from synthesis_engine.observability import (
+            get_tracer_provider,
+            init_tracer,
+        )
+
+        prior_provider = get_tracer_provider()
+        provider = init_tracer(service_name="ragbot-api")
+        # We own the tracer iff init_tracer just created (or replaced) it
+        # for us. The substrate's explicit-exporter guard returns the same
+        # provider when an explicit exporter was already wired in, which
+        # is how we detect the test/embedder case.
+        app.state.owns_tracer = (
+            prior_provider is None or provider is not prior_provider
+        )
+
+        otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+        if provider is None:
+            logger.info(
+                "OpenTelemetry SDK not installed; tracer is no-op.",
+            )
+        elif not app.state.owns_tracer:
+            logger.info(
+                "Tracer already initialised by host; lifespan deferring.",
+            )
+        elif otlp_endpoint:
+            logger.info(
+                "Tracer initialised; OTLP endpoint=%s service=%s",
+                otlp_endpoint,
+                os.environ.get("OTEL_SERVICE_NAME", "ragbot-api"),
+            )
+        else:
+            logger.info(
+                "Tracer initialised; no OTLP endpoint configured "
+                "(set OTEL_EXPORTER_OTLP_ENDPOINT to export spans).",
+            )
+    except Exception as exc:  # noqa: BLE001 — startup must keep going
+        logger.warning("Tracer initialisation failed: %s", exc)
+
+    # 2. Crash recovery — must run BEFORE any new task starts so a task
     #    started later this process doesn't get mis-classified as crashed
     #    when the recovery walker sees its in-progress 'running' line.
     try:
@@ -98,7 +168,7 @@ async def lifespan(app: FastAPI):
         logger.warning("Task manager startup failed: %s", exc)
         app.state.task_manager = None
 
-    # 2. Register built-in task factories on the process-singleton registry.
+    # 3. Register built-in task factories on the process-singleton registry.
     try:
         from synthesis_engine.tasks.registry import (
             register_default_task_factories,
@@ -113,7 +183,7 @@ async def lifespan(app: FastAPI):
         logger.warning("Task-factory registration failed: %s", exc)
         app.state.task_registry = None
 
-    # 3. Scheduler loop (opt-in via RAGBOT_SCHEDULER).
+    # 4. Scheduler loop (opt-in via RAGBOT_SCHEDULER).
     app.state.scheduler_loop = None
     try:
         from synthesis_engine.tasks.scheduler import (
@@ -137,7 +207,7 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning("Scheduler startup failed: %s", exc)
 
-    # 4. MCP client — singleton resolution. The substrate lazy-builds the
+    # 5. MCP client — singleton resolution. The substrate lazy-builds the
     #    client on first use; we touch it here so a malformed mcp.yaml fails
     #    loudly at startup instead of on the first agent call.
     try:
@@ -177,12 +247,16 @@ async def lifespan(app: FastAPI):
 
         # Flush observability. The audit log writes synchronously per event
         # and has no buffer of its own, so there is nothing to flush there.
-        try:
-            from synthesis_engine.observability import shutdown_tracer
+        # Only shut the tracer down when the lifespan owns it — tests and
+        # embedders install their own tracer before the lifespan fires and
+        # rely on it surviving past the FastAPI app's lifetime.
+        if getattr(app.state, "owns_tracer", False):
+            try:
+                from synthesis_engine.observability import shutdown_tracer
 
-            shutdown_tracer()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Tracer shutdown raised: %s", exc)
+                shutdown_tracer()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Tracer shutdown raised: %s", exc)
 
 
 app = FastAPI(

@@ -77,6 +77,7 @@ from ragbot import (
     get_workspace,
     WorkspaceNotFoundError,
 )
+from synthesis_engine.observability import chat_request_span
 from synthesis_engine.tasks import (
     BackgroundTaskManager,
     TaskCancelled,
@@ -165,39 +166,50 @@ async def _drive_chat_stream(
         Returns a short summary of what was produced so the manager's
         ``result_summary`` is informative. Raises :class:`TaskCancelled`
         when the user-facing cancellation flag flips.
+
+        The ``chat_request_span`` opens inside this thread so the worker's
+        OTEL context has a root span the inner retrieval / chat_completion
+        spans can attach to. OTEL contexts are thread-local — without this
+        wrap, the inner spans would each be standalone single-span traces.
         """
 
         token_count = 0
         bytes_emitted = 0
         try:
-            for chunk in chat_stream(
-                request.prompt,
+            with chat_request_span(
+                workspace=request.workspace,
                 model=request.model,
-                max_tokens=request.max_tokens,
-                temperature=request.temperature,
-                history=history,
-                workspace_name=workspace_dir_name,
                 use_rag=request.use_rag,
-                rag_max_tokens=request.rag_max_tokens,
-                thinking_effort=request.thinking_effort,
-                additional_workspaces=request.additional_workspaces,
+                stream=True,
             ):
-                token_count += 1
-                bytes_emitted += len(chunk)
-                # Cooperative cancellation. The substrate's contract is
-                # check-then-raise; the manager translates the exception
-                # into the ``cancelled`` terminal state.
-                if (
-                    token_count % CANCEL_CHECK_EVERY == 0
-                    and task_record.cancellation_requested
+                for chunk in chat_stream(
+                    request.prompt,
+                    model=request.model,
+                    max_tokens=request.max_tokens,
+                    temperature=request.temperature,
+                    history=history,
+                    workspace_name=workspace_dir_name,
+                    use_rag=request.use_rag,
+                    rag_max_tokens=request.rag_max_tokens,
+                    thinking_effort=request.thinking_effort,
+                    additional_workspaces=request.additional_workspaces,
                 ):
-                    raise TaskCancelled(
-                        f"cancelled after {token_count} chunks"
-                    )
-                # Hand the chunk to the SSE producer via the queue.
-                # ``put_nowait`` is safe because the queue is unbounded.
-                chunk_queue.put_nowait(chunk)
-            return f"emitted {token_count} chunks ({bytes_emitted} bytes)"
+                    token_count += 1
+                    bytes_emitted += len(chunk)
+                    # Cooperative cancellation. The substrate's contract is
+                    # check-then-raise; the manager translates the exception
+                    # into the ``cancelled`` terminal state.
+                    if (
+                        token_count % CANCEL_CHECK_EVERY == 0
+                        and task_record.cancellation_requested
+                    ):
+                        raise TaskCancelled(
+                            f"cancelled after {token_count} chunks"
+                        )
+                    # Hand the chunk to the SSE producer via the queue.
+                    # ``put_nowait`` is safe because the queue is unbounded.
+                    chunk_queue.put_nowait(chunk)
+                return f"emitted {token_count} chunks ({bytes_emitted} bytes)"
         finally:
             # Sentinel that signals end-of-stream regardless of whether
             # the iterator exited normally or via cancellation/error.
@@ -326,30 +338,38 @@ async def chat_endpoint(request: ChatRequest):
     if request.stream:
         return EventSourceResponse(generate_chat_stream(request))
 
-    # Non-streaming response
+    # Non-streaming response. The chat_request_span is the trace root for
+    # this user turn — every retrieval / chat_completion / tool span fired
+    # by chat() below becomes a child via OTEL's active-context propagation.
     history = [{"role": msg.role.value, "content": msg.content} for msg in request.history]
     workspace_dir_name = _get_workspace_dir_name(request.workspace)
 
-    try:
-        # core.py automatically loads LLM-specific instructions based on model
-        response_text = chat(
-            request.prompt,
-            model=request.model,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            history=history,
-            stream=False,
-            workspace_name=workspace_dir_name,
-            use_rag=request.use_rag,
-            rag_max_tokens=request.rag_max_tokens,
-            thinking_effort=request.thinking_effort,
-            additional_workspaces=request.additional_workspaces,
-        )
+    with chat_request_span(
+        workspace=request.workspace,
+        model=request.model,
+        use_rag=request.use_rag,
+        stream=False,
+    ):
+        try:
+            # core.py automatically loads LLM-specific instructions based on model
+            response_text = chat(
+                request.prompt,
+                model=request.model,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+                history=history,
+                stream=False,
+                workspace_name=workspace_dir_name,
+                use_rag=request.use_rag,
+                rag_max_tokens=request.rag_max_tokens,
+                thinking_effort=request.thinking_effort,
+                additional_workspaces=request.additional_workspaces,
+            )
 
-        return ChatResponse(
-            response=response_text,
-            model=request.model,
-            workspace=request.workspace,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            return ChatResponse(
+                response=response_text,
+                model=request.model,
+                workspace=request.workspace,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))

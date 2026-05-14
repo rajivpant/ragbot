@@ -52,12 +52,22 @@ def pytest_configure(config):
 # whole suite shares one initialization.
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def _otel_session_exporter():
     """One-time per-session OTEL initialization with an in-memory exporter.
 
     Yields the InMemorySpanExporter so per-test fixtures can read captured
     spans. Tears down once at session end via ``shutdown_tracer``.
+
+    AUTOUSE rationale: OTEL's global TracerProvider and MeterProvider are
+    set-once singletons — once any code (e.g., the FastAPI lifespan in
+    test_api_lifespan.py) calls ``trace.set_tracer_provider``, OTEL
+    silently refuses replacement attempts. The session-scoped fixture
+    MUST run before any test that fires the lifespan, otherwise the
+    conftest's InMemorySpanExporter never makes it onto the global
+    provider and span-capturing tests fail with empty span lists.
+    autouse=True guarantees this fixture runs at session start
+    regardless of which tests pytest collects first.
     """
     # Import lazily so non-OTEL test runs (e.g., test_helpers.py) don't pay
     # the import cost.

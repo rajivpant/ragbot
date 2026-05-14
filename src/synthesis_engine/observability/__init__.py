@@ -16,6 +16,13 @@ Public surface (everything documented here is part of the substrate contract):
     shutdown_tracer()
         Flush and shut down providers. Useful in tests and at clean shutdown.
 
+    chat_request_span(workspace, model, use_rag, stream, ...)
+        Context manager that wraps an incoming chat API request with a
+        root-level span named "chat.request". Provides the parent context
+        for the retrieval_span, chat_completion_span, and tool_span calls
+        that fire inside one user turn so they form a single trace tree
+        rather than disconnected single-span traces.
+
     chat_completion_span(model, provider, operation="chat", attributes=None)
         Context manager that wraps an LLM completion call with a span named
         per the OTEL GenAI spec ("chat <model>"). Records usage tokens, finish
@@ -89,6 +96,7 @@ from .attributes import (
 from .instrumentation import (
     agent_iteration_span,
     chat_completion_span,
+    chat_request_span,
     guardrail_span,
     retrieval_span,
     tool_span,
@@ -117,6 +125,7 @@ __all__ = [
     "get_tracer",
     "get_tracer_provider",
     # Instrumentation context managers
+    "chat_request_span",
     "chat_completion_span",
     "retrieval_span",
     "tool_span",

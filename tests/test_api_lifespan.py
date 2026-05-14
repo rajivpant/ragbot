@@ -265,7 +265,16 @@ def test_scheduler_starts_when_env_var_truthy(
 def test_shutdown_stops_scheduler_and_flushes_tracer(
     _isolated_state_dir, monkeypatch,
 ):
-    """Scheduler.stop() and shutdown_tracer() both fire on context exit."""
+    """Scheduler.stop() and shutdown_tracer() both fire on context exit.
+
+    The lifespan's tracer-ownership semantics: if a tracer is already
+    initialised when startup runs, the lifespan defers to the host and
+    leaves shutdown to the host as well. This test simulates a fresh
+    process where the lifespan owns the tracer — that's the production
+    path — by patching ``get_tracer_provider`` to report no prior
+    provider. We then assert the lifespan calls ``shutdown_tracer``.
+    """
+
     import synthesis_engine.tasks.scheduler as scheduler_mod
     import synthesis_engine.observability as observability_mod
 
@@ -286,6 +295,15 @@ def test_shutdown_stops_scheduler_and_flushes_tracer(
     # imports it lazily inside the function body.
     monkeypatch.setattr(
         observability_mod, "shutdown_tracer", _fake_shutdown_tracer,
+    )
+    # Simulate a fresh process: the lifespan's get_tracer_provider() call
+    # returns None, so the lifespan concludes it owns the tracer and runs
+    # shutdown_tracer at app exit. Without this patch, conftest's
+    # session-scoped tracer is already in place and the lifespan correctly
+    # defers — which is the behaviour we want in tests, just not the
+    # scenario this specific test is asserting.
+    monkeypatch.setattr(
+        observability_mod, "get_tracer_provider", lambda: None,
     )
     monkeypatch.setenv("RAGBOT_SCHEDULER", "1")
 

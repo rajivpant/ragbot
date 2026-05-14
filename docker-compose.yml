@@ -1,4 +1,23 @@
 services:
+  # OpenTelemetry trace collector + viewer. Receives OTLP gRPC from the
+  # ragbot-api container's tracer (Phase 4 / Phase 5 observability work)
+  # and renders the per-request span tree at http://localhost:16686.
+  # Production deployments swap this out for the operator's preferred
+  # backend (Honeycomb, Phoenix, Tempo, Datadog APM, etc.) by setting
+  # OTEL_EXPORTER_OTLP_ENDPOINT on ragbot-api.
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    container_name: ragbot-jaeger
+    ports:
+      - "127.0.0.1:16686:16686"   # Jaeger UI
+      - "127.0.0.1:4317:4317"     # OTLP gRPC receiver
+      - "127.0.0.1:4318:4318"     # OTLP HTTP receiver
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    restart: unless-stopped
+    networks:
+      - ragbot-network
+
   postgres:
     image: pgvector/pgvector:pg16
     container_name: ragbot-postgres
@@ -54,6 +73,13 @@ services:
       # handler starts the synthesis_engine.tasks.SchedulerLoop so
       # cron-style routines (memory.consolidate_recent_idle, etc.) fire.
       RAGBOT_SCHEDULER: ${RAGBOT_SCHEDULER:-}
+      # OpenTelemetry trace export. The bundled jaeger service receives
+      # OTLP gRPC on port 4317 and exposes the UI on port 16686. Override
+      # OTEL_EXPORTER_OTLP_ENDPOINT to point at an external collector
+      # (Honeycomb, Phoenix, Tempo, Datadog APM, etc.).
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-ragbot-api}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions

@@ -139,6 +139,22 @@ def init_tracer(
         if _INITIALIZED and not force and config_key == _LAST_CONFIG:
             return _TRACER_PROVIDER
 
+        # Honour the documented priority order: an explicit ``exporter``
+        # already wired in by a previous init_tracer call WINS over a later
+        # env-var driven call that passes no exporter. Tests install an
+        # InMemorySpanExporter session-wide; without this guard, a
+        # FastAPI app startup inside a test (e.g., TestClient lifespan
+        # firing api.main's init_tracer with no exporter) would replace
+        # the provider and silently drop test spans.
+        if (
+            _INITIALIZED
+            and not force
+            and exporter is None
+            and _LAST_CONFIG is not None
+            and _LAST_CONFIG.get("exporter_id") is not None
+        ):
+            return _TRACER_PROVIDER
+
         # Re-init path. The previous providers (if any) own the current
         # Prometheus reader singleton; OTEL refuses to attach the same
         # reader to a second MeterProvider. Flush + drop the old state

@@ -76,6 +76,13 @@ from .attributes import (
 from .metrics import _record_cache_event, _record_otel_and_prom
 from .tracer import get_tracer
 
+# Synthesis-specific span attribute for the chat surface (used by chat_request_span).
+# Kept as a string literal because attributes.py reserves the SYNTHESIS_* namespace
+# for declared, stable extensions; chat-request is a router-level wrap and lives
+# on the consumer side of the boundary.
+_CHAT_USE_RAG_ATTR = "synthesis.chat.use_rag"
+_CHAT_STREAM_ATTR = "synthesis.chat.stream"
+
 logger = logging.getLogger(__name__)
 
 
@@ -105,6 +112,69 @@ def _set_span_ok(span) -> None:
 
 def _strip_none(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
+
+
+# ---------------------------------------------------------------------------
+# chat_request_span — router-level parent span
+# ---------------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def chat_request_span(
+    *,
+    workspace: Optional[str] = None,
+    model: Optional[str] = None,
+    use_rag: Optional[bool] = None,
+    stream: Optional[bool] = None,
+    session_id: Optional[str] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Iterator[Any]:
+    """Wrap an incoming chat API request with a root-level span.
+
+    The chat endpoint (``POST /api/chat``) handles a single user turn:
+    retrieval, prompt construction, LLM completion, and response framing.
+    Each of those substeps emits its own span (:func:`retrieval_span`,
+    :func:`chat_completion_span`, etc.) — without a parent context they
+    end up as disconnected single-span traces. ``chat_request_span``
+    provides the parent so the full request shows up as one trace tree
+    in Jaeger / Honeycomb / Phoenix.
+
+    The span is named ``chat.request``. Attributes:
+
+    * ``synthesis.workspace`` — the workspace the user selected.
+    * ``gen_ai.request.model`` — the requested model id.
+    * ``synthesis.chat.use_rag`` — whether retrieval is enabled for this turn.
+    * ``synthesis.chat.stream`` — whether the response is streamed.
+    * ``synthesis.session.id`` — optional session correlation id.
+
+    Use as a context manager at the router boundary; the inner spans
+    propagate automatically via OTEL's active-context machinery.
+    """
+
+    tracer = get_tracer("synthesis_engine.chat")
+    span_name = "chat.request"
+
+    attrs: Dict[str, Any] = {}
+    if workspace:
+        attrs[SYNTHESIS_WORKSPACE] = workspace
+    if model:
+        attrs[GEN_AI_REQUEST_MODEL] = model
+    if use_rag is not None:
+        attrs[_CHAT_USE_RAG_ATTR] = bool(use_rag)
+    if stream is not None:
+        attrs[_CHAT_STREAM_ATTR] = bool(stream)
+    if session_id:
+        attrs[SYNTHESIS_SESSION_ID] = session_id
+    if extra:
+        attrs.update(extra)
+
+    with tracer.start_as_current_span(span_name, attributes=attrs) as span:
+        try:
+            yield span
+            _set_span_ok(span)
+        except BaseException as exc:
+            _set_span_error(span, exc)
+            raise
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +685,7 @@ def _safe_get_attr(span: Any, key: str) -> Optional[str]:
 
 
 __all__ = [
+    "chat_request_span",
     "chat_completion_span",
     "record_llm_response",
     "record_cache_hit",

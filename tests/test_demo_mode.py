@@ -122,15 +122,44 @@ class TestDiscoveryIsolation:
 
 
 class TestSkillDiscoveryIsolation:
-    def test_demo_mode_returns_only_bundled_demo_skill(self, monkeypatch):
+    def test_demo_mode_returns_only_bundled_skills(self, monkeypatch):
+        """Demo mode hides USER-installed skills but keeps bundled v3.4 content.
+
+        The substrate's demo filter (see ``ragbot/_demo_registration.py::
+        _skill_roots_filter``) pairs two bundled roots:
+
+        * The synthesis-engine starter pack — the six universal skills that
+          ship with the substrate (summarize-document, fact-check-claims,
+          agent-self-review, draft-and-revise, workspace-search-with-citations,
+          cross-workspace-synthesis). These are part of "what v3.4 ships with,"
+          not user content, so demo mode INCLUDES them.
+        * The bundled ``demo/skills/`` directory (ragbot-demo-skill).
+
+        Demo mode HIDES the user's installed skills (workspace skill packs,
+        plugin skills, the operator's private skill repo). That isolation
+        is the property this test asserts: the visible set must be EXACTLY
+        the bundled content and nothing else.
+        """
+
         monkeypatch.setenv("RAGBOT_DEMO", "1")
         from synthesis_engine.skills import discover_skills
 
         skills = discover_skills()
-        # Only the bundled demo skill should be visible.
         names = {s.name for s in skills}
-        assert names == {"ragbot-demo-skill"}, (
-            f"Demo mode must return only ragbot-demo-skill; got {names}"
+        expected = {
+            # Starter pack (substrate-bundled).
+            "summarize-document",
+            "fact-check-claims",
+            "agent-self-review",
+            "draft-and-revise",
+            "workspace-search-with-citations",
+            "cross-workspace-synthesis",
+            # Ragbot's demo bundle.
+            "ragbot-demo-skill",
+        }
+        assert names == expected, (
+            "Demo mode must return exactly the bundled starter pack + "
+            f"ragbot-demo-skill; got {names}"
         )
 
     def test_normal_mode_unaffected(self, monkeypatch, tmp_path):
