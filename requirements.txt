@@ -42,7 +42,7 @@ pydantic>=2.13.0
 # --- Model Context Protocol ----------------------------------------------
 # The official Python SDK powers synthesis_engine.mcp (client, six primitives,
 # OAuth, Tasks). Track 1.27+, which carries the Tasks experimental client.
-mcp>=1.27.0
+mcp>=1.27.1
 
 # --- Background-task scheduling ------------------------------------------
 # Powers synthesis_engine.tasks.scheduler — the cron-style loop that drives
