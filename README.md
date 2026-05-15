@@ -116,7 +116,7 @@ Strategic note on LiteLLM in 2026: it remains a defensible default because of pr
 
 Ragbot v3.0 (April 2026) ships three major upgrades over v2:
 
-- **Pgvector by default.** PostgreSQL with the `pgvector` extension is the default vector backend, replacing embedded Qdrant. Native full-text search via `tsvector` + GIN replaces in-process BM25. The legacy embedded Qdrant backend remains as an opt-in fallback (`RAGBOT_VECTOR_BACKEND=qdrant`).
+- **Pgvector by default.** PostgreSQL with the `pgvector` extension is the vector backend. Native full-text search via `tsvector` + GIN replaces in-process BM25. (As of v3.5, Qdrant support was removed entirely — pgvector is the only shipped backend; the `VectorStore` ABC still allows substrate consumers to plug in alternatives.)
 - **Agent Skills as first-class content.** Ragbot discovers and indexes Agent Skills (`SKILL.md` plus references and scripts) from `~/.synthesis/skills`, `~/.claude/skills`, and plugin caches. New `ragbot skills {list,info,index}` CLI. The compiler can include skills via a `sources.skills` block in `compile-config.yaml`.
 - **Workspace-rooted layout.** AI Knowledge repos are discovered across `~/workspaces/*/ai-knowledge-*` and via the synthesis-engineering shared `~/.synthesis/console.yaml` source list. Configuration moved to `~/.synthesis/` (legacy `~/.config/ragbot/` falls through).
 
@@ -282,7 +282,7 @@ Ragbot's default vector store is PostgreSQL with the `pgvector` extension. The s
 
 For local development without Docker, install pgvector for your PostgreSQL and point `RAGBOT_DATABASE_URL` at it. With Docker Compose, the bundled `postgres` service starts automatically. See [CONFIGURE.md](CONFIGURE.md) for both paths.
 
-Use `ragbot db status` to confirm the active backend, and the legacy embedded Qdrant backend remains available via `RAGBOT_VECTOR_BACKEND=qdrant`.
+Use `ragbot db status` to confirm pgvector connectivity, list collections, and verify migrations are applied.
 
 Agent Skills
 ------------
@@ -393,7 +393,7 @@ Based on benchmarks from Anthropic, Microsoft, and other research:
 
 ### Technical Details
 
-- **Vector Database**: Qdrant (local file-based storage at `/app/qdrant_data`)
+- **Vector Database**: PostgreSQL with the `pgvector` extension (default DSN via `RAGBOT_DATABASE_URL`; bundled `postgres` service in `docker-compose.yml`)
 - **Embedding Model**: sentence-transformers `all-MiniLM-L6-v2` (80MB, 384 dimensions)
 - **Chunking**: ~500 tokens per chunk with 50-token overlap
 - **Similarity**: Cosine distance for semantic matching

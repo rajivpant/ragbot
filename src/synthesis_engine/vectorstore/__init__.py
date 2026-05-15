@@ -1,17 +1,19 @@
 """Vector store abstraction for Ragbot.
 
-Two backends are available:
+The single supported backend is PgvectorBackend — PostgreSQL with the
+pgvector extension. The :class:`VectorStore` ABC is retained because
+other synthesis-engine consumers (Ragenie, synthesis-console, embedders
+in user-built tools) may plug their own backends in behind the same
+contract, but Ragbot itself ships pgvector-only as of v3.5.
 
-    - QdrantBackend  — embedded local-file Qdrant. Legacy / back-compat.
-    - PgvectorBackend — PostgreSQL with pgvector extension. Preferred.
+Configuration is via :envvar:`RAGBOT_DATABASE_URL`. When the database
+is unreachable, :func:`get_vector_store` returns ``None`` — callers in
+``rag.py`` degrade gracefully (chat-only without RAG) rather than
+silently swapping in a different store.
 
-Selection is driven by the RAGBOT_VECTOR_BACKEND env var (``pgvector`` by default,
-fallback ``qdrant``). The ``RAGBOT_DATABASE_URL`` env var configures the
-pgvector connection string.
-
-Both backends conform to the :class:`VectorStore` ABC defined here and exchange
-the lightweight :class:`Point` and :class:`SearchHit` dataclasses, so callers
-in ``rag.py`` are oblivious to the underlying technology.
+The :class:`Point` and :class:`SearchHit` dataclasses are the wire
+format. They stay stable across backends so a future swap-in is a
+one-file change, not a chat-path refactor.
 """
 
 from __future__ import annotations
@@ -57,9 +59,9 @@ class Point:
 class SearchHit:
     """A single result from a vector / keyword search.
 
-    ``score`` is store-specific (cosine similarity for pgvector and Qdrant;
-    BM25-style rank for keyword hits). The caller is responsible for any
-    cross-store comparison or rerank.
+    ``score`` is store-specific (cosine similarity for vector search,
+    ts_rank for native FTS). The caller is responsible for any
+    cross-tier comparison or rerank.
     """
 
     text: str
@@ -103,12 +105,12 @@ class VectorStore(ABC):
         limit: int = 10,
         content_type: Optional[str] = None,
     ) -> List[SearchHit]:
-        """Keyword/FTS search. Used for the BM25 leg of hybrid retrieval.
-
-        For backends without native FTS (e.g., Qdrant), implementations may
-        return an empty list and signal the caller to fall back to the
-        in-process BM25 over scrolled chunks.
-        """
+        """Keyword / FTS search. Used for the BM25-equivalent leg of hybrid
+        retrieval. Implementations without native FTS may return an empty
+        list; the caller in ``rag.py`` then falls back to in-process BM25
+        over scrolled chunks. Pgvector implements this via PostgreSQL's
+        tsvector / ts_rank machinery, so the fallback never fires in
+        practice on Ragbot's bundled stack."""
 
     @abstractmethod
     def scroll_documents(
@@ -138,52 +140,36 @@ class VectorStore(ABC):
 
 
 # ---------------------------------------------------------------------------
-# Backend selection
+# Backend resolution
 # ---------------------------------------------------------------------------
 
 
 _BACKEND: Optional[VectorStore] = None
 
 
-def _resolve_backend_name() -> str:
-    name = os.environ.get("RAGBOT_VECTOR_BACKEND", "pgvector").strip().lower()
-    if name not in ("pgvector", "qdrant"):
-        logger.warning(
-            "Unknown RAGBOT_VECTOR_BACKEND=%r, defaulting to pgvector",
-            name,
-        )
-        return "pgvector"
-    return name
-
-
 def get_vector_store(refresh: bool = False) -> Optional[VectorStore]:
-    """Return the configured backend (cached). None if the backend cannot
-    initialize (e.g., pgvector chosen but Postgres unreachable and no
-    fallback configured)."""
+    """Return the pgvector backend (cached).
+
+    Returns ``None`` when the database is unreachable or the pgvector
+    Python extras are not installed. Callers in ``rag.py`` interpret
+    ``None`` as "RAG is unavailable; chat path stays text-only" rather
+    than swapping in a different store.
+    """
 
     global _BACKEND
     if _BACKEND is not None and not refresh:
         return _BACKEND
 
-    name = _resolve_backend_name()
-    backend: Optional[VectorStore] = None
+    try:
+        from .pgvector_backend import PgvectorBackend  # noqa: WPS433
+        _BACKEND = PgvectorBackend.from_env()
+    except Exception as exc:  # pragma: no cover - construction failure path
+        logger.warning(
+            "Pgvector backend unavailable (%s); RAG features disabled.",
+            exc,
+        )
+        _BACKEND = None
 
-    if name == "pgvector":
-        try:
-            from .pgvector_backend import PgvectorBackend  # noqa: WPS433
-            backend = PgvectorBackend.from_env()
-        except Exception as exc:  # pragma: no cover - construction failure path
-            logger.warning(
-                "Pgvector backend unavailable (%s); falling back to qdrant.",
-                exc,
-            )
-            name = "qdrant"
-
-    if name == "qdrant":
-        from .qdrant_backend import QdrantBackend  # noqa: WPS433
-        backend = QdrantBackend()
-
-    _BACKEND = backend
     return _BACKEND
 
 

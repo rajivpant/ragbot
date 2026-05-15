@@ -339,7 +339,7 @@ class TestHybridSearch:
             mock_search.return_value = [
                 {'text': 'Result 1', 'score': 0.9, 'metadata': {'filename': 'a.md', 'char_start': 0}}
             ]
-            with patch('rag._get_qdrant_client', return_value=None):
+            with patch('rag.get_vector_store', return_value=None):
                 results = hybrid_search('test_workspace', 'query', use_bm25=False)
 
         assert len(results) == 1
@@ -349,7 +349,7 @@ class TestHybridSearch:
         """Should gracefully handle missing collection."""
         with patch('rag.search') as mock_search:
             mock_search.return_value = []
-            with patch('rag._get_qdrant_client', return_value=None):
+            with patch('rag.get_vector_store', return_value=None):
                 results = hybrid_search('nonexistent', 'query')
 
         assert results == []
@@ -410,7 +410,7 @@ class TestFallbackBehavior:
         ]
 
         with patch('rag.search', return_value=mock_vector_results):
-            with patch('rag._get_qdrant_client', return_value=None):  # BM25 will fail
+            with patch('rag.get_vector_store', return_value=None):  # BM25 will fail
                 results = hybrid_search('test', 'query')
 
         # Should still return vector results

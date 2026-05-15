@@ -13,6 +13,6 @@ Public submodules:
     exceptions   — base error hierarchy (SynthesisError → ConfigurationError, etc.)
     models       — substrate-level Pydantic types (WorkspaceInfo, WorkspaceList, ModelInfo)
     llm          — pluggable LLM backend interface (LiteLLM, direct SDK)
-    vectorstore  — pluggable vector store interface (pgvector, qdrant)
+    vectorstore  — pluggable vector store interface (pgvector default; ABC for swap-ins)
     skills       — Agent Skill discovery, parsing, and data model
 """

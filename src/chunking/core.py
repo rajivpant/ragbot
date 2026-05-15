@@ -147,14 +147,6 @@ def _generate_chunk_id(source: str, chunk_index: int, start_char: int) -> str:
     return hashlib.md5(key.encode()).hexdigest()[:12]
 
 
-def _generate_point_id(source: str, chunk_index: int) -> int:
-    """Generate a unique integer ID for Qdrant points."""
-    key = f"{source}:{chunk_index}"
-    hash_bytes = hashlib.md5(key.encode()).digest()
-    # Convert first 8 bytes to int (Qdrant requires int IDs)
-    return int.from_bytes(hash_bytes[:8], byteorder='big') & 0x7FFFFFFFFFFFFFFF
-
-
 def chunk_file(
     file_path: str,
     config: Optional[ChunkConfig] = None,
@@ -363,19 +355,3 @@ def chunk_for_rag(
     return chunk_file(file_path, config)
 
 
-def get_qdrant_point_id(chunk: Chunk) -> int:
-    """
-    Get a Qdrant-compatible integer ID for a chunk.
-
-    Qdrant requires integer IDs. This generates a consistent
-    ID based on the chunk's source file and index.
-
-    Args:
-        chunk: The Chunk object
-
-    Returns:
-        Integer ID suitable for Qdrant
-    """
-    source = chunk.metadata.get('source_file', '')
-    index = chunk.metadata.get('chunk_index', 0)
-    return _generate_point_id(source, index)

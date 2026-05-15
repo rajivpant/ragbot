@@ -91,7 +91,7 @@ Output: `compiled/{project}/instructions/`
 
 ## RAG Indexing (Local)
 
-RAG indexing reads source files directly and indexes them in Qdrant. No intermediate files needed.
+RAG indexing reads source files directly and indexes them in pgvector. No intermediate files needed.
 
 ```bash
 ragbot index --workspace {name}
@@ -101,7 +101,7 @@ The RAG pipeline:
 1. Reads `.md` files from `source/` (respecting inheritance)
 2. Chunks content using sentence-transformers
 3. Generates embeddings with `all-MiniLM-L6-v2`
-4. Upserts to Qdrant vector database
+4. Upserts to the pgvector store (PostgreSQL with the `pgvector` extension)
 
 ## Inheritance Configuration
 

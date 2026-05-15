@@ -1,6 +1,6 @@
 # rag.py
 # RAG (Retrieval-Augmented Generation) support for Ragbot
-# Uses Qdrant for vector storage and sentence-transformers for embeddings
+# Uses pgvector for vector storage and sentence-transformers for embeddings
 # Uses shared chunking library for consistent text chunking
 #
 # Phase 1 Improvements (December 2025):
@@ -34,7 +34,7 @@ import math
 import logging
 from typing import Optional, Dict, List, Tuple, Any, Set
 
-# Vector store abstraction (pgvector + qdrant backends behind a common ABC).
+# Vector store abstraction (pgvector backend behind a common ABC).
 # Importing at module load time so callers can rely on get_vector_store().
 try:
     from synthesis_engine.vectorstore import (
@@ -721,7 +721,11 @@ def hybrid_search(
                 for h in native_hits
             ]
         else:
-            # Fallback: in-process BM25 over scrolled chunks (Qdrant path).
+            # Fallback: in-process BM25 over scrolled chunks. Reached only
+            # when a backend declines to implement keyword_search natively
+            # — pgvector always returns native FTS hits, so the fallback
+            # never fires on Ragbot's bundled stack. Kept for backends
+            # plugged in by other synthesis-engine consumers.
             # Limit to 500 to bound memory.
             scrolled = vs.scroll_documents(
                 workspace_name,
@@ -1129,25 +1133,24 @@ chunk_file = None
 chunk_files = None
 ChunkConfig = None
 Chunk = None
-get_qdrant_point_id = None
 
 
 def _load_chunking():
     """Lazy load chunking module."""
-    global _chunking_loaded, chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id
+    global _chunking_loaded, chunk_file, chunk_files, ChunkConfig, Chunk
     if _chunking_loaded:
         return True
     try:
         # Try relative import (when used as part of a package)
-        from .chunking import chunk_file as cf, chunk_files as cfs, ChunkConfig as CC, Chunk as C, get_qdrant_point_id as gpi
-        chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id = cf, cfs, CC, C, gpi
+        from .chunking import chunk_file as cf, chunk_files as cfs, ChunkConfig as CC, Chunk as C
+        chunk_file, chunk_files, ChunkConfig, Chunk = cf, cfs, CC, C
         _chunking_loaded = True
         return True
     except ImportError:
         try:
             # Try absolute import (when used standalone)
-            from chunking import chunk_file as cf, chunk_files as cfs, ChunkConfig as CC, Chunk as C, get_qdrant_point_id as gpi
-            chunk_file, chunk_files, ChunkConfig, Chunk, get_qdrant_point_id = cf, cfs, CC, C, gpi
+            from chunking import chunk_file as cf, chunk_files as cfs, ChunkConfig as CC, Chunk as C
+            chunk_file, chunk_files, ChunkConfig, Chunk = cf, cfs, CC, C
             _chunking_loaded = True
             return True
         except ImportError:
@@ -1155,38 +1158,7 @@ def _load_chunking():
             return False
 
 # Lazy imports - only load heavy dependencies when needed
-_qdrant_client = None
 _embedding_model = None
-
-
-def _get_qdrant_client():
-    """Get or create Qdrant client (lazy initialization)."""
-    global _qdrant_client
-    if _qdrant_client is None:
-        try:
-            from qdrant_client import QdrantClient
-            from qdrant_client.models import Distance, VectorParams
-
-            # Check for Qdrant server or use in-memory
-            qdrant_url = os.environ.get('QDRANT_URL', None)
-            qdrant_path = os.environ.get('QDRANT_PATH', '/app/qdrant_data')
-
-            if qdrant_url:
-                # Connect to Qdrant server
-                logger.info(f"Connecting to Qdrant server at {qdrant_url}")
-                _qdrant_client = QdrantClient(url=qdrant_url)
-            else:
-                # Use local file-based storage (persists across restarts)
-                os.makedirs(qdrant_path, exist_ok=True)
-                logger.info(f"Using local Qdrant storage at {qdrant_path}")
-                _qdrant_client = QdrantClient(path=qdrant_path)
-        except ImportError:
-            logger.warning("qdrant-client not installed. RAG features disabled.")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to initialize Qdrant: {e}")
-            return None
-    return _qdrant_client
 
 
 def _get_embedding_model():
@@ -1234,8 +1206,8 @@ def is_rag_available() -> bool:
     """Check if RAG dependencies are available.
 
     RAG requires (a) sentence-transformers for embeddings, and (b) a working
-    vector store backend. The active backend is decided by RAGBOT_VECTOR_BACKEND
-    (defaults to pgvector with qdrant fallback).
+    pgvector backend reachable via RAGBOT_DATABASE_URL. Returns False when
+    either is missing.
     """
 
     try:
@@ -1249,8 +1221,12 @@ def is_rag_available() -> bool:
 
 
 def get_collection_name(workspace_name: str) -> str:
-    """Generate a collection name for a workspace."""
-    # Sanitize workspace name for Qdrant collection naming
+    """Generate a collection name for a workspace.
+
+    Retained for back-compat with callers that still ask for a collection
+    identifier; the pgvector backend uses the raw workspace name as the
+    ``workspace`` column value and does not need the sanitised form.
+    """
     safe_name = workspace_name.lower().replace(' ', '_').replace('-', '_')
     return f"ragbot_{safe_name}"
 
@@ -1343,9 +1319,7 @@ def index_content(workspace_name: str, content_paths: list, content_type: str = 
                          'source_file', 'char_start', 'char_end', 'chunk_index')
         }
 
-        point_id = get_qdrant_point_id(chunk) if get_qdrant_point_id else f"{workspace_name}-{idx}"
-        # Coerce non-string ids to a stable string for cross-backend compatibility.
-        chunk_uid = str(point_id)
+        chunk_uid = f"{workspace_name}-{idx}"
 
         points.append(VectorStorePoint(
             chunk_uid=chunk_uid,
@@ -1398,7 +1372,7 @@ def find_full_document(workspace_name: str, document_hint: str,
 
     try:
         # Pull all chunks for this workspace via the abstraction. The cap of
-        # 5,000 matches the upper bound of the previous Qdrant scroll loop.
+        # 5,000 bounds the in-memory document map for full-document recovery.
         hits = vs.scroll_documents(workspace_name, limit=5000)
         if not hits:
             return None
@@ -1948,7 +1922,7 @@ def get_index_status(workspace_name: str) -> tuple[bool, int]:
 
     Returns:
         Tuple of (is_indexed, chunk_count) where chunk_count is the number of
-        vector points in the Qdrant collection.
+        chunk rows in the workspace's pgvector collection.
     """
     if not VECTOR_STORE_AVAILABLE:
         return False, 0
@@ -2042,9 +2016,7 @@ def _build_skill_chunks(skill, embedding_model_name: str, model) -> List["Vector
 
             embedding = model.encode('\n'.join(embedding_parts)).tolist()
 
-            chunk_uid_seed = f"{skill.name}::{sf.relative_path}::{idx}"
-            point_id = get_qdrant_point_id(chunk) if get_qdrant_point_id else chunk_uid_seed
-            chunk_uid = str(point_id) if point_id else chunk_uid_seed
+            chunk_uid = f"{skill.name}::{sf.relative_path}::{idx}"
 
             metadata = {
                 'skill_name': skill.name,

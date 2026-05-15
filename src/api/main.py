@@ -295,8 +295,8 @@ app.include_router(tasks.router)
 async def health_check():
     """Health check endpoint.
 
-    Reports overall status, RAG availability, and the active vector backend's
-    health (pgvector reachability, qdrant client status).
+    Reports overall status, RAG availability, and pgvector backend health
+    (connectivity, schema version, workspace count).
     """
     backend_health = {}
     try:

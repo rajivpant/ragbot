@@ -19,7 +19,6 @@ from .core import (
     chunk_files,
     chunk_for_compiler,
     chunk_for_rag,
-    get_qdrant_point_id,
     ChunkConfig,
     Chunk,
 )
@@ -30,7 +29,6 @@ __all__ = [
     'chunk_files',
     'chunk_for_compiler',
     'chunk_for_rag',
-    'get_qdrant_point_id',
     'ChunkConfig',
     'Chunk',
 ]

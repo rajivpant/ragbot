@@ -241,13 +241,13 @@ def create_compile_parser(subparsers):
 def create_index_parser(subparsers):
     """Create the index subcommand parser.
 
-    Indexes AI Knowledge content into a vector store (Qdrant) for RAG retrieval.
+    Indexes AI Knowledge content into the pgvector store for RAG retrieval.
     Reads source files directly — no intermediate compiled files needed.
     """
     index_parser = subparsers.add_parser(
         'index',
         help='Index AI Knowledge content into vector store for RAG',
-        description='Index AI Knowledge content into a vector store (Qdrant) for RAG retrieval. '
+        description='Index AI Knowledge content into the pgvector store for RAG retrieval. '
                     'Reads source files directly from ai-knowledge repositories.'
     )
 
@@ -674,10 +674,9 @@ def create_db_parser(subparsers):
     db_parser = subparsers.add_parser(
         'db',
         help='Vector store backend diagnostics and maintenance',
-        description='Inspect and maintain the configured vector store backend '
-                    '(pgvector or qdrant). Use `ragbot db status` to verify '
-                    'connectivity, list collections, and confirm migrations '
-                    'are applied.'
+        description='Inspect and maintain the pgvector store. Use '
+                    '`ragbot db status` to verify connectivity, list '
+                    'collections, and confirm migrations are applied.'
     )
 
     db_subparsers = db_parser.add_subparsers(dest='db_command', required=True)
@@ -1784,7 +1783,7 @@ def run_index(args):
     """Run the index command — index AI Knowledge content into vector store.
 
     Reads source files directly from ai-knowledge repositories and indexes
-    them into Qdrant for RAG retrieval. No intermediate compiled files needed.
+    them into pgvector for RAG retrieval. No intermediate compiled files needed.
     """
     import time
 

@@ -84,7 +84,8 @@ class PgvectorBackend(VectorStore):
             )
         backend = cls(dsn)
         # Eagerly validate connectivity + run migrations. Fail fast if the
-        # database is unreachable so the caller can fall back to qdrant.
+        # database is unreachable so get_vector_store() returns None and
+        # callers in rag.py degrade to chat-only without RAG.
         backend._ensure_pool()
         backend._run_migrations()
         return backend

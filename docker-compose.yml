@@ -54,8 +54,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Default backend for new installs. Override to `qdrant` for legacy mode.
-      RAGBOT_VECTOR_BACKEND: ${RAGBOT_VECTOR_BACKEND:-pgvector}
       RAGBOT_DATABASE_URL: ${RAGBOT_DATABASE_URL:-postgresql://ragbot:ragbot_dev_password_change_me@postgres:5432/ragbot}
       # Point LiteLLM at a host-side Ollama daemon (the container's own
       # localhost is the container, not the host). host.docker.internal is
@@ -108,9 +106,6 @@ services:
 
       # Mount source code for development (optional - comment out for production)
       - ./src:/app/src:ro
-
-      # Qdrant vector database storage (legacy backend, retained for back-compat)
-      - ragbot-qdrant:/app/qdrant_data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -147,8 +142,6 @@ volumes:
   ragbot-sessions:
     driver: local
   ragbot-postgres-data:
-    driver: local
-  ragbot-qdrant:
     driver: local
   ragbot-web-node-modules:
     driver: local

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS chunks (
     document_id     BIGINT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     workspace       TEXT NOT NULL,           -- denormalized for fast filtering
     chunk_index     INTEGER NOT NULL,
-    chunk_uid       TEXT NOT NULL,           -- deterministic chunk id (carryover from Qdrant point id)
+    chunk_uid       TEXT NOT NULL,           -- deterministic chunk id (stable across reindex)
     text            TEXT NOT NULL,
     char_start      INTEGER,
     char_end        INTEGER,

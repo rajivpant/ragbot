@@ -45,8 +45,6 @@ docker compose up -d postgres
 docker compose exec postgres psql -U ragbot -d ragbot -c "SELECT extversion FROM pg_extension WHERE extname='vector';"
 ```
 
-To opt into the legacy embedded Qdrant backend instead, set `RAGBOT_VECTOR_BACKEND=qdrant` in `.env`.
-
 ### 3. Build and Start the Web Interface
 
 ```bash

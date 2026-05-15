@@ -17,7 +17,7 @@ rather than duplicating substrate code.
 - `exceptions` — shared error hierarchy
 - `models` — substrate-level Pydantic types
 - `llm/` — pluggable LLM backend interface (LiteLLM and direct SDK)
-- `vectorstore/` — pluggable vector store interface (pgvector, qdrant)
+- `vectorstore/` — pluggable vector store interface (pgvector default; ABC for swap-ins)
 - `skills/` — Agent Skill discovery, parsing, data model
 
 ## Consumers

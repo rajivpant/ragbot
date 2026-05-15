@@ -197,14 +197,13 @@ API:
 - `rag.get_relevant_context(workspace, query, additional_workspaces=[...])` — explicit fan-out (pass `[]` to opt out).
 - Auto-include policy: when `additional_workspaces is None` and the `skills` workspace has data, ragbot includes it automatically.
 
-### Vector Store Backends
+### Vector Store
 
-Ragbot uses an abstraction over the vector store. Two backends ship:
+Ragbot uses a single backend: **pgvector** — PostgreSQL with the `pgvector` extension. Configured via `RAGBOT_DATABASE_URL`. Native FTS via tsvector replaces in-process BM25.
 
-- **pgvector** (default) — PostgreSQL with the `pgvector` extension. Native FTS via tsvector replaces in-process BM25. Selected when `RAGBOT_VECTOR_BACKEND=pgvector` (or unset) and `RAGBOT_DATABASE_URL` is reachable.
-- **qdrant** (legacy) — Embedded local-file Qdrant. Selected with `RAGBOT_VECTOR_BACKEND=qdrant`. Retained for back-compat; falls back to in-process BM25.
+Qdrant was removed in v3.5 (no shim, no opt-in path). The `VectorStore` ABC at `synthesis_engine.vectorstore` is still the substrate contract, so consumers outside Ragbot may plug in alternative backends behind the same interface.
 
-Backend code lives in `src/ragbot/vectorstore/`. The schema (single shared `documents` + `chunks` table, scoped by `workspace` column, with HNSW + GIN indexes) is in `vectorstore/migrations/0001_initial.sql`. New migrations append numerically; the runner is idempotent.
+Backend code lives in `src/synthesis_engine/vectorstore/`. The schema (single shared `documents` + `chunks` table, scoped by `workspace` column, with HNSW + GIN indexes) is in `vectorstore/migrations/0001_initial.sql`. New migrations append numerically; the runner is idempotent.
 
 Diagnose with `ragbot db status`. Apply migrations explicitly with `ragbot db init`.
 - Workspaces discovered automatically from ai-knowledge-* repositories

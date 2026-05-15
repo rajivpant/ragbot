@@ -58,7 +58,11 @@ export RAGBOT_DATABASE_URL=postgresql://ragbot:CHANGE_ME@localhost:5432/ragbot
 ragbot db status
 ```
 
-To run on the legacy embedded Qdrant backend instead, set `RAGBOT_VECTOR_BACKEND=qdrant`. No database setup needed; Qdrant data is stored under `$QDRANT_PATH` (default `/app/qdrant_data` in containers).
+PostgreSQL with the `pgvector` extension is the only shipped backend. Qdrant
+support was removed in v3.5; if you ran an earlier version with
+`RAGBOT_VECTOR_BACKEND=qdrant`, reindex your workspaces into pgvector before
+upgrading. The `VectorStore` ABC at `synthesis_engine.vectorstore` still
+lets substrate consumers plug in alternatives behind the same contract.
 
 ### Discovering and indexing Agent Skills
 

@@ -151,7 +151,10 @@ SYNTHESIS_RETRIEVAL_TOP_SCORE = "synthesis.retrieval.top_score"
 # int. The number of results returned (may be < k if the corpus is smaller).
 SYNTHESIS_RETRIEVAL_RESULT_COUNT = "synthesis.retrieval.result_count"
 
-# str. The vector store backend name ("pgvector", "qdrant").
+# str. The vector store backend name (e.g., "pgvector"). Substrate consumers
+# that plug in alternative backends behind the VectorStore ABC report their
+# own backend_name value here so retrieval-latency dashboards can split by
+# backend when more than one ships in the same deployment.
 SYNTHESIS_RETRIEVAL_BACKEND = "synthesis.retrieval.backend"
 
 # str. The content_type filter applied to a retrieval call, when set.

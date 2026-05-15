@@ -170,7 +170,7 @@ class TestQueryPreprocessing:
 class TestSearchWithPreprocessing:
     """Tests for search function with preprocessing.
 
-    Note: These tests require RAG infrastructure (Qdrant, embeddings).
+    Note: These tests require RAG infrastructure (pgvector, embeddings).
     They are skipped if RAG is not available.
     """
 
@@ -179,7 +179,7 @@ class TestSearchWithPreprocessing:
         """Check if RAG infrastructure is available."""
         from rag import is_rag_available
         if not is_rag_available():
-            pytest.skip("RAG not available (Qdrant/embeddings not installed)")
+            pytest.skip("RAG not available (pgvector/embeddings not installed)")
 
     def test_search_uses_preprocessing(self, check_rag_available):
         """Search should use query preprocessing by default."""
