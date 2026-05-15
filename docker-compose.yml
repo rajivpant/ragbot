@@ -78,6 +78,13 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4317}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-ragbot-api}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      # Disable OTLP metric export by default. Jaeger only accepts traces
+      # over OTLP; sending metrics there prints UNIMPLEMENTED errors on
+      # every export interval. Prometheus exposition at /api/metrics works
+      # regardless. Operators with a real OTLP-metrics-accepting collector
+      # (Prometheus OTLP receiver, Phoenix, Datadog OTLP) override this to
+      # the collector's URL.
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-none}
     volumes:
       # Persistent session storage
       - ragbot-sessions:/root/.local/share/ragbot/sessions

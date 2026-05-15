@@ -27,14 +27,26 @@ Exporter selection priority:
 
 Environment variables consumed (all OTEL-standard except where noted):
 
-  OTEL_EXPORTER_OTLP_ENDPOINT     OTLP collector endpoint (gRPC).
-  OTEL_EXPORTER_OTLP_HEADERS      Optional headers for OTLP (e.g., API key).
-  OTEL_EXPORTER_OTLP_PROTOCOL     "grpc" (default) | "http/protobuf".
-  OTEL_SERVICE_NAME               Overrides the service_name parameter.
-  OTEL_RESOURCE_ATTRIBUTES        Additional resource attributes (k=v,k=v).
-  RAGBOT_OTEL_CONSOLE             "1" → force console exporter (non-standard,
-                                  but documented; useful for local dev when
-                                  no OTLP collector is running).
+  OTEL_EXPORTER_OTLP_ENDPOINT             OTLP collector endpoint for all
+                                          signals (traces + metrics) unless
+                                          a per-signal override is set.
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT     Per-signal override for metric
+                                          export. Set to the literal string
+                                          "none" (or empty when the unified
+                                          endpoint is set) to disable
+                                          metric OTLP export while keeping
+                                          trace export intact. Used by the
+                                          bundled docker-compose stack
+                                          because Jaeger accepts traces but
+                                          not metrics over OTLP.
+  OTEL_EXPORTER_OTLP_HEADERS              Optional headers for OTLP (API key, etc.).
+  OTEL_EXPORTER_OTLP_PROTOCOL             "grpc" (default) | "http/protobuf".
+  OTEL_SERVICE_NAME                       Overrides the service_name parameter.
+  OTEL_RESOURCE_ATTRIBUTES                Additional resource attributes (k=v,k=v).
+  RAGBOT_OTEL_CONSOLE                     "1" → force console exporter
+                                          (non-standard; useful for local
+                                          dev when no OTLP collector is
+                                          running).
 """
 
 from __future__ import annotations
@@ -217,12 +229,31 @@ def init_tracer(
         _TRACER_PROVIDER = tracer_provider
 
         # ----- Meter provider ---------------------------------------------
+        # Metric-endpoint resolution honours the OTEL standard per-signal
+        # env-var hierarchy:
+        #
+        #   1. ``OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`` — explicit metrics
+        #      endpoint (or the literal string ``"none"`` / empty to
+        #      disable metric OTLP export entirely while keeping the
+        #      Prometheus reader attached for ``/api/metrics``).
+        #   2. ``OTEL_EXPORTER_OTLP_ENDPOINT`` — unified fallback for all
+        #      signals (the value used for trace export above).
+        #
+        # The ``"none"`` sentinel exists because the bundled docker-compose
+        # stack points the unified endpoint at Jaeger, which accepts traces
+        # over OTLP but not metrics — without an opt-out, the metric
+        # exporter would print ``UNIMPLEMENTED`` errors on every export
+        # interval. Operators with a real OTLP-metrics-accepting collector
+        # (Prometheus OTLP receiver, Phoenix, Datadog) override the env to
+        # the collector's URL.
         readers = []
         if metric_reader is not None:
             readers.append(metric_reader)
         else:
-            otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-            if otlp_endpoint:
+            metrics_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT")
+            if metrics_endpoint is None:
+                metrics_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+            if metrics_endpoint and metrics_endpoint.strip().lower() != "none":
                 try:
                     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
                         OTLPMetricExporter,
@@ -232,7 +263,7 @@ def init_tracer(
                 else:
                     readers.append(
                         PeriodicExportingMetricReader(
-                            OTLPMetricExporter(endpoint=otlp_endpoint),
+                            OTLPMetricExporter(endpoint=metrics_endpoint),
                             export_interval_millis=30_000,
                         ),
                     )

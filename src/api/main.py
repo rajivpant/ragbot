@@ -79,6 +79,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
+# Application logging — configure the root logger BEFORE uvicorn imports
+# this module so app-namespace loggers ("api.main", "api.routers.*",
+# "synthesis_engine.*") propagate to stderr alongside uvicorn's own log
+# stream. Uvicorn's default --log-config only routes uvicorn /
+# uvicorn.error / uvicorn.access namespaces; without this configuration,
+# `logger.info(...)` calls in the lifespan and the routers are silently
+# discarded in `docker logs ragbot-api`. Level is overridable via
+# RAGBOT_LOG_LEVEL (default INFO); format is timestamp + level + logger
+# name + message so multi-process container logs are diagnosable.
+logging.basicConfig(
+    level=os.environ.get("RAGBOT_LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 # Add src directory to path
 src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if src_dir not in sys.path:
