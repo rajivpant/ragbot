@@ -46,11 +46,22 @@ Startup contract
     lazy-constructs a client on first use; this step exists so a misconfigured
     ``~/.synthesis/mcp.yaml`` surfaces at startup, not on the first agent call.
 
+6.  Construct an :class:`AgentLoop` wired to the lifespan's LLM backend,
+    the just-resolved MCP client, and a :class:`FilesystemCheckpointStore`;
+    register it via :func:`api.routers.agent.set_default_loop` so the
+    ``/api/agent/*`` routes resolve against this instance. Without this
+    step the router returns ``"Agent loop is not configured"`` on every
+    call, which was the behaviour through v3.4. The loop is stashed on
+    ``app.state.agent_loop`` so shutdown can clear the registration.
+
 Shutdown contract
 ~~~~~~~~~~~~~~~~~
 
-1.  If the scheduler is running, call :meth:`SchedulerLoop.stop`.
-2.  Call :func:`synthesis_engine.observability.shutdown_tracer` so the
+1.  Clear the agent-loop singleton (``set_default_loop(None)``) so the
+    router does not retain a reference to a teared-down LLM backend or
+    MCP client past the app's lifetime.
+2.  If the scheduler is running, call :meth:`SchedulerLoop.stop`.
+3.  Call :func:`synthesis_engine.observability.shutdown_tracer` so the
     OpenTelemetry exporter has a chance to flush pending spans —
     BUT only when ``app.state.owns_tracer`` is true, i.e., when the
     lifespan itself initialised the tracer. Tests and embedders install
@@ -85,9 +96,10 @@ logger = logging.getLogger("api.main")
 async def lifespan(app: FastAPI):
     """Application lifespan handler.
 
-    Wires the background-task substrate, the opt-in scheduler, and the MCP
-    client at process start; tears them down at process stop. See the module
-    docstring for the full contract.
+    Wires the observability substrate, the background-task substrate, the
+    opt-in scheduler, the MCP client, and the agent loop at process start;
+    tears them down at process stop. See the module docstring for the full
+    contract.
     """
     # ----- Startup ----------------------------------------------------------
     settings = get_settings()
@@ -228,11 +240,67 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.debug("MCP startup probe failed: %s", exc)
 
+    # 6. Agent loop — construct an AgentLoop wired to the lifespan's LLM
+    #    backend, the just-resolved MCP client (may be None — the loop
+    #    tolerates that and skips MCP tool calls), and a
+    #    FilesystemCheckpointStore so /api/agent/run can persist and
+    #    replay sessions. Register it via set_default_loop() so the
+    #    /api/agent/* routes resolve against this instance instead of
+    #    returning the "not configured" error the router emits when the
+    #    singleton is None. App.state holds a reference so shutdown can
+    #    clear the registration without leaking the singleton.
+    app.state.agent_loop = None
+    try:
+        from synthesis_engine.agent import (
+            AgentLoop,
+            FilesystemCheckpointStore,
+        )
+        from synthesis_engine.llm import get_llm_backend
+        from synthesis_engine.mcp import get_default_client as _get_mcp
+        from .routers.agent import set_default_loop as _set_default_loop
+
+        llm_backend = get_llm_backend()
+        mcp_client = _get_mcp()  # may be None
+        checkpoint_store = FilesystemCheckpointStore()
+        agent_loop = AgentLoop(
+            llm_backend=llm_backend,
+            mcp_client=mcp_client,
+            checkpoint_store=checkpoint_store,
+            default_mcp_server="local",
+        )
+        _set_default_loop(agent_loop)
+        app.state.agent_loop = agent_loop
+        logger.info(
+            "Agent loop initialised; /api/agent/run is live "
+            "(mcp_client=%s).",
+            "wired" if mcp_client is not None else "unset",
+        )
+    except Exception as exc:  # noqa: BLE001 — startup must keep going
+        logger.warning(
+            "Agent loop initialisation failed: %s "
+            "(/api/agent/run will return 'not configured').",
+            exc,
+        )
+
     try:
         yield
     finally:
         # ----- Shutdown -----------------------------------------------------
         logger.info("Ragbot API shutting down...")
+
+        # Clear the agent-loop singleton so the router does not hold a
+        # reference to a teared-down LLM backend / MCP client past app
+        # lifetime. Tests that build successive apps rely on this clearing
+        # so the next app gets a fresh AgentLoop.
+        if getattr(app.state, "agent_loop", None) is not None:
+            try:
+                from .routers.agent import set_default_loop as _set_default_loop
+
+                _set_default_loop(None)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Agent-loop teardown raised: %s", exc)
+            finally:
+                app.state.agent_loop = None
 
         # Stop the scheduler if it is running.
         sched_loop = getattr(app.state, "scheduler_loop", None)
