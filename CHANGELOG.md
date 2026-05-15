@@ -8,6 +8,75 @@ For the prose narratives accompanying major releases, see
 [`docs/release-notes-v3.4.0.md`](docs/release-notes-v3.4.0.md) and
 the equivalents for prior versions when added.
 
+## v3.5.0 — 2026-05-15
+
+Substrate cleanup. Pgvector is the only vector backend, the agent loop
+wires at startup, OTLP metric and trace export are independently
+configurable, app loggers surface under uvicorn, and the regression
+suite no longer fails on dev machines without heavy ML dependencies.
+Breaking change: `RAGBOT_VECTOR_BACKEND=qdrant` and the bundled Qdrant
+backend are removed. Operators who ran v3.4 with the Qdrant opt-in
+must reindex their workspaces into pgvector before upgrading.
+
+### Removed
+
+- **Qdrant vector backend.** Deleted `synthesis_engine.vectorstore.QdrantBackend`,
+  the embedded `qdrant_data/` storage path, the `qdrant-client` dependency,
+  the `RAGBOT_VECTOR_BACKEND` environment variable, and the `ragbot-qdrant`
+  Docker volume. Dead `_qdrant_client` / `_get_qdrant_client` /
+  `get_qdrant_point_id` helpers in `rag.py` and `chunking/` removed.
+  The `VectorStore` ABC at `synthesis_engine.vectorstore` is retained so
+  substrate consumers outside Ragbot can plug in alternative backends
+  behind the same contract.
+
+### Changed
+
+- **Agent loop wires at startup.** The FastAPI lifespan now constructs an
+  `AgentLoop` with the lifespan's LLM backend, the resolved MCP client, and
+  a `FilesystemCheckpointStore`, then calls
+  `api.routers.agent.set_default_loop()` to register the singleton. The
+  `/api/agent/run` endpoint resolves against a real loop on a fresh install
+  — through v3.4 it returned `"Agent loop is not configured"`. Shutdown
+  clears the singleton.
+- **OTLP metric export is independently configurable.** The substrate now
+  honours the OTEL standard per-signal env-var hierarchy:
+  `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` (per-signal override; accepts the
+  literal `"none"` to disable metric OTLP export) falls back to
+  `OTEL_EXPORTER_OTLP_ENDPOINT`. The bundled docker-compose stack sets the
+  metrics endpoint to `"none"` because Jaeger only accepts traces — the
+  `UNIMPLEMENTED` errors from earlier deployments are gone. Prometheus
+  exposition at `/api/metrics` is unaffected.
+- **App loggers surface under uvicorn.** `src/api/main.py` calls
+  `logging.basicConfig` at module-import time before uvicorn takes over,
+  so `api.main`, `api.routers.*`, and `synthesis_engine.*` log lines now
+  flow to `docker logs ragbot-api` alongside uvicorn's own access logs.
+  Override the level with `RAGBOT_LOG_LEVEL`.
+- **`get_vector_store()` returns `None` when pgvector is unreachable**
+  instead of falling back through a backend chain. Callers in `rag.py`
+  treat `None` as "RAG unavailable; chat-only mode," so the user-facing
+  failure mode is graceful.
+
+### Fixed
+
+- **`/api/agent/run` returns 503 "not configured"** — fixed by the agent
+  loop wiring change above.
+- **OTLP metric export prints `UNIMPLEMENTED`** — fixed by the per-signal
+  endpoint split.
+- **App-namespace logger lines invisible in container logs** — fixed by
+  `logging.basicConfig` in `src/api/main.py`.
+- **`test_sentence_transformers_imports_cleanly` fails on dev machines
+  without sentence_transformers installed** — wrapped both Bug5
+  regression tests in `pytest.importorskip("sentence_transformers")` so
+  they skip cleanly on lightweight dev installs and still run in Docker /
+  CI where the dependency is present.
+
+### Test-suite delta
+
+- v3.4.0 baseline: 871 passing, 25 skipped, 4 failing (3 Qdrant tests + 1
+  sentence_transformers env gap).
+- v3.5.0: 850 passing, 14 skipped, 0 failing (Qdrant tests gone with the
+  backend; sentence_transformers tests skip cleanly).
+
 ## v3.4.0 — 2026-05-14
 
 Ragbot becomes the conversational reference runtime of synthesis engineering.

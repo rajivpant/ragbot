@@ -4,6 +4,10 @@ Ragbot is the chat-led runtime of [synthesis engineering](https://synthesisengin
 
 Developed by [Rajiv Pant](https://github.com/rajivpant). See [INSTALL.md](INSTALL.md) for setup, [CONFIGURE.md](CONFIGURE.md) for keys and providers, and [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 
+## What's New in v3.5 (May 2026)
+
+Ragbot v3.5.0 (May 15, 2026) is a substrate-cleanup release that ships the day after v3.4. Pgvector is now the only vector backend (the Qdrant code path is removed entirely, no shim). The agent loop wires at startup so `/api/agent/run` resolves against a real loop on a fresh install. OTLP trace and metric endpoints are independently configurable; the bundled docker-compose stack no longer prints `UNIMPLEMENTED` errors. App-namespace log lines now surface in `docker logs ragbot-api`. The regression suite no longer fails on dev machines without `sentence_transformers` installed. See [CHANGELOG.md](CHANGELOG.md) for the full delta — including the breaking change for operators who ran v3.4 with `RAGBOT_VECTOR_BACKEND=qdrant` (reindex into pgvector before upgrading).
+
 ## What's New in v3.4 (May 2026)
 
 Ragbot v3.4.0 (May 14, 2026) is the next-major-features release. It moves the project from a polished 2024-paradigm chat-with-RAG product to a 2026-shaped conversational AI runtime: explicit agent loop, first-class MCP in both directions, an executable skills runtime, cross-workspace synthesis with visible confidentiality boundaries, durable memory beyond vector RAG, and the production-grade signals that make the architecture legible to engineering leadership.
